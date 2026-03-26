@@ -5,10 +5,11 @@ import next from 'next';
 import os from 'os';
 import { eq } from 'drizzle-orm';
 import { getDatabase, runMigrations, closeDatabase } from './src/lib/db/index';
-import { campaigns } from './src/lib/db/schema';
+import { battlefields, campaigns } from './src/lib/db/schema';
 import { setupSocketIO } from './src/lib/socket/server';
 import { config } from './src/lib/config';
 import { Orchestrator } from './src/lib/orchestrator/orchestrator';
+import { DevServerManager } from './src/lib/process/dev-server';
 
 // Typed globalThis for Socket.IO access
 declare global {
@@ -16,6 +17,8 @@ declare global {
   var io: SocketIOServer | undefined;
   // eslint-disable-next-line no-var
   var orchestrator: Orchestrator | undefined;
+  // eslint-disable-next-line no-var
+  var devServerManager: DevServerManager | undefined;
 }
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -50,7 +53,11 @@ async function start() {
   globalThis.orchestrator = orchestrator;
   console.log(`[DEVROOM] Orchestrator online — ${config.maxAgents} agent slots`);
 
-  // 5c. Startup recovery: pause any campaigns that were active when server stopped
+  // 5c. Dev server manager
+  const devServerManager = new DevServerManager();
+  globalThis.devServerManager = devServerManager;
+
+  // 5d. Startup recovery: pause any campaigns that were active when server stopped
   const db = getDatabase();
   const activeCampaigns = db.select().from(campaigns)
     .where(eq(campaigns.status, 'active')).all();
@@ -58,6 +65,16 @@ async function start() {
     db.update(campaigns).set({ status: 'paused', updatedAt: Date.now() })
       .where(eq(campaigns.id, c.id)).run();
     console.log(`[DEVROOM] Campaign ${c.id} paused — server restarted`);
+  }
+
+  // 5e. Auto-start dev servers for flagged battlefields
+  const autoStartBattlefields = db.select().from(battlefields)
+    .where(eq(battlefields.autoStartDevServer, 1)).all();
+  for (const bf of autoStartBattlefields) {
+    if (bf.devServerCommand && bf.repoPath) {
+      devServerManager.start(bf.id, bf.devServerCommand, bf.repoPath);
+      console.log(`[DEVROOM] Auto-started dev server for ${bf.codename}`);
+    }
   }
 
   // 6. Detect local IP
@@ -79,6 +96,7 @@ async function start() {
   // 8. Graceful shutdown
   const shutdown = async () => {
     console.log('\n[DEVROOM] STANDING DOWN...');
+    devServerManager.stopAll();
     await orchestrator.shutdown();
     httpServer.close(() => {
       io.close(() => {
