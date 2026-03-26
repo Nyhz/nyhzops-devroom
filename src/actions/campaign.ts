@@ -64,6 +64,9 @@ function insertPlanFromJSON(
         status: 'standby',
         priority: planMission.priority || 'normal',
         assetId: asset?.id ?? null,
+        dependsOn: planMission.dependsOn && planMission.dependsOn.length > 0
+          ? JSON.stringify(planMission.dependsOn)
+          : null,
         createdAt: now,
         updatedAt: now,
       }).run();
@@ -618,6 +621,7 @@ export async function redeployCampaign(id: string): Promise<Campaign> {
         status: 'standby',
         priority: originalMission.priority,
         assetId: originalMission.assetId,
+        dependsOn: originalMission.dependsOn ?? null,
         createdAt: now,
         updatedAt: now,
       }).run();
