@@ -35,3 +35,78 @@ export type Asset = InferSelectModel<typeof assets>;
 export type MissionLog = InferSelectModel<typeof missionLogs>;
 export type ScheduledTask = InferSelectModel<typeof scheduledTasks>;
 export type CommandLog = InferSelectModel<typeof commandLogs>;
+
+// ---------------------------------------------------------------------------
+// Scaffold status
+// ---------------------------------------------------------------------------
+export type ScaffoldStatus = 'running' | 'complete' | 'failed';
+
+// ---------------------------------------------------------------------------
+// Input types for Server Actions
+// ---------------------------------------------------------------------------
+export interface CreateBattlefieldInput {
+  name: string;
+  codename: string;
+  description?: string;
+  initialBriefing?: string;
+  scaffoldCommand?: string;
+  defaultBranch?: string;
+  repoPath?: string;
+}
+
+export interface UpdateBattlefieldInput {
+  name?: string;
+  codename?: string;
+  description?: string;
+  initialBriefing?: string;
+  devServerCommand?: string;
+  autoStartDevServer?: boolean;
+  defaultBranch?: string;
+}
+
+export interface CreateMissionInput {
+  battlefieldId: string;
+  briefing: string;
+  title?: string;
+  assetId?: string;
+  priority?: MissionPriority;
+}
+
+export interface ListMissionsOptions {
+  search?: string;
+  status?: MissionStatus;
+}
+
+// ---------------------------------------------------------------------------
+// Enriched types for UI
+// ---------------------------------------------------------------------------
+export interface BattlefieldWithCounts extends Battlefield {
+  missionCount: number;
+  campaignCount: number;
+  activeMissionCount: number;
+}
+
+export interface MissionWithDetails extends Mission {
+  assetCodename: string | null;
+  assetSpecialty: string | null;
+  battlefieldCodename: string;
+  logCount: number;
+}
+
+// ---------------------------------------------------------------------------
+// Command runner types
+// ---------------------------------------------------------------------------
+export interface RunCommandOptions {
+  command: string;
+  cwd: string;
+  socketRoom?: string;
+  battlefieldId?: string;
+  abortSignal?: AbortSignal;
+}
+
+export interface RunCommandResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  durationMs: number;
+}

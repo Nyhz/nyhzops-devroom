@@ -14,6 +14,7 @@ export const battlefields = sqliteTable('battlefields', {
   claudeMdPath: text('claude_md_path'),
   specMdPath: text('spec_md_path'),
   scaffoldCommand: text('scaffold_command'),
+  scaffoldStatus: text('scaffold_status'),  // null | 'running' | 'complete' | 'failed'
   devServerCommand: text('dev_server_command').default('npm run dev'),
   autoStartDevServer: integer('auto_start_dev_server').default(0),
   status: text('status').default('initializing'),

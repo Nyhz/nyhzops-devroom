@@ -1,0 +1,1 @@
+ALTER TABLE `battlefields` ADD `scaffold_status` text;
