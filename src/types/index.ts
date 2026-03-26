@@ -165,3 +165,30 @@ export interface MergeResult {
   conflictResolved: boolean;
   error?: string;
 }
+
+// === Phase C1: Campaign Planning Types ===
+
+export interface PlanJSON {
+  summary: string;
+  phases: PlanPhase[];
+}
+
+export interface PlanPhase {
+  name: string;
+  objective: string;
+  missions: PlanMission[];
+}
+
+export interface PlanMission {
+  title: string;
+  briefing: string;
+  assetCodename: string;
+  priority: MissionPriority;
+  dependsOn?: string[];
+}
+
+export interface CampaignWithPlan extends Campaign {
+  phases: Array<Phase & {
+    missions: Array<Mission & { assetCodename: string | null }>;
+  }>;
+}
