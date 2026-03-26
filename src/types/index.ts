@@ -8,6 +8,7 @@ import type {
   missionLogs,
   scheduledTasks,
   commandLogs,
+  dossiers,
 } from '../lib/db/schema';
 
 // ---------------------------------------------------------------------------
@@ -35,6 +36,14 @@ export type Asset = InferSelectModel<typeof assets>;
 export type MissionLog = InferSelectModel<typeof missionLogs>;
 export type ScheduledTask = InferSelectModel<typeof scheduledTasks>;
 export type CommandLog = InferSelectModel<typeof commandLogs>;
+export type Dossier = InferSelectModel<typeof dossiers>;
+
+export interface DossierVariable {
+  key: string;
+  label: string;
+  description: string;
+  placeholder: string;
+}
 
 // ---------------------------------------------------------------------------
 // Scaffold status

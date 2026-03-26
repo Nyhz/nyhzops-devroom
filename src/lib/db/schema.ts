@@ -131,6 +131,21 @@ export const scheduledTasks = sqliteTable('scheduled_tasks', {
 });
 
 // ---------------------------------------------------------------------------
+// Dossiers (Mission briefing templates)
+// ---------------------------------------------------------------------------
+export const dossiers = sqliteTable('dossiers', {
+  id: text('id').primaryKey(),
+  codename: text('codename').notNull().unique(),
+  name: text('name').notNull(),
+  description: text('description'),
+  briefingTemplate: text('briefing_template').notNull(),
+  variables: text('variables'), // JSON array of { key, label, description, placeholder }
+  assetCodename: text('asset_codename'),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
+// ---------------------------------------------------------------------------
 // Command Logs
 // ---------------------------------------------------------------------------
 export const commandLogs = sqliteTable('command_logs', {

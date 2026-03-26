@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useRef, useTransition } from 'react';
+import { toast } from 'sonner';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacTextareaWithImages } from '@/components/ui/tac-textarea-with-images';
 import { TacCard } from '@/components/ui/tac-card';
+import { DossierSelector } from '@/components/dashboard/dossier-selector';
 import { createMission, createAndDeployMission } from '@/actions/mission';
 
 interface DeployMissionProps {
@@ -16,11 +18,23 @@ export function DeployMission({ battlefieldId, assets, className }: DeployMissio
   const [briefing, setBriefing] = useState('');
   const [assetId, setAssetId] = useState('');
   const [dossierName, setDossierName] = useState<string | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeAssets = assets.filter((a) => a.status === 'active');
+
+  const handleDossierApply = (resolvedBriefing: string, assetCodename: string | null) => {
+    setBriefing(resolvedBriefing);
+    setDossierName(null);
+    if (assetCodename) {
+      const matched = activeAssets.find(
+        (a) => a.codename.toUpperCase() === assetCodename.toUpperCase(),
+      );
+      if (matched) {
+        setAssetId(matched.id);
+      }
+    }
+  };
 
   const handleDossier = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -43,34 +57,37 @@ export function DeployMission({ battlefieldId, assets, className }: DeployMissio
     setDossierName(null);
   };
 
-  const showFlash = (message: string) => {
-    setFlash(message);
-    setTimeout(() => setFlash(null), 2000);
-  };
-
   const handleSave = () => {
     if (!briefing.trim()) return;
     startTransition(async () => {
-      await createMission({
-        battlefieldId,
-        briefing: briefing.trim(),
-        assetId: assetId || undefined,
-      });
-      resetForm();
-      showFlash('Mission created — STANDBY');
+      try {
+        await createMission({
+          battlefieldId,
+          briefing: briefing.trim(),
+          assetId: assetId || undefined,
+        });
+        resetForm();
+        toast.success('Mission saved — STANDBY');
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to create mission');
+      }
     });
   };
 
   const handleSaveAndDeploy = () => {
     if (!briefing.trim()) return;
     startTransition(async () => {
-      await createAndDeployMission({
-        battlefieldId,
-        briefing: briefing.trim(),
-        assetId: assetId || undefined,
-      });
-      resetForm();
-      showFlash('Mission created — QUEUED');
+      try {
+        await createAndDeployMission({
+          battlefieldId,
+          briefing: briefing.trim(),
+          assetId: assetId || undefined,
+        });
+        resetForm();
+        toast.success('Mission deployed — QUEUED');
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to deploy mission');
+      }
     });
   };
 
@@ -104,6 +121,8 @@ export function DeployMission({ battlefieldId, assets, className }: DeployMissio
             ))}
           </select>
 
+          <DossierSelector onApply={handleDossierApply} />
+
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -123,12 +142,6 @@ export function DeployMission({ battlefieldId, assets, className }: DeployMissio
           {dossierName && (
             <span className="text-dr-dim font-tactical text-xs">
               Loaded: {dossierName}
-            </span>
-          )}
-
-          {flash && (
-            <span className="text-dr-green font-tactical text-xs">
-              {flash}
             </span>
           )}
 
