@@ -23,7 +23,7 @@ function revalidateCampaignPaths(battlefieldId: string, campaignId?: string) {
  * Shared helper: insert phases and missions from a PlanJSON structure.
  * Used by both generateBattlePlan (Task 3) and updateBattlePlan.
  */
-export function insertPlanFromJSON(
+function insertPlanFromJSON(
   campaignId: string,
   battlefieldId: string,
   plan: PlanJSON,
