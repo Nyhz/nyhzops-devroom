@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1774538588900,
+      "tag": "0000_shiny_cassandra_nova",
+      "breakpoints": true
+    }
+  ]
+}
