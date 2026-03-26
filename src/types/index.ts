@@ -155,3 +155,10 @@ export interface LiveTokenData {
   cacheCreation: number;
   costUsd: number;
 }
+
+// Merge result from worktree merger
+export interface MergeResult {
+  success: boolean;
+  conflictResolved: boolean;
+  error?: string;
+}
