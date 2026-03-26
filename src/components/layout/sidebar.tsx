@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getDatabase } from "@/lib/db/index";
 import { battlefields, assets, missions, campaigns } from "@/lib/db/schema";
 import { count, eq } from "drizzle-orm";
@@ -74,6 +75,17 @@ export function Sidebar() {
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Logistics link */}
+      <div className="px-2 mb-1">
+        <Link
+          href="/logistics"
+          className="flex items-center gap-2.5 px-2 py-1.5 text-xs text-dr-muted hover:text-dr-text transition-colors"
+        >
+          <span className="w-4 text-center text-[10px]">◈</span>
+          <span className="flex-1">LOGISTICS</span>
+        </Link>
+      </div>
 
       {/* Intel Briefing */}
       <div className="border-t border-dr-border px-4 py-3">

@@ -216,6 +216,16 @@ export async function executeMission(
     });
 
     parser.onRateLimit((info) => {
+      // Store latest rate limit info on orchestrator
+      if (globalThis.orchestrator) {
+        globalThis.orchestrator.latestRateLimit = {
+          status: info.status,
+          resetsAt: info.resetsAt,
+          rateLimitType: info.rateLimitType,
+          lastUpdated: Date.now(),
+        };
+      }
+
       if (info.status !== 'allowed') {
         rateLimitDetected = true;
         rateLimitInfo = { resetsAt: info.resetsAt, rateLimitType: info.rateLimitType };

@@ -137,6 +137,7 @@ export default async function BattlefieldOverviewPage({
     priority: missions.priority,
     iterations: missions.iterations,
     costInput: missions.costInput,
+    costOutput: missions.costOutput,
     costCacheHit: missions.costCacheHit,
     createdAt: missions.createdAt,
     assetCodename: assets.codename,
@@ -159,6 +160,17 @@ export default async function BattlefieldOverviewPage({
   const totalInput = missionRows.reduce((sum, m) => sum + (m.costInput || 0), 0);
   const totalCacheHit = missionRows.reduce((sum, m) => sum + (m.costCacheHit || 0), 0);
   const cacheHitPercent = totalInput > 0 ? `${Math.round((totalCacheHit / totalInput) * 100)}%` : '—';
+
+  // Cost summary for battlefield
+  const totalOutput = missionRows.reduce((sum, m) => sum + (m.costOutput || 0), 0);
+  const totalTokensAll = totalInput + totalOutput + totalCacheHit;
+  // Approximate cost: Input $3/1M, Output $15/1M, Cache $0.30/1M
+  const totalCostUsd = (totalInput * 3 + totalOutput * 15 + totalCacheHit * 0.3) / 1_000_000;
+  const formatTokens = (n: number) => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return String(n);
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -188,6 +200,13 @@ export default async function BattlefieldOverviewPage({
         standby={standbyCount}
         cacheHitPercent={cacheHitPercent}
       />
+
+      {/* Cost summary */}
+      {totalTokensAll > 0 && (
+        <div className="text-dr-dim text-xs font-tactical">
+          Total: {formatTokens(totalTokensAll)} tokens | ${totalCostUsd.toFixed(2)} USD | {cacheHitPercent} cache hit
+        </div>
+      )}
 
       {/* Missions section */}
       <MissionList missions={missionRows} battlefieldId={id} />

@@ -10,6 +10,12 @@ import type { Mission } from '@/types';
 export class Orchestrator {
   public activeJobs: Map<string, AbortController> = new Map();
   public activeCampaigns: Map<string, CampaignExecutor> = new Map();
+  public latestRateLimit: {
+    status: string;
+    resetsAt: number;
+    rateLimitType: string;
+    lastUpdated: number;
+  } | null = null;
   private retryCount: Map<string, number> = new Map();
   private io: SocketIOServer;
   private maxAgents: number;
