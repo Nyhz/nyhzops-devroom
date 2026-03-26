@@ -413,7 +413,7 @@ export async function launchCampaign(
 
   for (const phase of campaignPhases) {
     const phaseMissions = db
-      .select({ id: missions.id })
+      .select({ id: missions.id, title: missions.title, dependsOn: missions.dependsOn })
       .from(missions)
       .where(eq(missions.phaseId, phase.id))
       .all();
@@ -422,6 +422,21 @@ export async function launchCampaign(
       throw new Error(
         `launchCampaign: phase "${phase.name}" (${phase.id}) has no missions`,
       );
+    }
+
+    // Validate dependsOn references
+    const titleSet = new Set(phaseMissions.map((m) => m.title));
+    for (const mission of phaseMissions) {
+      if (mission.dependsOn) {
+        const deps = JSON.parse(mission.dependsOn) as string[];
+        for (const dep of deps) {
+          if (!titleSet.has(dep)) {
+            throw new Error(
+              `launchCampaign: mission "${mission.title}" depends on "${dep}" which doesn't exist in phase "${phase.name}"`,
+            );
+          }
+        }
+      }
     }
   }
 
@@ -433,6 +448,9 @@ export async function launchCampaign(
     })
     .where(eq(campaigns.id, campaignId))
     .run();
+
+  // Trigger orchestrator to begin campaign execution
+  globalThis.orchestrator?.startCampaign(campaignId);
 
   revalidateCampaignPaths(campaign.battlefieldId, campaignId);
 }
@@ -478,10 +496,46 @@ export async function abandonCampaign(id: string): Promise<void> {
 
   if (!campaign) throw new Error(`abandonCampaign: campaign ${id} not found`);
 
+  // Abort all running missions via orchestrator
+  globalThis.orchestrator?.abortCampaign(id);
+
+  const now = Date.now();
+
+  // Set all non-terminal missions to abandoned
+  db.update(missions)
+    .set({ status: 'abandoned', updatedAt: now })
+    .where(
+      and(
+        eq(missions.campaignId, id),
+        inArray(missions.status, ['standby', 'queued', 'deploying', 'in_combat']),
+      ),
+    )
+    .run();
+
+  // Set all non-terminal phases to compromised
+  const campaignPhases = db
+    .select({ id: phases.id })
+    .from(phases)
+    .where(eq(phases.campaignId, id))
+    .all();
+
+  const phaseIds = campaignPhases.map((p) => p.id);
+  if (phaseIds.length > 0) {
+    db.update(phases)
+      .set({ status: 'compromised' })
+      .where(
+        and(
+          inArray(phases.id, phaseIds),
+          inArray(phases.status, ['standby', 'active']),
+        ),
+      )
+      .run();
+  }
+
   db.update(campaigns)
     .set({
       status: 'compromised',
-      updatedAt: Date.now(),
+      updatedAt: now,
     })
     .where(eq(campaigns.id, id))
     .run();
@@ -584,4 +638,67 @@ export async function redeployCampaign(id: string): Promise<Campaign> {
 
   revalidateCampaignPaths(campaign.battlefieldId, newCampaignId);
   return newCampaign;
+}
+
+// ---------------------------------------------------------------------------
+// 12. resumeCampaign
+// ---------------------------------------------------------------------------
+
+export async function resumeCampaign(campaignId: string): Promise<void> {
+  const db = getDatabase();
+
+  const campaign = db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.id, campaignId))
+    .get();
+
+  if (!campaign) {
+    throw new Error(`resumeCampaign: campaign ${campaignId} not found`);
+  }
+  if (campaign.status !== 'paused') {
+    throw new Error(
+      `resumeCampaign: campaign must be paused to resume (current: ${campaign.status})`,
+    );
+  }
+
+  db.update(campaigns)
+    .set({ status: 'active', updatedAt: Date.now() })
+    .where(eq(campaigns.id, campaignId))
+    .run();
+
+  globalThis.orchestrator?.resumeCampaign(campaignId);
+
+  revalidateCampaignPaths(campaign.battlefieldId, campaignId);
+}
+
+// ---------------------------------------------------------------------------
+// 13. skipAndContinueCampaign
+// ---------------------------------------------------------------------------
+
+export async function skipAndContinueCampaign(
+  campaignId: string,
+): Promise<void> {
+  const db = getDatabase();
+
+  const campaign = db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.id, campaignId))
+    .get();
+
+  if (!campaign) {
+    throw new Error(
+      `skipAndContinueCampaign: campaign ${campaignId} not found`,
+    );
+  }
+  if (campaign.status !== 'paused') {
+    throw new Error(
+      `skipAndContinueCampaign: campaign must be paused to skip (current: ${campaign.status})`,
+    );
+  }
+
+  globalThis.orchestrator?.skipAndContinueCampaign(campaignId);
+
+  revalidateCampaignPaths(campaign.battlefieldId, campaignId);
 }
