@@ -7,6 +7,10 @@ import { StatsBar } from '@/components/dashboard/stats-bar';
 import { MissionList } from '@/components/dashboard/mission-list';
 import { ScaffoldOutput } from '@/components/battlefield/scaffold-output';
 import { ScaffoldRetry } from '@/components/battlefield/scaffold-retry';
+import { BootstrapReview } from '@/components/battlefield/bootstrap-review';
+import { BootstrapComms } from '@/components/battlefield/bootstrap-comms';
+import { BootstrapError } from '@/components/battlefield/bootstrap-error';
+import { readBootstrapFile } from '@/actions/battlefield';
 import type { Battlefield } from '@/types';
 
 export default async function BattlefieldOverviewPage({
@@ -27,6 +31,97 @@ export default async function BattlefieldOverviewPage({
     notFound();
   }
 
+  // 1. Scaffold running
+  if (battlefield.scaffoldStatus === 'running') {
+    return (
+      <div className="p-6">
+        <ScaffoldOutput battlefieldId={id} />
+      </div>
+    );
+  }
+
+  // 2. Scaffold failed
+  if (battlefield.scaffoldStatus === 'failed') {
+    return (
+      <div className="p-6">
+        <ScaffoldRetry battlefieldId={id} />
+      </div>
+    );
+  }
+
+  // 3. Bootstrap (initializing status)
+  if (battlefield.status === 'initializing') {
+    const bootstrapMission = battlefield.bootstrapMissionId
+      ? db.select().from(missions).where(eq(missions.id, battlefield.bootstrapMissionId)).get()
+      : null;
+
+    if (bootstrapMission?.status === 'accomplished') {
+      const claudeMd = await readBootstrapFile(id, 'CLAUDE.md');
+      const specMd = await readBootstrapFile(id, 'SPEC.md');
+      return (
+        <div className="p-6">
+          <BootstrapReview
+            battlefieldId={id}
+            codename={battlefield.codename || ''}
+            initialBriefing={battlefield.initialBriefing || ''}
+            initialClaudeMd={claudeMd}
+            initialSpecMd={specMd}
+          />
+        </div>
+      );
+    }
+
+    if (bootstrapMission?.status === 'compromised') {
+      return (
+        <div className="p-6">
+          <BootstrapError
+            battlefieldId={id}
+            codename={battlefield.codename || ''}
+            debrief={bootstrapMission.debrief?.slice(0, 200) || ''}
+            initialBriefing={battlefield.initialBriefing || ''}
+          />
+        </div>
+      );
+    }
+
+    if (bootstrapMission) {
+      return (
+        <BootstrapComms
+          battlefieldId={id}
+          missionId={bootstrapMission.id}
+          codename={battlefield.codename || ''}
+        />
+      );
+    }
+
+    // No bootstrap mission — waiting state
+    return (
+      <div className="p-6 flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="text-dr-amber text-xl font-tactical tracking-wider mb-2">
+            {battlefield.codename} — AWAITING BOOTSTRAP
+          </div>
+          <div className="text-dr-dim text-sm">No active bootstrap mission found.</div>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. Archived
+  if (battlefield.status === 'archived') {
+    return (
+      <div className="p-6 flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="text-dr-dim text-xl font-tactical tracking-wider mb-2">
+            {battlefield.codename} — ARCHIVED
+          </div>
+          <div className="text-dr-dim text-sm">This battlefield has been archived.</div>
+        </div>
+      </div>
+    );
+  }
+
+  // 5. Active — normal battlefield overview
   const assetList = db
     .select({ id: assets.id, codename: assets.codename, status: assets.status })
     .from(assets)
@@ -81,14 +176,6 @@ export default async function BattlefieldOverviewPage({
           </div>
         )}
       </div>
-
-      {/* Scaffold status */}
-      {battlefield.scaffoldStatus === 'running' && (
-        <ScaffoldOutput battlefieldId={id} />
-      )}
-      {battlefield.scaffoldStatus === 'failed' && (
-        <ScaffoldRetry battlefieldId={id} />
-      )}
 
       {/* Deploy Mission */}
       <DeployMission battlefieldId={id} assets={assetList} />
