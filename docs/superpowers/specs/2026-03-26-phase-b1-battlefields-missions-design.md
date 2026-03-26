@@ -45,8 +45,9 @@ interface CreateBattlefieldInput {
 3. `mkdir -p {repoPath}`.
 4. Run `git init` in the new directory (via `simple-git`).
 5. Create battlefield record in DB with status `active`.
-6. If `scaffoldCommand` provided: trigger scaffold via Route Handler (see §7). The scaffold runs asynchronously — the action returns immediately.
-7. Return the battlefield.
+6. Return the battlefield.
+
+> **Note:** SPEC.md §3.1 sets initial status to `initializing` and transitions to `active` after bootstrap approval. Since bootstrap is deferred to B3, B1 creates battlefields as `active` directly. B3 will change the default to `initializing` and add the bootstrap-to-active transition. The "Skip bootstrap" toggle (SPEC.md §3.6) is also deferred to B3 — the creation form will be modified then to include it.
 
 *Link existing repo flow (`repoPath` provided):*
 1. Validate `repoPath` exists and is a git repository (check for `.git`).
@@ -71,7 +72,14 @@ Updates editable fields: name, codename, description, initialBriefing, devServer
 
 #### `deleteBattlefield(id: string): Promise<void>`
 
-Deletes battlefield and cascading records: missions, mission logs, campaigns, phases, scheduled tasks, command logs. Performs a transaction for atomicity.
+Deletes battlefield and all cascading records in a transaction. Deletion order matters for FK constraints (`foreign_keys=ON`):
+1. Mission logs (FK → missions)
+2. Missions (FK → battlefields, campaigns, phases, assets)
+3. Phases (FK → campaigns)
+4. Campaigns (FK → battlefields)
+5. Scheduled tasks (FK → battlefields)
+6. Command logs (FK → battlefields)
+7. Battlefield itself
 
 ---
 
@@ -219,7 +227,7 @@ Displays 5 metrics in a row with `bg-dr-surface` cells separated by 1px gaps:
 
 | Metric | Color | Source |
 |--------|-------|--------|
-| IN COMBAT | amber | count of missions with status `in_combat` |
+| IN COMBAT | amber | count of missions with status `in_combat` or `deploying` |
 | ACCOMPLISHED | green | count of `accomplished` |
 | COMPROMISED | red | count of `compromised` |
 | STANDBY | dim | count of `standby` + `queued` |
@@ -240,7 +248,7 @@ Queried server-side in the page component and passed as props.
 - Left border: 2px colored by status (green=accomplished, amber=in_combat/deploying/queued, red=compromised, dim=standby/abandoned)
 - Title: `text-dr-text`, truncated with ellipsis
 - Iteration badge: if `iterations > 1`, show `×{iterations}` badge
-- Asset + time: dim text, asset codename or "NO ASSET", relative timestamp via `formatRelativeTime()`
+- Asset + time: dim text, asset codename or "NO ASSET", relative timestamp via `formatRelativeTime()` (already implemented in `src/lib/utils.ts` from Phase A)
 - Status: TacBadge
 - VIEW: link to `/projects/[id]/missions/[missionId]`
 
@@ -329,19 +337,56 @@ interface RunCommandResult {
 
 This utility will be reused by B2 (orchestrator/executor), Phase D (console quick commands), and Phase D (dev server management).
 
+### Scaffold Status Tracking
+
+The battlefield record needs to track scaffold progress. Add a `scaffoldStatus` column to the battlefields table:
+
+```
+scaffoldStatus  TEXT  -- null (no scaffold), 'running', 'complete', 'failed'
+```
+
+This requires a new Drizzle migration. The column is nullable — existing battlefields and linked repos have `null` (no scaffold).
+
 ### Scaffold Route Handler (`POST /api/battlefields/[id]/scaffold`)
 
 1. Read battlefield from DB, validate it has a `scaffoldCommand`.
-2. Create an AbortController.
-3. Run scaffold command via `runCommand()`:
+2. Set `scaffoldStatus` to `running`.
+3. Create an AbortController.
+4. Run scaffold command via `runCommand()`:
    - `cwd`: battlefield's repo path
    - `socketRoom`: `console:{battlefieldId}`
-4. On success (exit 0):
+5. On success (exit 0):
    - Run `git add -A && git commit -m "Initial scaffold"` via `simple-git`.
+   - Set `scaffoldStatus` to `complete`.
    - Emit `console:exit` event with exit code 0.
-5. On failure:
+6. On failure:
+   - Set `scaffoldStatus` to `failed`.
    - Emit `console:exit` event with error exit code.
-6. Return JSON: `{ success: boolean, exitCode: number }`.
+7. Return JSON: `{ success: boolean, exitCode: number }`.
+
+### Scaffold Trigger Flow
+
+The creation form triggers the scaffold after a successful `createBattlefield` call:
+
+1. Creation form calls `createBattlefield` Server Action → gets back battlefield with ID.
+2. The Server Action sets `scaffoldStatus = 'running'` on the battlefield record **before returning** (if `scaffoldCommand` is provided). This eliminates the race condition — by the time the page renders, the DB already has `scaffoldStatus = 'running'`.
+3. If the battlefield has a `scaffoldCommand`: the creation form calls `POST /api/battlefields/[id]/scaffold` (fire-and-forget fetch, no await).
+4. Form redirects to `/projects/[id]`.
+5. The battlefield page detects `scaffoldStatus === 'running'` and shows the scaffold output component.
+6. Scaffold output component mounts, fetches any buffered logs from `commandLogs` table (for late-subscriber replay), then subscribes to Socket.IO room for live streaming.
+7. When scaffold completes, the page revalidates (triggered by a Socket.IO event) and shows the normal overview.
+
+### Scaffold Log Buffering
+
+To handle late Socket.IO subscribers (the component mounts after some output has already been emitted):
+
+1. The `runCommand` utility writes each output line to the `commandLogs` table as it streams (in addition to emitting via Socket.IO). A single `commandLogs` row per scaffold run, with `output` field appended incrementally (or multiple rows with individual lines — implementer's choice for performance).
+2. The scaffold output component, on mount:
+   a. Fetches existing buffered output from a `GET /api/battlefields/[id]/scaffold/logs` endpoint (or a Server Action that reads commandLogs for this battlefield).
+   b. Renders buffered output immediately.
+   c. Subscribes to Socket.IO room for live updates.
+   d. De-duplicates any overlap between buffered and live events by timestamp.
+3. This ensures no output is lost, even if the page loads seconds after the scaffold started.
 
 ### Scaffold Output Component (`src/components/battlefield/scaffold-output.tsx`)
 
@@ -350,7 +395,9 @@ Client Component:
 - Collects `console:output` events into a log array
 - Renders in the Terminal component
 - Shows exit status when `console:exit` received
-- Displayed on the battlefield page when scaffold is in progress (detected by checking if the battlefield was just created and has a scaffoldCommand)
+- On `console:exit`: triggers a page refresh to reload battlefield data (scaffoldStatus is now `complete` or `failed`)
+- Displayed on the battlefield page when `scaffoldStatus === 'running'`
+- Emits `console:unsubscribe` on unmount
 
 ---
 
@@ -370,6 +417,8 @@ Phase B1 adds these events to the existing Socket.IO infrastructure:
 
 Already defined in Phase A:
 - `console:subscribe` / `hq:subscribe` — room join
+
+**Room cleanup:** Socket.IO rooms are automatically cleaned up on disconnect. For SPA navigation (component unmount), client components should emit `console:unsubscribe` (or simply call `socket.leave()` — but since clients can't leave rooms directly, the server should handle `console:unsubscribe` → `socket.leave()`). Add this handler to the Socket.IO server setup alongside the existing subscribe handlers.
 
 ---
 
