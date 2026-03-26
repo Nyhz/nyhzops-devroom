@@ -8,6 +8,7 @@ import { GeneratePlanButton } from '@/components/campaign/generate-plan-button';
 import { CampaignControls } from '@/components/campaign/campaign-controls';
 import { PlanEditor } from '@/components/campaign/plan-editor';
 import { PhaseTimeline } from '@/components/campaign/phase-timeline';
+import { CampaignLiveView } from '@/components/campaign/campaign-live-view';
 import type { PlanJSON, MissionPriority } from '@/types';
 
 export default async function CampaignDetailPage({
@@ -105,7 +106,27 @@ export default async function CampaignDetailPage({
     );
   }
 
-  // --- ACTIVE / PAUSED / ACCOMPLISHED / COMPROMISED ---
+  // --- ACTIVE / PAUSED ---
+  if (status === 'active' || status === 'paused') {
+    return (
+      <div className="flex flex-col gap-6">
+        {header}
+        <CampaignLiveView
+          campaignId={campaignId}
+          initialStatus={status}
+          initialPhases={campaign.phases}
+          battlefieldId={id}
+        />
+        <CampaignControls
+          campaignId={campaignId}
+          battlefieldId={id}
+          status={status}
+        />
+      </div>
+    );
+  }
+
+  // --- ACCOMPLISHED / COMPROMISED ---
   return (
     <div className="flex flex-col gap-6">
       {header}

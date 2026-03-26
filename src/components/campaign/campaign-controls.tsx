@@ -10,6 +10,8 @@ import {
   redeployCampaign,
   deleteCampaign,
   generateBattlePlan,
+  resumeCampaign,
+  skipAndContinueCampaign,
 } from '@/actions/campaign';
 
 interface CampaignControlsProps {
@@ -81,6 +83,15 @@ export function CampaignControls({
     }
   }
 
+  async function handleResume() {
+    await run('resume', () => resumeCampaign(campaignId));
+  }
+
+  async function handleSkip() {
+    if (!window.confirm('Confirm: Skip the current phase and continue to the next?')) return;
+    await run('skip', () => skipAndContinueCampaign(campaignId));
+  }
+
   async function handleRegenerate() {
     await run('regenerate', () => generateBattlePlan(campaignId));
   }
@@ -138,11 +149,18 @@ export function CampaignControls({
         {status === 'paused' && (
           <>
             <TacButton
-              onClick={handleLaunch}
+              onClick={handleResume}
               disabled={disabled}
               variant="primary"
             >
-              {loading === 'launch' ? 'RESUMING...' : 'RESUME'}
+              {loading === 'resume' ? 'RESUMING...' : 'RESUME'}
+            </TacButton>
+            <TacButton
+              onClick={handleSkip}
+              disabled={disabled}
+              variant="ghost"
+            >
+              {loading === 'skip' ? 'SKIPPING...' : 'SKIP & CONTINUE'}
             </TacButton>
             <TacButton
               onClick={handleAbandon}
