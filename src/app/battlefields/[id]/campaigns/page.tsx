@@ -70,7 +70,7 @@ export default async function CampaignsPage({
   async function handleRunTemplate(templateId: string) {
     'use server';
     const newCampaign = await runTemplate(templateId);
-    redirect(`/projects/${id}/campaigns/${newCampaign.id}`);
+    redirect(`/battlefields/${id}/campaigns/${newCampaign.id}`);
   }
 
   return (
@@ -80,7 +80,7 @@ export default async function CampaignsPage({
         <h1 className="font-tactical text-lg text-dr-amber uppercase tracking-wider">
           CAMPAIGNS
         </h1>
-        <Link href={`/projects/${id}/campaigns/new`}>
+        <Link href={`/battlefields/${id}/campaigns/new`}>
           <TacButton variant="primary" size="sm">
             + NEW CAMPAIGN
           </TacButton>
@@ -99,7 +99,7 @@ export default async function CampaignsPage({
           {campaignList.map((campaign, i) => (
             <Link
               key={campaign.id}
-              href={`/projects/${id}/campaigns/${campaign.id}`}
+              href={`/battlefields/${id}/campaigns/${campaign.id}`}
               className="block hover:opacity-90 transition-opacity"
             >
               <TacCard
@@ -159,7 +159,7 @@ export default async function CampaignsPage({
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Link href={`/projects/${id}/campaigns/${template.id}`}>
+                  <Link href={`/battlefields/${id}/campaigns/${template.id}`}>
                     <TacButton variant="ghost" size="sm">
                       VIEW
                     </TacButton>

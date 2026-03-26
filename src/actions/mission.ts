@@ -74,7 +74,7 @@ async function _createMission(
     });
   }
 
-  revalidatePath(`/projects/${data.battlefieldId}`);
+  revalidatePath(`/battlefields/${data.battlefieldId}`);
 
   if (status === 'queued') {
     globalThis.orchestrator?.onMissionQueued(record.id);
@@ -288,7 +288,7 @@ export async function abandonMission(id: string): Promise<Mission> {
     });
   }
 
-  revalidatePath(`/projects/${mission.battlefieldId}`);
+  revalidatePath(`/battlefields/${mission.battlefieldId}`);
 
   return updated;
 }
@@ -354,7 +354,7 @@ export async function continueMission(
     detail: `Continued from mission: ${original.title}. Status: QUEUED`,
   });
 
-  revalidatePath(`/projects/${original.battlefieldId}`);
+  revalidatePath(`/battlefields/${original.battlefieldId}`);
 
   // Trigger orchestrator
   globalThis.orchestrator?.onMissionQueued(id);
@@ -419,7 +419,7 @@ export async function redeployMission(missionId: string): Promise<Mission> {
     detail: `Redeployed. Status: QUEUED`,
   });
 
-  revalidatePath(`/projects/${original.battlefieldId}`);
+  revalidatePath(`/battlefields/${original.battlefieldId}`);
 
   // Trigger orchestrator
   globalThis.orchestrator?.onMissionQueued(id);

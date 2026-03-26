@@ -173,8 +173,8 @@ export async function createBattlefield(
     }
   }
 
-  revalidatePath('/projects');
-  revalidatePath(`/projects/${id}`);
+  revalidatePath('/battlefields');
+  revalidatePath(`/battlefields/${id}`);
 
   return { ...record, bootstrapMissionId };
 }
@@ -273,8 +273,8 @@ export async function updateBattlefield(
     throw new Error(`updateBattlefield: battlefield ${id} not found`);
   }
 
-  revalidatePath('/projects');
-  revalidatePath(`/projects/${id}`);
+  revalidatePath('/battlefields');
+  revalidatePath(`/battlefields/${id}`);
 
   return record;
 }
@@ -335,7 +335,7 @@ export async function deleteBattlefield(id: string): Promise<void> {
     tx.delete(battlefields).where(eq(battlefields.id, id)).run();
   });
 
-  revalidatePath('/projects');
+  revalidatePath('/battlefields');
 }
 
 // ---------------------------------------------------------------------------
@@ -368,8 +368,8 @@ export async function approveBootstrap(battlefieldId: string): Promise<void> {
     .where(eq(battlefields.id, battlefieldId))
     .run();
 
-  revalidatePath(`/projects/${battlefieldId}`);
-  revalidatePath('/projects');
+  revalidatePath(`/battlefields/${battlefieldId}`);
+  revalidatePath('/battlefields');
 }
 
 // ---------------------------------------------------------------------------
@@ -433,8 +433,8 @@ export async function regenerateBootstrap(
   // Trigger orchestrator
   globalThis.orchestrator?.onMissionQueued(newMissionId);
 
-  revalidatePath(`/projects/${battlefieldId}`);
-  revalidatePath('/projects');
+  revalidatePath(`/battlefields/${battlefieldId}`);
+  revalidatePath('/battlefields');
 }
 
 // ---------------------------------------------------------------------------
@@ -460,7 +460,7 @@ export async function abandonBootstrap(battlefieldId: string): Promise<void> {
   // Cascade delete the battlefield
   await deleteBattlefield(battlefieldId);
 
-  revalidatePath('/projects');
+  revalidatePath('/battlefields');
 }
 
 // ---------------------------------------------------------------------------

@@ -67,7 +67,7 @@ export function CampaignControls({
     setError(null);
     try {
       const newCampaign = await redeployCampaign(campaignId);
-      router.push(`/projects/${battlefieldId}/campaigns/${newCampaign.id}`);
+      router.push(`/battlefields/${battlefieldId}/campaigns/${newCampaign.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to redeploy');
       setLoading(null);
@@ -80,7 +80,7 @@ export function CampaignControls({
     setError(null);
     try {
       await deleteCampaign(campaignId);
-      router.push(`/projects/${battlefieldId}/campaigns`);
+      router.push(`/battlefields/${battlefieldId}/campaigns`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete');
       setLoading(null);
@@ -109,7 +109,7 @@ export function CampaignControls({
     setError(null);
     try {
       const newCampaign = await runTemplate(campaignId);
-      router.push(`/projects/${battlefieldId}/campaigns/${newCampaign.id}`);
+      router.push(`/battlefields/${battlefieldId}/campaigns/${newCampaign.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to run template');
       setLoading(null);

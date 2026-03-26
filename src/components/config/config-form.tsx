@@ -98,7 +98,7 @@ export function ConfigForm({
 
     try {
       await regenerateBootstrap(id, briefing.trim());
-      router.push(`/projects/${id}`);
+      router.push(`/battlefields/${id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to re-bootstrap.');
     }

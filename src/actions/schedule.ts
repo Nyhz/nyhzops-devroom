@@ -65,7 +65,7 @@ export async function createScheduledTask(
     .returning()
     .get();
 
-  revalidatePath(`/projects/${data.battlefieldId}/schedule`);
+  revalidatePath(`/battlefields/${data.battlefieldId}/schedule`);
   return record;
 }
 
@@ -139,7 +139,7 @@ export async function updateScheduledTask(
     .returning()
     .get();
 
-  revalidatePath(`/projects/${existing.battlefieldId}/schedule`);
+  revalidatePath(`/battlefields/${existing.battlefieldId}/schedule`);
   return record;
 }
 
@@ -160,7 +160,7 @@ export async function deleteScheduledTask(id: string): Promise<void> {
   }
 
   db.delete(scheduledTasks).where(eq(scheduledTasks.id, id)).run();
-  revalidatePath(`/projects/${existing.battlefieldId}/schedule`);
+  revalidatePath(`/battlefields/${existing.battlefieldId}/schedule`);
 }
 
 // ---------------------------------------------------------------------------
@@ -213,7 +213,7 @@ export async function toggleScheduledTask(
     .returning()
     .get();
 
-  revalidatePath(`/projects/${existing.battlefieldId}/schedule`);
+  revalidatePath(`/battlefields/${existing.battlefieldId}/schedule`);
   return record;
 }
 

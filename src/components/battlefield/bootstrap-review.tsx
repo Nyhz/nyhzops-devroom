@@ -75,7 +75,7 @@ export function BootstrapReview({
     setIsPending(true);
     try {
       await approveBootstrap(battlefieldId);
-      router.push(`/projects/${battlefieldId}`);
+      router.push(`/battlefields/${battlefieldId}`);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to approve bootstrap";
@@ -109,7 +109,7 @@ export function BootstrapReview({
     setIsPending(true);
     try {
       await abandonBootstrap(battlefieldId);
-      router.push("/projects");
+      router.push("/battlefields");
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to abandon bootstrap";

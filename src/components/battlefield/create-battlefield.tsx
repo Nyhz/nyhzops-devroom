@@ -89,7 +89,7 @@ export function CreateBattlefield({ devBasePath }: CreateBattlefieldProps) {
           });
         }
 
-        router.push(`/projects/${battlefield.id}`);
+        router.push(`/battlefields/${battlefield.id}`);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to create battlefield.');
         setSubmitting(false);

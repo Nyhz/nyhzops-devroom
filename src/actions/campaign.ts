@@ -13,9 +13,9 @@ import type { Campaign, CampaignWithPlan, PlanJSON, Phase, Mission } from '@/typ
 // ---------------------------------------------------------------------------
 
 function revalidateCampaignPaths(battlefieldId: string, campaignId?: string) {
-  revalidatePath(`/projects/${battlefieldId}/campaigns`);
+  revalidatePath(`/battlefields/${battlefieldId}/campaigns`);
   if (campaignId) {
-    revalidatePath(`/projects/${battlefieldId}/campaigns/${campaignId}`);
+    revalidatePath(`/battlefields/${battlefieldId}/campaigns/${campaignId}`);
   }
 }
 

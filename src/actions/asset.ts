@@ -68,7 +68,7 @@ export async function createAsset(
     })
     .run();
 
-  revalidatePath('/projects');
+  revalidatePath('/battlefields');
   return id;
 }
 
@@ -142,7 +142,7 @@ export async function updateAsset(
 
   db.update(assets).set(updates).where(eq(assets.id, id)).run();
 
-  revalidatePath('/projects');
+  revalidatePath('/battlefields');
 }
 
 // ---------------------------------------------------------------------------
@@ -162,7 +162,7 @@ export async function toggleAssetStatus(id: string) {
     .where(eq(assets.id, id))
     .run();
 
-  revalidatePath('/projects');
+  revalidatePath('/battlefields');
 }
 
 // ---------------------------------------------------------------------------
@@ -193,5 +193,5 @@ export async function deleteAsset(id: string) {
     db.delete(assets).where(eq(assets.id, id)).run();
   }
 
-  revalidatePath('/projects');
+  revalidatePath('/battlefields');
 }

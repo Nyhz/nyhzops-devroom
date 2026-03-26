@@ -18,7 +18,7 @@ export function BattlefieldSelector({ battlefields }: BattlefieldSelectorProps) 
   const router = useRouter();
   const pathname = usePathname();
 
-  // Extract current battlefield ID from URL: /projects/[id]/...
+  // Extract current battlefield ID from URL: /battlefields/[id]/...
   const segments = pathname.split("/");
   const projectsIndex = segments.indexOf("projects");
   const currentId = projectsIndex >= 0 ? segments[projectsIndex + 1] : undefined;
@@ -32,7 +32,7 @@ export function BattlefieldSelector({ battlefields }: BattlefieldSelectorProps) 
   return (
     <TacSelect
       value={currentId ?? ""}
-      onValueChange={(id) => router.push(`/projects/${id}`)}
+      onValueChange={(id) => router.push(`/battlefields/${id}`)}
     >
       <TacSelectTrigger className="w-full text-xs h-8">
         <TacSelectValue placeholder="Select battlefield" />

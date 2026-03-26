@@ -25,7 +25,7 @@ export function NewCampaignForm({ battlefieldId }: NewCampaignFormProps) {
     setError(null);
     try {
       const campaign = await createCampaign(battlefieldId, name.trim(), objective.trim());
-      router.push(`/projects/${battlefieldId}/campaigns/${campaign.id}`);
+      router.push(`/battlefields/${battlefieldId}/campaigns/${campaign.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create campaign');
       setSubmitting(false);

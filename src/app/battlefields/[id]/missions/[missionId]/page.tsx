@@ -36,7 +36,7 @@ export default async function MissionDetailPage({
       <div className="space-y-3">
         <div className="text-xs font-tactical text-dr-dim tracking-wider">
           <Link
-            href={`/projects/${id}`}
+            href={`/battlefields/${id}`}
             className="hover:text-dr-muted transition-colors"
           >
             Battlefields // {mission.battlefieldCodename} // Missions

@@ -70,7 +70,7 @@ export default function ProjectsPage() {
           <div className="text-dr-dim font-tactical text-xs mb-4">
             Create one to begin operations.
           </div>
-          <Link href="/projects/new">
+          <Link href="/battlefields/new">
             <TacButton size="sm">+ NEW BATTLEFIELD</TacButton>
           </Link>
         </div>
@@ -100,7 +100,7 @@ export default function ProjectsPage() {
           <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase">
             BATTLEFIELDS // SELECT THEATER OF OPERATIONS
           </div>
-          <Link href="/projects/new">
+          <Link href="/battlefields/new">
             <TacButton size="sm">+ NEW BATTLEFIELD</TacButton>
           </Link>
         </div>
@@ -113,7 +113,7 @@ export default function ProjectsPage() {
                 : undefined;
 
             return (
-              <Link key={bf.id} href={`/projects/${bf.id}`}>
+              <Link key={bf.id} href={`/battlefields/${bf.id}`}>
                 <TacCard
                   status={statusColor as 'green' | 'amber' | 'red' | 'blue' | undefined}
                   className="hover:border-dr-amber transition-colors cursor-pointer"
@@ -159,7 +159,7 @@ export default function ProjectsPage() {
                 {recentMissions.map((m) => (
                   <Link
                     key={m.id}
-                    href={`/projects/${m.battlefieldId}/missions/${m.id}`}
+                    href={`/battlefields/${m.battlefieldId}/missions/${m.id}`}
                     className="block px-3 py-2 hover:bg-dr-elevated transition-colors"
                   >
                     <div className="flex items-center justify-between gap-2">

@@ -47,7 +47,7 @@ export function MissionActions({
     setIsPending(true);
     try {
       const newMission = await redeployMission(missionId);
-      router.push(`/projects/${battlefieldId}/missions/${newMission.id}`);
+      router.push(`/battlefields/${battlefieldId}/missions/${newMission.id}`);
     } finally {
       setIsPending(false);
     }
@@ -58,7 +58,7 @@ export function MissionActions({
     setIsPending(true);
     try {
       const newMission = await continueMission(missionId, continueBriefing.trim());
-      router.push(`/projects/${battlefieldId}/missions/${newMission.id}`);
+      router.push(`/battlefields/${battlefieldId}/missions/${newMission.id}`);
     } finally {
       setIsPending(false);
     }

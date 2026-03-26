@@ -93,7 +93,7 @@ export function MissionList({ missions, battlefieldId }: MissionListProps) {
               <div className="flex items-center gap-4 shrink-0 ml-4">
                 <TacBadge status={mission.status ?? 'standby'} />
                 <Link
-                  href={`/projects/${battlefieldId}/missions/${mission.id}`}
+                  href={`/battlefields/${battlefieldId}/missions/${mission.id}`}
                   className="text-dr-amber font-tactical text-xs tracking-wider hover:text-dr-green transition-colors"
                 >
                   VIEW

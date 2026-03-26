@@ -77,7 +77,7 @@ export async function stageFile(battlefieldId: string, filePath: string): Promis
   const repoPath = await getRepoPath(battlefieldId);
   const git = simpleGit(repoPath);
   await git.add(filePath);
-  revalidatePath(`/projects/${battlefieldId}/git`);
+  revalidatePath(`/battlefields/${battlefieldId}/git`);
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +87,7 @@ export async function unstageFile(battlefieldId: string, filePath: string): Prom
   const repoPath = await getRepoPath(battlefieldId);
   const git = simpleGit(repoPath);
   await git.reset(['HEAD', '--', filePath]);
-  revalidatePath(`/projects/${battlefieldId}/git`);
+  revalidatePath(`/battlefields/${battlefieldId}/git`);
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +97,7 @@ export async function stageAll(battlefieldId: string): Promise<void> {
   const repoPath = await getRepoPath(battlefieldId);
   const git = simpleGit(repoPath);
   await git.add('-A');
-  revalidatePath(`/projects/${battlefieldId}/git`);
+  revalidatePath(`/battlefields/${battlefieldId}/git`);
 }
 
 // ---------------------------------------------------------------------------
@@ -107,7 +107,7 @@ export async function unstageAll(battlefieldId: string): Promise<void> {
   const repoPath = await getRepoPath(battlefieldId);
   const git = simpleGit(repoPath);
   await git.reset(['HEAD']);
-  revalidatePath(`/projects/${battlefieldId}/git`);
+  revalidatePath(`/battlefields/${battlefieldId}/git`);
 }
 
 // ---------------------------------------------------------------------------
@@ -117,7 +117,7 @@ export async function commitChanges(battlefieldId: string, message: string): Pro
   const repoPath = await getRepoPath(battlefieldId);
   const git = simpleGit(repoPath);
   await git.commit(message);
-  revalidatePath(`/projects/${battlefieldId}/git`);
+  revalidatePath(`/battlefields/${battlefieldId}/git`);
 }
 
 // ---------------------------------------------------------------------------
@@ -170,7 +170,7 @@ export async function checkoutBranch(battlefieldId: string, branch: string): Pro
   const repoPath = await getRepoPath(battlefieldId);
   const git = simpleGit(repoPath);
   await git.checkout(branch);
-  revalidatePath(`/projects/${battlefieldId}/git`);
+  revalidatePath(`/battlefields/${battlefieldId}/git`);
 }
 
 // ---------------------------------------------------------------------------
@@ -180,7 +180,7 @@ export async function deleteBranch(battlefieldId: string, branch: string): Promi
   const repoPath = await getRepoPath(battlefieldId);
   const git = simpleGit(repoPath);
   await git.branch(['-d', branch]);
-  revalidatePath(`/projects/${battlefieldId}/git`);
+  revalidatePath(`/battlefields/${battlefieldId}/git`);
 }
 
 // ---------------------------------------------------------------------------
@@ -190,7 +190,7 @@ export async function createBranch(battlefieldId: string, name: string): Promise
   const repoPath = await getRepoPath(battlefieldId);
   const git = simpleGit(repoPath);
   await git.branch([name]);
-  revalidatePath(`/projects/${battlefieldId}/git`);
+  revalidatePath(`/battlefields/${battlefieldId}/git`);
 }
 
 // ---------------------------------------------------------------------------
