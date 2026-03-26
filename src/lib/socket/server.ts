@@ -36,6 +36,14 @@ export function setupSocketIO(io: SocketIOServer) {
       socket.leave('hq:activity');
     });
 
+    socket.on('campaign:subscribe', (campaignId: string) => {
+      socket.join(`campaign:${campaignId}`);
+    });
+
+    socket.on('campaign:unsubscribe', (campaignId: string) => {
+      socket.leave(`campaign:${campaignId}`);
+    });
+
     socket.on('disconnect', () => {
       console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
     });
