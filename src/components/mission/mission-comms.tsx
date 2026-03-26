@@ -21,6 +21,8 @@ interface MissionCommsProps {
     duration: number;
   };
   battlefieldId: string;
+  initialSessionId: string | null;
+  initialWorktreeBranch: string | null;
 }
 
 const TERMINAL_STATUSES: MissionStatus[] = ['accomplished', 'compromised', 'abandoned'];
@@ -33,6 +35,8 @@ export function MissionComms({
   initialDebrief,
   initialTokens,
   battlefieldId,
+  initialSessionId,
+  initialWorktreeBranch,
 }: MissionCommsProps) {
   const router = useRouter();
   const { logs, status, debrief, tokens } = useMissionComms(
@@ -163,6 +167,8 @@ export function MissionComms({
         missionId={missionId}
         status={liveStatus}
         battlefieldId={battlefieldId}
+        sessionId={initialSessionId}
+        worktreeBranch={initialWorktreeBranch}
       />
     </div>
   );

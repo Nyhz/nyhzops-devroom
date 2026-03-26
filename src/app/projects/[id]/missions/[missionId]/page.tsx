@@ -85,6 +85,8 @@ export default async function MissionDetailPage({
           duration: mission.durationMs ?? 0,
         }}
         battlefieldId={id}
+        initialSessionId={mission.sessionId || null}
+        initialWorktreeBranch={mission.worktreeBranch || null}
       />
     </div>
   );
