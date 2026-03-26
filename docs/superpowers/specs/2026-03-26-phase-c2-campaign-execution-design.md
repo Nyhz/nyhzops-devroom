@@ -88,11 +88,15 @@ Called by the orchestrator when any campaign mission reaches a terminal state.
      - Log: "Phase compromised. Campaign paused. Awaiting Commander orders."
      - Return (Commander decides via resume/skip/abandon)
    - **No (all accomplished):**
-     - Call `generatePhaseDebrief(phaseId)`
      - Set phase status to `secured`
      - Record `totalTokens` (sum of all mission token costs) and `durationMs` on the phase
-     - Emit `campaign:phase-status` (secured) and `campaign:phase-debrief`
-     - Call `advanceToNextPhase()`
+     - Emit `campaign:phase-status` (secured)
+     - **Non-blocking debrief + advance:** Call `generatePhaseDebrief(phaseId)` then `advanceToNextPhase()` sequentially, but don't block the event handlers. Use a fire-and-forget async call:
+       ```typescript
+       // Don't await — let it run asynchronously so event handlers aren't blocked
+       this.generateAndAdvance(phaseId).catch(err => console.error('[Campaign] Phase advance failed:', err));
+       ```
+       Where `generateAndAdvance` is: generate debrief → emit debrief event → advance to next phase. This ensures `campaign:phase-status (secured)` is emitted immediately, and the debrief generation (which may take 15-30s) doesn't stall the UI.
 
 ### `advanceToNextPhase()`
 
@@ -108,18 +112,24 @@ Called by the orchestrator when any campaign mission reaches a terminal state.
 
 ### `resume()`
 
-For paused campaigns. Re-evaluates the current phase:
+For paused campaigns where the Commander has taken corrective action (e.g., redeployed failed missions, which creates new `queued` missions in the same phase).
+
 1. Set campaign status to `active`
 2. Get current phase and its missions
-3. If there are still `standby` or `queued` missions: continue executing (queue standby missions whose deps are met)
-4. If all missions are terminal: call `onPhaseComplete()` (which will generate debrief and advance)
+3. If there are `queued` missions: call `orchestrator.onMissionQueued()` for each
+4. If there are `standby` missions: call `checkDependencies()` to see if any can now be unblocked
+5. If all missions are terminal AND at least one is `compromised`: re-pause (Commander hasn't fixed the issue — guard against infinite loop)
+6. If all missions are terminal AND none compromised: call `onPhaseComplete()`
+
+> **Note:** `resume()` is intended for use AFTER the Commander has redeployed failed missions. If no corrective action was taken, use `skipAndContinue()` instead. The UI should guide the Commander: show "Redeploy failed missions, then Resume" or "Skip failed and Continue".
 
 ### `skipAndContinue()`
 
 For paused campaigns where Commander wants to skip failed missions:
 1. Set all `compromised` missions in current phase to `abandoned`
-2. Set campaign status to `active`
-3. Re-evaluate: call `onPhaseComplete()` which now sees no `compromised` missions (they're `abandoned` which is treated as "done, move on")
+2. **Cascade:** Find all `standby` missions whose `dependsOn` includes any now-abandoned mission title. Set those to `abandoned` too (they can never execute since their dependency failed). Repeat until no more cascades.
+3. Set campaign status to `active`
+4. Re-evaluate: call `onPhaseComplete()` which now sees no `compromised` or stuck `standby` missions — all are terminal (`accomplished` or `abandoned`)
 
 ---
 
@@ -293,6 +303,16 @@ Add campaign cleanup to `shutdown()`:
 this.activeCampaigns.clear();
 ```
 
+### Startup recovery
+
+On orchestrator construction (or a separate `recover()` method called at startup):
+1. Query all campaigns with status `active`
+2. For each: set status to `paused`, log `[Orchestrator] Campaign {id} paused — server restarted`
+3. The Commander can resume from the paused state via the UI
+4. Also query campaigns with `active` phases and `in_combat`/`deploying` missions — set those missions to `abandoned` with debrief noting server restart
+
+This prevents stale `active` campaigns from silently blocking. The Commander has full control to resume or abandon.
+
 ---
 
 ## 6. Socket.IO Events
@@ -370,7 +390,13 @@ Add buttons for paused state:
 **Modify:** `src/actions/campaign.ts`
 
 **`launchCampaign`:**
-Add after status update:
+
+Before setting status to active, validate the plan:
+1. For each phase, collect all mission titles as a Set
+2. For each mission with `dependsOn`: verify every dependency title exists in the same phase's title Set
+3. If any dangling reference found: throw Error with details (Commander must fix in plan editor)
+
+After validation and status update:
 ```typescript
 globalThis.orchestrator?.startCampaign(campaignId);
 ```
