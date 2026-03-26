@@ -116,7 +116,7 @@ Actual execution (queuing phase 1 missions) comes in C2.
 
 - `completeCampaign(id)`: Set status to `accomplished`. Manual completion.
 - `abandonCampaign(id)`: Set status to `compromised`. Abort active missions (C2).
-- `redeployCampaign(id)`: Clone campaign + phases + missions into a new campaign. Set status to `active`.
+- `redeployCampaign(id)`: Clone campaign + phases + missions into a new campaign. Set status to `planning` (not `active` — execution comes in C2).
 
 ---
 
