@@ -6,11 +6,14 @@ import os from 'os';
 import { getDatabase, runMigrations, closeDatabase } from './src/lib/db/index';
 import { setupSocketIO } from './src/lib/socket/server';
 import { config } from './src/lib/config';
+import { Orchestrator } from './src/lib/orchestrator/orchestrator';
 
 // Typed globalThis for Socket.IO access
 declare global {
   // eslint-disable-next-line no-var
   var io: SocketIOServer | undefined;
+  // eslint-disable-next-line no-var
+  var orchestrator: Orchestrator | undefined;
 }
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -40,6 +43,11 @@ async function start() {
   globalThis.io = io;
   setupSocketIO(io);
 
+  // 5b. Create orchestrator
+  const orchestrator = new Orchestrator(io);
+  globalThis.orchestrator = orchestrator;
+  console.log(`[DEVROOM] Orchestrator online — ${config.maxAgents} agent slots`);
+
   // 6. Detect local IP
   const localIP = getLocalIP();
 
@@ -57,8 +65,9 @@ async function start() {
   });
 
   // 8. Graceful shutdown
-  const shutdown = () => {
+  const shutdown = async () => {
     console.log('\n[DEVROOM] STANDING DOWN...');
+    await orchestrator.shutdown();
     httpServer.close(() => {
       io.close(() => {
         closeDatabase();

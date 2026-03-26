@@ -76,6 +76,10 @@ async function _createMission(
 
   revalidatePath(`/projects/${data.battlefieldId}`);
 
+  if (status === 'queued') {
+    globalThis.orchestrator?.onMissionQueued(record.id);
+  }
+
   return record;
 }
 
@@ -238,10 +242,17 @@ export async function abandonMission(id: string): Promise<Mission> {
     throw new Error(`abandonMission: mission ${id} not found`);
   }
 
-  if (mission.status !== 'standby' && mission.status !== 'queued') {
+  if (!['standby', 'queued', 'in_combat'].includes(mission.status!)) {
     throw new Error(
-      `abandonMission: mission ${id} cannot be abandoned from status '${mission.status}' — only standby or queued missions can be abandoned`,
+      `abandonMission: mission ${id} cannot be abandoned from status '${mission.status}' — only standby, queued, or in_combat missions can be abandoned`,
     );
+  }
+
+  // For in_combat missions, delegate to the executor via abort
+  if (mission.status === 'in_combat') {
+    globalThis.orchestrator?.onMissionAbort(id);
+    // Return current mission — the executor will update status asynchronously
+    return mission as Mission;
   }
 
   const now = Date.now();
