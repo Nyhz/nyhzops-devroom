@@ -24,6 +24,18 @@ export function setupSocketIO(io: SocketIOServer) {
       socket.join(`console:${battlefieldId}`);
     });
 
+    socket.on('console:unsubscribe', (battlefieldId: string) => {
+      socket.leave(`console:${battlefieldId}`);
+    });
+
+    socket.on('devserver:unsubscribe', (battlefieldId: string) => {
+      socket.leave(`devserver:${battlefieldId}`);
+    });
+
+    socket.on('hq:unsubscribe', () => {
+      socket.leave('hq:activity');
+    });
+
     socket.on('disconnect', () => {
       console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
     });
