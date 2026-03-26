@@ -22,6 +22,7 @@ export default async function CampaignDetailPage({
   if (!campaign) return notFound();
 
   const status = campaign.status ?? 'draft';
+  const isTemplate = Boolean(campaign.isTemplate);
 
   // Header — shared across all statuses
   const header = (
@@ -34,6 +35,11 @@ export default async function CampaignDetailPage({
           {campaign.name}
         </h1>
         <TacBadge status={status} />
+        {isTemplate && (
+          <span className="font-tactical text-[10px] text-dr-blue border border-dr-blue/40 px-2 py-0.5 uppercase tracking-wider">
+            TEMPLATE
+          </span>
+        )}
       </div>
       {campaign.objective && (
         <p className="font-data text-sm text-dr-muted max-w-3xl">
@@ -53,6 +59,7 @@ export default async function CampaignDetailPage({
           campaignId={campaignId}
           battlefieldId={id}
           status={status}
+          isTemplate={isTemplate}
         />
       </div>
     );
@@ -60,6 +67,22 @@ export default async function CampaignDetailPage({
 
   // --- PLANNING ---
   if (status === 'planning') {
+    // Templates in planning: show read-only phase timeline + RUN TEMPLATE button
+    if (isTemplate) {
+      return (
+        <div className="flex flex-col gap-6">
+          {header}
+          <PhaseTimeline phases={campaign.phases} />
+          <CampaignControls
+            campaignId={campaignId}
+            battlefieldId={id}
+            status={status}
+            isTemplate={isTemplate}
+          />
+        </div>
+      );
+    }
+
     // Convert DB phases/missions into PlanJSON for the editor
     const planJSON: PlanJSON = {
       summary: campaign.objective || '',
@@ -101,6 +124,7 @@ export default async function CampaignDetailPage({
           campaignId={campaignId}
           battlefieldId={id}
           status={status}
+          isTemplate={isTemplate}
         />
       </div>
     );
@@ -121,6 +145,7 @@ export default async function CampaignDetailPage({
           campaignId={campaignId}
           battlefieldId={id}
           status={status}
+          isTemplate={isTemplate}
         />
       </div>
     );
@@ -135,6 +160,7 @@ export default async function CampaignDetailPage({
         campaignId={campaignId}
         battlefieldId={id}
         status={status}
+        isTemplate={isTemplate}
       />
     </div>
   );

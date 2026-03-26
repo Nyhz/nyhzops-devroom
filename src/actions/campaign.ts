@@ -645,7 +645,149 @@ export async function redeployCampaign(id: string): Promise<Campaign> {
 }
 
 // ---------------------------------------------------------------------------
-// 12. resumeCampaign
+// 12. saveAsTemplate
+// ---------------------------------------------------------------------------
+
+export async function saveAsTemplate(campaignId: string): Promise<void> {
+  const db = getDatabase();
+
+  const campaign = db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.id, campaignId))
+    .get();
+
+  if (!campaign) throw new Error(`saveAsTemplate: campaign ${campaignId} not found`);
+  if (campaign.status !== 'accomplished' && campaign.status !== 'planning') {
+    throw new Error(
+      `saveAsTemplate: can only save accomplished or planning campaigns as templates (current: ${campaign.status})`,
+    );
+  }
+
+  db.update(campaigns)
+    .set({ isTemplate: 1, updatedAt: Date.now() })
+    .where(eq(campaigns.id, campaignId))
+    .run();
+
+  revalidateCampaignPaths(campaign.battlefieldId, campaignId);
+}
+
+// ---------------------------------------------------------------------------
+// 13. runTemplate
+// ---------------------------------------------------------------------------
+
+export async function runTemplate(templateId: string): Promise<Campaign> {
+  const db = getDatabase();
+
+  const template = db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.id, templateId))
+    .get();
+
+  if (!template) throw new Error(`runTemplate: template ${templateId} not found`);
+  if (!template.isTemplate) {
+    throw new Error(`runTemplate: campaign ${templateId} is not a template`);
+  }
+
+  const now = Date.now();
+  const newCampaignId = generateId();
+
+  // Clone campaign from template
+  db.insert(campaigns).values({
+    id: newCampaignId,
+    battlefieldId: template.battlefieldId,
+    name: `${template.name} (from template)`,
+    objective: template.objective,
+    status: 'planning',
+    worktreeMode: template.worktreeMode,
+    currentPhase: 0,
+    isTemplate: 0,
+    templateId: template.id,
+    createdAt: now,
+    updatedAt: now,
+  }).run();
+
+  // Clone phases
+  const originalPhases = db
+    .select()
+    .from(phases)
+    .where(eq(phases.campaignId, templateId))
+    .orderBy(phases.phaseNumber)
+    .all();
+
+  for (const originalPhase of originalPhases) {
+    const newPhaseId = generateId();
+
+    db.insert(phases).values({
+      id: newPhaseId,
+      campaignId: newCampaignId,
+      phaseNumber: originalPhase.phaseNumber,
+      name: originalPhase.name,
+      objective: originalPhase.objective,
+      status: 'standby',
+      createdAt: now,
+    }).run();
+
+    // Clone missions for this phase
+    const originalMissions = db
+      .select()
+      .from(missions)
+      .where(eq(missions.phaseId, originalPhase.id))
+      .all();
+
+    for (const originalMission of originalMissions) {
+      const newMissionId = generateId();
+
+      db.insert(missions).values({
+        id: newMissionId,
+        battlefieldId: template.battlefieldId,
+        campaignId: newCampaignId,
+        phaseId: newPhaseId,
+        type: originalMission.type,
+        title: originalMission.title,
+        briefing: originalMission.briefing,
+        status: 'standby',
+        priority: originalMission.priority,
+        assetId: originalMission.assetId,
+        dependsOn: originalMission.dependsOn ?? null,
+        createdAt: now,
+        updatedAt: now,
+      }).run();
+    }
+  }
+
+  const newCampaign = db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.id, newCampaignId))
+    .get();
+
+  if (!newCampaign) {
+    throw new Error(`runTemplate: failed to retrieve cloned campaign ${newCampaignId}`);
+  }
+
+  revalidateCampaignPaths(template.battlefieldId, newCampaignId);
+  return newCampaign;
+}
+
+// ---------------------------------------------------------------------------
+// 14. listTemplates
+// ---------------------------------------------------------------------------
+
+export async function listTemplates(battlefieldId: string): Promise<Campaign[]> {
+  const db = getDatabase();
+
+  return db
+    .select()
+    .from(campaigns)
+    .where(and(eq(campaigns.battlefieldId, battlefieldId), eq(campaigns.isTemplate, 1)))
+    .orderBy(desc(campaigns.updatedAt))
+    .all();
+}
+
+// ---------------------------------------------------------------------------
+// 15. resumeCampaign
 // ---------------------------------------------------------------------------
 
 export async function resumeCampaign(campaignId: string): Promise<void> {
@@ -677,7 +819,7 @@ export async function resumeCampaign(campaignId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// 13. skipAndContinueCampaign
+// 16. skipAndContinueCampaign
 // ---------------------------------------------------------------------------
 
 export async function skipAndContinueCampaign(

@@ -12,12 +12,15 @@ import {
   generateBattlePlan,
   resumeCampaign,
   skipAndContinueCampaign,
+  saveAsTemplate,
+  runTemplate,
 } from '@/actions/campaign';
 
 interface CampaignControlsProps {
   campaignId: string;
   battlefieldId: string;
   status: string;
+  isTemplate?: boolean;
   className?: string;
 }
 
@@ -25,6 +28,7 @@ export function CampaignControls({
   campaignId,
   battlefieldId,
   status,
+  isTemplate = false,
   className,
 }: CampaignControlsProps) {
   const router = useRouter();
@@ -96,12 +100,39 @@ export function CampaignControls({
     await run('regenerate', () => generateBattlePlan(campaignId));
   }
 
+  async function handleSaveAsTemplate() {
+    await run('saveTemplate', () => saveAsTemplate(campaignId));
+  }
+
+  async function handleRunTemplate() {
+    setLoading('runTemplate');
+    setError(null);
+    try {
+      const newCampaign = await runTemplate(campaignId);
+      router.push(`/projects/${battlefieldId}/campaigns/${newCampaign.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to run template');
+      setLoading(null);
+    }
+  }
+
   const disabled = loading !== null;
 
   return (
     <div className={className}>
       <div className="flex items-center gap-3 flex-wrap">
-        {status === 'planning' && (
+        {/* Template: show RUN TEMPLATE instead of status-based controls */}
+        {isTemplate && (
+          <TacButton
+            onClick={handleRunTemplate}
+            disabled={disabled}
+            variant="primary"
+          >
+            {loading === 'runTemplate' ? 'DEPLOYING...' : 'RUN TEMPLATE'}
+          </TacButton>
+        )}
+
+        {!isTemplate && status === 'planning' && (
           <>
             <TacButton
               onClick={handleLaunch}
@@ -127,7 +158,7 @@ export function CampaignControls({
           </>
         )}
 
-        {status === 'active' && (
+        {!isTemplate && status === 'active' && (
           <>
             <TacButton
               onClick={handleComplete}
@@ -146,7 +177,7 @@ export function CampaignControls({
           </>
         )}
 
-        {status === 'paused' && (
+        {!isTemplate && status === 'paused' && (
           <>
             <TacButton
               onClick={handleResume}
@@ -172,7 +203,7 @@ export function CampaignControls({
           </>
         )}
 
-        {(status === 'accomplished' || status === 'compromised') && (
+        {!isTemplate && (status === 'accomplished' || status === 'compromised') && (
           <TacButton
             onClick={handleRedeploy}
             disabled={disabled}
@@ -182,13 +213,24 @@ export function CampaignControls({
           </TacButton>
         )}
 
-        {status === 'draft' && (
+        {!isTemplate && status === 'draft' && (
           <TacButton
             onClick={handleDelete}
             disabled={disabled}
             variant="danger"
           >
             {loading === 'delete' ? 'DELETING...' : 'DELETE'}
+          </TacButton>
+        )}
+
+        {/* SAVE AS TEMPLATE — available for accomplished or planning campaigns (non-template) */}
+        {!isTemplate && (status === 'accomplished' || status === 'planning') && (
+          <TacButton
+            onClick={handleSaveAsTemplate}
+            disabled={disabled}
+            variant="ghost"
+          >
+            {loading === 'saveTemplate' ? 'SAVING...' : 'SAVE AS TEMPLATE'}
           </TacButton>
         )}
       </div>

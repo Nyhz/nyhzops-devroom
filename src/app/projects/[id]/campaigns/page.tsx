@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { listCampaigns } from '@/actions/campaign';
+import { redirect } from 'next/navigation';
+import { listCampaigns, listTemplates, runTemplate } from '@/actions/campaign';
 import { getDatabase } from '@/lib/db/index';
 import { phases, missions } from '@/lib/db/schema';
 import { eq, inArray } from 'drizzle-orm';
@@ -23,7 +24,10 @@ export default async function CampaignsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const campaignList = await listCampaigns(id);
+  // Exclude templates from the main campaign list
+  const allCampaigns = await listCampaigns(id);
+  const campaignList = allCampaigns.filter((c) => !c.isTemplate);
+  const templateList = await listTemplates(id);
 
   // Gather phase/mission counts per campaign
   const db = getDatabase();
@@ -44,6 +48,30 @@ export default async function CampaignsPage({
     }
     return { phaseCount: phaseIds.length, missionCount };
   });
+
+  const templateCounts = templateList.map((c) => {
+    const templatePhases = db
+      .select({ id: phases.id })
+      .from(phases)
+      .where(eq(phases.campaignId, c.id))
+      .all();
+    const phaseIds = templatePhases.map((p) => p.id);
+    let missionCount = 0;
+    if (phaseIds.length > 0) {
+      missionCount = db
+        .select({ id: missions.id })
+        .from(missions)
+        .where(inArray(missions.phaseId, phaseIds))
+        .all().length;
+    }
+    return { phaseCount: phaseIds.length, missionCount };
+  });
+
+  async function handleRunTemplate(templateId: string) {
+    'use server';
+    const newCampaign = await runTemplate(templateId);
+    redirect(`/projects/${id}/campaigns/${newCampaign.id}`);
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -103,6 +131,50 @@ export default async function CampaignsPage({
           ))}
         </div>
       )}
+
+      {/* Templates separator */}
+      <div className="border-t border-dr-border/50 pt-6">
+        <h2 className="font-tactical text-sm text-dr-amber uppercase tracking-wider mb-4">
+          TEMPLATES
+        </h2>
+
+        {templateList.length === 0 ? (
+          <div className="text-center py-8">
+            <div className="font-tactical text-xs text-dr-dim">
+              No templates saved. Save an accomplished or planning campaign as a template.
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {templateList.map((template, i) => (
+              <TacCard key={template.id} className="flex items-center justify-between gap-4">
+                <div className="flex flex-col gap-1 min-w-0">
+                  <div className="font-tactical text-sm text-dr-text truncate">
+                    {template.name}
+                  </div>
+                  <div className="flex items-center gap-3 font-tactical text-[10px] text-dr-dim">
+                    <span>{templateCounts[i].phaseCount} phase{templateCounts[i].phaseCount !== 1 ? 's' : ''}</span>
+                    <span>·</span>
+                    <span>{templateCounts[i].missionCount} mission{templateCounts[i].missionCount !== 1 ? 's' : ''}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link href={`/projects/${id}/campaigns/${template.id}`}>
+                    <TacButton variant="ghost" size="sm">
+                      VIEW
+                    </TacButton>
+                  </Link>
+                  <form action={handleRunTemplate.bind(null, template.id)}>
+                    <TacButton variant="primary" size="sm" type="submit">
+                      RUN TEMPLATE
+                    </TacButton>
+                  </form>
+                </div>
+              </TacCard>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
