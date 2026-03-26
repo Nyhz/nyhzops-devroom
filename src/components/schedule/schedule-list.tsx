@@ -1,0 +1,206 @@
+'use client';
+
+import { useState, useTransition } from 'react';
+import { TacButton } from '@/components/ui/tac-button';
+import { TacCard } from '@/components/ui/tac-card';
+import { TacBadge } from '@/components/ui/tac-badge';
+import { toggleScheduledTask, deleteScheduledTask } from '@/actions/schedule';
+import { formatCronHuman } from '@/lib/scheduler/cron';
+import { formatRelativeTime } from '@/lib/utils';
+import type { ScheduledTask, Asset, Campaign } from '@/types';
+import { ScheduleForm } from './schedule-form';
+
+interface ScheduleListProps {
+  tasks: ScheduledTask[];
+  battlefieldId: string;
+  assets: Asset[];
+  campaignTemplates: Campaign[];
+}
+
+export function ScheduleList({
+  tasks,
+  battlefieldId,
+  assets,
+  campaignTemplates,
+}: ScheduleListProps) {
+  const [editingTask, setEditingTask] = useState<ScheduledTask | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  function handleToggle(task: ScheduledTask) {
+    startTransition(async () => {
+      await toggleScheduledTask(task.id, !task.enabled);
+    });
+  }
+
+  function handleDelete(task: ScheduledTask) {
+    if (!confirm(`Delete scheduled task "${task.name}"?`)) return;
+    startTransition(async () => {
+      await deleteScheduledTask(task.id);
+    });
+  }
+
+  function formatNextRun(task: ScheduledTask): string {
+    if (!task.enabled) return 'DISABLED';
+    if (!task.nextRunAt) return 'PENDING';
+    const date = new Date(task.nextRunAt);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  }
+
+  function getTypeBadgeColor(type: string): 'amber' | 'green' | 'blue' {
+    switch (type) {
+      case 'mission':
+        return 'amber';
+      case 'campaign':
+        return 'green';
+      case 'maintenance':
+        return 'blue';
+      default:
+        return 'amber';
+    }
+  }
+
+  if (editingTask) {
+    return (
+      <ScheduleForm
+        battlefieldId={battlefieldId}
+        assets={assets}
+        campaignTemplates={campaignTemplates}
+        editTask={editingTask}
+        onClose={() => setEditingTask(null)}
+      />
+    );
+  }
+
+  if (showCreate) {
+    return (
+      <ScheduleForm
+        battlefieldId={battlefieldId}
+        assets={assets}
+        campaignTemplates={campaignTemplates}
+        onClose={() => setShowCreate(false)}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-dr-amber font-tactical text-sm uppercase tracking-wider">
+          Scheduled Tasks
+        </h2>
+        <TacButton size="sm" onClick={() => setShowCreate(true)}>
+          + New Task
+        </TacButton>
+      </div>
+
+      {/* Empty state */}
+      {tasks.length === 0 && (
+        <TacCard className="text-center py-8">
+          <p className="text-dr-dim font-tactical text-sm">
+            No scheduled tasks. Create your first automated operation.
+          </p>
+        </TacCard>
+      )}
+
+      {/* Task list */}
+      <div className="space-y-2">
+        {tasks.map((task) => (
+          <TacCard
+            key={task.id}
+            status={task.enabled ? 'green' : undefined}
+            className="flex items-center justify-between gap-4"
+          >
+            <div className="flex-1 min-w-0">
+              {/* Row 1: status dot + name + type badge */}
+              <div className="flex items-center gap-2">
+                <span
+                  className={`inline-block w-2 h-2 rounded-full ${
+                    task.enabled ? 'bg-dr-green' : 'bg-dr-dim'
+                  }`}
+                />
+                <span className="text-dr-text font-tactical text-sm truncate">
+                  {task.name}
+                </span>
+                <span
+                  className={`font-tactical text-[10px] uppercase tracking-wider px-1.5 py-0.5 border ${
+                    getTypeBadgeColor(task.type) === 'amber'
+                      ? 'border-dr-amber text-dr-amber'
+                      : getTypeBadgeColor(task.type) === 'green'
+                        ? 'border-dr-green text-dr-green'
+                        : 'border-dr-blue text-dr-blue'
+                  }`}
+                >
+                  {task.type}
+                </span>
+              </div>
+
+              {/* Row 2: cron description + stats */}
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-dr-muted font-tactical text-xs">
+                  {formatCronHuman(task.cron)}
+                </span>
+                <span className="text-dr-dim font-tactical text-xs">
+                  {task.lastRunAt
+                    ? `Last: ${formatRelativeTime(task.lastRunAt)}`
+                    : 'Last: never'}
+                  {' | '}
+                  Runs: {task.runCount ?? 0}
+                </span>
+              </div>
+
+              {/* Row 3: next run */}
+              <div className="mt-1">
+                <span className="text-dr-dim font-tactical text-[10px] uppercase tracking-wider">
+                  Next:{' '}
+                </span>
+                <span
+                  className={`font-tactical text-[10px] uppercase tracking-wider ${
+                    task.enabled ? 'text-dr-green' : 'text-dr-dim'
+                  }`}
+                >
+                  {formatNextRun(task)}
+                </span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <TacButton
+                size="sm"
+                variant="ghost"
+                onClick={() => setEditingTask(task)}
+                disabled={isPending}
+              >
+                Edit
+              </TacButton>
+              <TacButton
+                size="sm"
+                variant={task.enabled ? 'danger' : 'success'}
+                onClick={() => handleToggle(task)}
+                disabled={isPending}
+              >
+                {task.enabled ? 'Disable' : 'Enable'}
+              </TacButton>
+              <TacButton
+                size="sm"
+                variant="danger"
+                onClick={() => handleDelete(task)}
+                disabled={isPending}
+              >
+                Delete
+              </TacButton>
+            </div>
+          </TacCard>
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -1,20 +1,35 @@
+import { eq } from 'drizzle-orm';
+import { getDatabase } from '@/lib/db/index';
+import { assets, campaigns, scheduledTasks } from '@/lib/db/schema';
+import { listScheduledTasks } from '@/actions/schedule';
+import { ScheduleList } from '@/components/schedule/schedule-list';
+import type { Asset, Campaign } from '@/types';
+
 export default async function SchedulePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await params;
+  const { id: battlefieldId } = await params;
+
+  const tasks = await listScheduledTasks(battlefieldId);
+
+  const db = getDatabase();
+  const allAssets = db.select().from(assets).all() as Asset[];
+  const campaignTemplates = db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.isTemplate, 1))
+    .all() as Campaign[];
 
   return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-center">
-        <div className="text-dr-amber text-sm font-tactical tracking-wider mb-2">
-          CLASSIFIED
-        </div>
-        <div className="text-dr-dim text-xs font-tactical">
-          This section is under development — Phase D
-        </div>
-      </div>
+    <div className="space-y-6">
+      <ScheduleList
+        tasks={tasks}
+        battlefieldId={battlefieldId}
+        assets={allAssets}
+        campaignTemplates={campaignTemplates}
+      />
     </div>
   );
 }

@@ -5,11 +5,14 @@ import next from 'next';
 import os from 'os';
 import { eq } from 'drizzle-orm';
 import { getDatabase, runMigrations, closeDatabase } from './src/lib/db/index';
-import { battlefields, campaigns } from './src/lib/db/schema';
+import { battlefields, campaigns, scheduledTasks } from './src/lib/db/schema';
+import { generateId } from './src/lib/utils';
+import { getNextRun } from './src/lib/scheduler/cron';
 import { setupSocketIO } from './src/lib/socket/server';
 import { config } from './src/lib/config';
 import { Orchestrator } from './src/lib/orchestrator/orchestrator';
 import { DevServerManager } from './src/lib/process/dev-server';
+import { Scheduler } from './src/lib/scheduler/scheduler';
 
 // Typed globalThis for Socket.IO access
 declare global {
@@ -19,6 +22,8 @@ declare global {
   var orchestrator: Orchestrator | undefined;
   // eslint-disable-next-line no-var
   var devServerManager: DevServerManager | undefined;
+  // eslint-disable-next-line no-var
+  var scheduler: Scheduler | undefined;
 }
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -77,6 +82,41 @@ async function start() {
     }
   }
 
+  // 5f. Scheduler
+  const scheduler = new Scheduler();
+  globalThis.scheduler = scheduler;
+  scheduler.start();
+
+  // 5g. Seed WORKTREE SWEEP if not exists
+  {
+    const existingSweep = db
+      .select()
+      .from(scheduledTasks)
+      .where(eq(scheduledTasks.name, 'WORKTREE SWEEP'))
+      .get();
+
+    if (!existingSweep) {
+      const firstBattlefield = db.select().from(battlefields).limit(1).get();
+      if (firstBattlefield) {
+        db.insert(scheduledTasks)
+          .values({
+            id: generateId(),
+            battlefieldId: firstBattlefield.id,
+            name: 'WORKTREE SWEEP',
+            type: 'maintenance',
+            cron: '0 3 * * *',
+            enabled: 1,
+            nextRunAt: getNextRun('0 3 * * *'),
+            runCount: 0,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          })
+          .run();
+        console.log('[DEVROOM] Seeded WORKTREE SWEEP daily task');
+      }
+    }
+  }
+
   // 6. Detect local IP
   const localIP = getLocalIP();
 
@@ -96,6 +136,7 @@ async function start() {
   // 8. Graceful shutdown
   const shutdown = async () => {
     console.log('\n[DEVROOM] STANDING DOWN...');
+    scheduler.stop();
     devServerManager.stopAll();
     await orchestrator.shutdown();
     httpServer.close(() => {
