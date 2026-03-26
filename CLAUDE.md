@@ -15,9 +15,10 @@ The interface follows a tactical operations center aesthetic. Dark backgrounds, 
 | Layer        | Technology                                                       |
 |--------------|------------------------------------------------------------------|
 | Runtime      | Node.js 20+                                                     |
-| Framework    | Next.js 14+ (App Router)                                        |
+| Framework    | Next.js 16.2 (App Router)                                       |
 | Language     | TypeScript (strict mode)                                         |
-| Styling      | Tailwind CSS 3.x + custom tactical theme                        |
+| Styling      | Tailwind CSS 4.x + custom tactical theme                        |
+| Primitives   | shadcn/ui (cherry-picked, restyled with tactical theme)          |
 | Database     | SQLite via better-sqlite3 (synchronous, zero config)             |
 | ORM          | Drizzle ORM (type-safe, SQLite-native)                           |
 | Real-time    | Socket.IO (auto-reconnection, room-based channels)               |
@@ -481,7 +482,7 @@ The `N` sits inside a colored circle (brand initial). The green dot indicates op
 
 The UI follows the tactical operations center aesthetic from the reference screenshots. Key principles:
 
-- **Dark background** with subtle green tint (`#0a0e0a`).
+- **Dark background** with cool gray/slate tint (Ghost Ops V2 theme) (`#0a0a0c`).
 - **Green accents** for success states and primary highlights.
 - **Amber/orange accents** for labels, section headers, in-progress states.
 - **Monospace everywhere** — all text.
@@ -501,13 +502,13 @@ The UI follows the tactical operations center aesthetic from the reference scree
     extend: {
       colors: {
         dr: {
-          bg:        '#0a0e0a',
-          surface:   '#111a11',
-          elevated:  '#1a261a',
-          border:    '#2a3a2a',
-          text:      '#c8e6c8',
-          muted:     '#7a9a7a',
-          dim:       '#4a6a4a',
+          bg:        '#0a0a0c',
+          surface:   '#111114',
+          elevated:  '#1a1a22',
+          border:    '#2a2a32',
+          text:      '#b8b8c8',
+          muted:     '#6a6a7a',
+          dim:       '#4a4a5a',
           green:     '#00ff41',
           amber:     '#ffbf00',
           red:       '#ff3333',
@@ -528,6 +529,8 @@ The UI follows the tactical operations center aesthetic from the reference scree
   }
 }
 ```
+
+> **Note:** Tailwind v4 uses CSS-based configuration in `globals.css` rather than `tailwind.config.ts`. The theme values above are defined as CSS custom properties using `@theme` blocks.
 
 ### Intel Bar
 
