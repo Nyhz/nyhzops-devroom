@@ -260,7 +260,6 @@ export async function executeMission(
         costOutput: r.usage.outputTokens,
         costCacheHit: r.usage.cacheReadTokens,
         durationMs: r.durationMs,
-        iterations: r.numTurns,
         status: finalStatus,
         completedAt: Date.now(),
         updatedAt: Date.now(),
