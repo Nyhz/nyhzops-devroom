@@ -16,9 +16,9 @@ Phase A establishes the infrastructure layer for DEVROOM: project scaffold, data
 ## 1. Project Scaffold
 
 ### Package Manager & Runtime
-- **Runtime:** Node.js 25.8.2
+- **Runtime:** Node.js 25.x (user's runtime), minimum 20.9+ required by Next.js 16.2
 - **Package manager:** pnpm
-- **Framework:** Next.js 16.2 (App Router, Turbopack default)
+- **Framework:** Next.js 16.2 (App Router, Turbopack default). **Note:** CLAUDE.md currently says "Next.js 14+"; it will be updated to reflect 16.2 during implementation.
 - **Language:** TypeScript (strict mode)
 - **Styling:** Tailwind CSS 3.x + custom tactical theme
 - **Component primitives:** shadcn/ui (cherry-picked, fully restyled)
@@ -215,7 +215,7 @@ All tables use ULID primary keys (TEXT). Timestamps are Unix milliseconds (INTEG
 
 ### Migrations
 - Generated via `pnpm db:generate` (drizzle-kit)
-- Applied automatically on server startup
+- Applied automatically on server startup using `drizzle-orm/migrator`'s programmatic `migrate()` function (not the CLI)
 - Existing migrations are never modified
 
 ### Drizzle Config (`drizzle.config.ts`)
@@ -244,6 +244,16 @@ All tables use ULID primary keys (TEXT). Timestamps are Unix milliseconds (INTEG
 | SCANNER | security | claude-sonnet-4-6 |
 
 Each asset includes a tailored `systemPrompt` describing its specialty and behavioral directives.
+
+### Seed Battlefield
+For Phase A testability, the seed script also creates one sample battlefield:
+- **Name:** "DEVROOM Self"
+- **Codename:** "OPERATION BOOTSTRAP"
+- **Description:** "The DEVROOM project itself"
+- **repoPath:** The DEVROOM project directory
+- **status:** "active"
+
+This allows the sidebar battlefield selector, `[id]` routes, and asset list page to be exercised without needing the creation flow (Phase B).
 
 ---
 
@@ -314,17 +324,24 @@ Room subscription handlers:
 
 No events emitted in Phase A — infrastructure only.
 
-### Client Hook (`src/hooks/use-socket.ts`)
+### Client Hook & Provider
 
-- Singleton Socket.IO client connection to same origin
-- Path: `/socket.io`
-- Auto-reconnect enabled
-- React context provider (`SocketProvider`) at root layout
-- `useSocket()` hook returns the socket instance
+**Provider (`src/components/providers/socket-provider.tsx`):**
+- Client Component (`"use client"`)
+- Creates singleton Socket.IO connection on mount (not during SSR)
+- Guards against `typeof window === 'undefined'` for SSR safety
+- Provides socket instance via React Context
+- Placed in root `layout.tsx`
+
+**Hook (`src/hooks/use-socket.ts`):**
+- `useSocket()` returns the socket instance from context (or `null` during SSR)
+- Consumers must handle `null` case
 
 ---
 
 ## 6. Theme — Ghost Ops V2
+
+> **Note:** This palette supersedes the green-tinted palette in CLAUDE.md (`#0a0e0a`, `#111a11`, etc.). The user chose the Ghost Ops V2 palette during brainstorming. CLAUDE.md will be updated to reflect this during implementation.
 
 ### Tailwind Config (`tailwind.config.ts`)
 
@@ -405,7 +422,36 @@ Installed via shadcn CLI, fully restyled with `dr-*` tokens:
 | `modal.tsx` | Wraps shadcn Dialog with tactical styling. |
 
 ### Utility
-- `cn()` — clsx + tailwind-merge (ships with shadcn)
+- `cn()` — clsx + tailwind-merge (ships with shadcn, lives in `src/lib/utils.ts`)
+
+---
+
+## 7.5. Shared Utilities & Types
+
+### `src/lib/utils.ts`
+- `cn()` — clsx + tailwind-merge (installed with shadcn)
+- `generateId()` — ULID generation wrapper
+- `formatRelativeTime(ms: number)` — "2 mins ago", "1 day ago"
+- `formatDuration(ms: number)` — "2m 14s", "1h 3m"
+- `toKebabCase(str: string)` — name to path slug
+
+### `src/types/index.ts`
+Core type definitions derived from the schema:
+
+```typescript
+// Status union types
+type BattlefieldStatus = 'initializing' | 'active' | 'archived';
+type MissionStatus = 'standby' | 'queued' | 'deploying' | 'in_combat' | 'accomplished' | 'compromised' | 'abandoned';
+type CampaignStatus = 'draft' | 'planning' | 'active' | 'paused' | 'accomplished' | 'compromised';
+type PhaseStatus = 'standby' | 'active' | 'secured' | 'compromised';
+type AssetStatus = 'active' | 'offline';
+type MissionType = 'standard' | 'bootstrap' | 'conflict_resolution' | 'phase_debrief';
+type MissionPriority = 'low' | 'normal' | 'high' | 'critical';
+type WorktreeMode = 'none' | 'phase' | 'mission';
+
+// Inferred row types from Drizzle schema (via $inferSelect)
+// Interface wrappers for API/component boundaries
+```
 
 ---
 
@@ -463,7 +509,25 @@ Assembles the full layout:
 | `/projects` | Server | Battlefield list from DB. Empty state with create prompt. |
 | `/projects/[id]` | Server | Battlefield overview: header (breadcrumb, codename, description), deploy mission form (static), stats bar (zeros), empty mission list. |
 | `/projects/[id]/layout.tsx` | Layout | Right sidebar with asset list from DB + asset breakdown (empty). |
-| `/projects/[id]/assets` | Server | Asset grid: seeded assets as cards with codename, specialty, model, status dot. Read-only. |
+| `/projects/[id]/assets` | Server | Asset grid: shows all global assets (assets have no battlefieldId — they are shared across all battlefields, but viewed within the battlefield context for navigation consistency). Cards with codename, specialty, model, status dot. Read-only. |
+
+### Loading & Error Boundaries
+
+**`src/app/loading.tsx`** (root):
+- Skeleton screen with pulsing `dr-elevated` bars on `dr-surface` background
+- Monospace "LOADING..." text in dim
+
+**`src/app/error.tsx`** (root):
+- Client Component
+- Red alert banner with military quote
+- `[RETRY]` button (calls `reset()`)
+- Collapsible `<details>` with error trace
+- Styled with tactical theme
+
+**`src/app/projects/[id]/loading.tsx`** (battlefield):
+- Skeleton mimicking the battlefield layout (header, stats bar, mission list placeholders)
+
+Additional `loading.tsx` and `error.tsx` boundaries added to route segments as needed in later phases.
 
 ### Stub Pages
 All render a tactical-styled placeholder message indicating which phase will implement them:
