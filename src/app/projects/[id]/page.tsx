@@ -2,11 +2,9 @@ import { notFound } from 'next/navigation';
 import { getDatabase } from '@/lib/db/index';
 import { battlefields, missions, assets } from '@/lib/db/schema';
 import { eq, count, and } from 'drizzle-orm';
-import { TacCard } from '@/components/ui/tac-card';
-import { TacButton } from '@/components/ui/tac-button';
-import { TacTextarea } from '@/components/ui/tac-input';
 import { SearchInput } from '@/components/ui/search-input';
-import type { Battlefield, Asset } from '@/types';
+import { DeployMission } from '@/components/dashboard/deploy-mission';
+import type { Battlefield } from '@/types';
 
 export default async function BattlefieldOverviewPage({
   params,
@@ -26,7 +24,12 @@ export default async function BattlefieldOverviewPage({
     notFound();
   }
 
-  const allAssets = db.select().from(assets).all() as Asset[];
+  const assetList = db
+    .select({ id: assets.id, codename: assets.codename, status: assets.status })
+    .from(assets)
+    .where(eq(assets.status, 'active'))
+    .all()
+    .map((a) => ({ ...a, status: a.status ?? 'active' }));
 
   // Stat counts
   const countByStatus = (status: string) => {
@@ -79,39 +82,8 @@ export default async function BattlefieldOverviewPage({
         )}
       </div>
 
-      {/* Deploy Mission card */}
-      <TacCard>
-        <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase mb-3">
-          DEPLOY MISSION
-        </div>
-        <div className="space-y-3">
-          <TacTextarea
-            placeholder="Describe the mission objective..."
-            disabled
-            rows={3}
-          />
-          <div className="flex items-center gap-3">
-            <select
-              disabled
-              className="bg-dr-bg border border-dr-border text-dr-dim font-tactical text-sm px-3 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <option value="">Select Asset</option>
-              {allAssets.map((asset) => (
-                <option key={asset.id} value={asset.id}>
-                  {asset.codename}
-                </option>
-              ))}
-            </select>
-            <div className="flex-1" />
-            <TacButton variant="success" size="sm" disabled>
-              SAVE
-            </TacButton>
-            <TacButton variant="primary" size="sm" disabled>
-              SAVE &amp; DEPLOY
-            </TacButton>
-          </div>
-        </div>
-      </TacCard>
+      {/* Deploy Mission */}
+      <DeployMission battlefieldId={id} assets={assetList} />
 
       {/* Stats bar */}
       <div className="flex gap-px">
