@@ -1,19 +1,53 @@
+import { getBattlefield } from '@/actions/battlefield';
+import { getDevServerStatus, getPackageScripts, getCommandHistory } from '@/actions/console';
+import { DevServerPanel } from '@/components/console/dev-server-panel';
+import { QuickCommands } from '@/components/console/quick-commands';
+import { CommandOutput } from '@/components/console/command-output';
+
 export default async function ConsolePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await params;
+  const { id } = await params;
+
+  const [battlefield, devStatus, scripts, history] = await Promise.all([
+    getBattlefield(id),
+    getDevServerStatus(id),
+    getPackageScripts(id),
+    getCommandHistory(id),
+  ]);
+
+  const devCommand = battlefield?.devServerCommand ?? 'npm run dev';
 
   return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-center">
-        <div className="text-dr-amber text-sm font-tactical tracking-wider mb-2">
-          CLASSIFIED
-        </div>
-        <div className="text-dr-dim text-xs font-tactical">
-          This section is under development — Phase D
-        </div>
+    <div className="space-y-6">
+      {/* Dev Server Section */}
+      <div className="space-y-2">
+        <h2 className="text-dr-amber text-sm font-tactical tracking-wider">
+          DEV SERVER
+        </h2>
+        <DevServerPanel
+          battlefieldId={id}
+          initialStatus={devStatus}
+          devCommand={devCommand}
+        />
+      </div>
+
+      {/* Quick Commands Section */}
+      <div className="space-y-2">
+        <h2 className="text-dr-amber text-sm font-tactical tracking-wider">
+          QUICK COMMANDS
+        </h2>
+        <QuickCommands battlefieldId={id} scripts={scripts} />
+      </div>
+
+      {/* Output Section */}
+      <div className="space-y-2">
+        <h2 className="text-dr-amber text-sm font-tactical tracking-wider">
+          OUTPUT
+        </h2>
+        <CommandOutput battlefieldId={id} commandHistory={history} />
       </div>
     </div>
   );
