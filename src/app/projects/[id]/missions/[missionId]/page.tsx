@@ -1,10 +1,11 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { eq } from 'drizzle-orm';
 import { getMission } from '@/actions/mission';
+import { getDatabase } from '@/lib/db/index';
+import { missionLogs } from '@/lib/db/schema';
 import { TacBadge } from '@/components/ui/tac-badge';
-import { Terminal } from '@/components/ui/terminal';
-import { MissionActions } from '@/components/mission/mission-actions';
-import { formatDuration } from '@/lib/utils';
+import { MissionComms } from '@/components/mission/mission-comms';
 
 export default async function MissionDetailPage({
   params,
@@ -18,16 +19,15 @@ export default async function MissionDetailPage({
     notFound();
   }
 
-  const costInput = mission.costInput ?? 0;
-  const costOutput = mission.costOutput ?? 0;
-  const costCacheHit = mission.costCacheHit ?? 0;
-  const durationMs = mission.durationMs ?? 0;
+  const db = getDatabase();
+  const logRows = db
+    .select()
+    .from(missionLogs)
+    .where(eq(missionLogs.missionId, missionId))
+    .orderBy(missionLogs.timestamp)
+    .all();
+
   const status = mission.status ?? 'standby';
-  const totalTokens = costInput + costOutput;
-  const cachePercent =
-    totalTokens > 0
-      ? Math.round((costCacheHit / totalTokens) * 100)
-      : 0;
 
   return (
     <div className="space-y-6">
@@ -72,81 +72,18 @@ export default async function MissionDetailPage({
         </div>
       </div>
 
-      {/* Comms */}
-      <div className="space-y-3">
-        <div className="space-y-1">
-          <h2 className="text-sm font-tactical text-dr-amber tracking-wider">
-            COMMS
-          </h2>
-          <div className="h-px bg-dr-border" />
-        </div>
-        <Terminal
-          logs={[
-            {
-              timestamp: Date.now(),
-              type: 'status' as const,
-              content:
-                'Awaiting deployment. Comms will appear here when the mission is in combat.',
-            },
-          ]}
-        />
-      </div>
-
-      {/* Tokens */}
-      <div className="bg-dr-surface border border-dr-border p-4">
-        <div className="grid grid-cols-4 gap-4 text-xs font-tactical">
-          <div>
-            <div className="text-dr-dim tracking-wider mb-1">INPUT</div>
-            <div className="text-dr-text">
-              {costInput > 0 ? costInput.toLocaleString() : '—'}
-            </div>
-          </div>
-          <div>
-            <div className="text-dr-dim tracking-wider mb-1">OUTPUT</div>
-            <div className="text-dr-text">
-              {costOutput > 0
-                ? costOutput.toLocaleString()
-                : '—'}
-            </div>
-          </div>
-          <div>
-            <div className="text-dr-dim tracking-wider mb-1">CACHE</div>
-            <div className="text-dr-text">
-              {costCacheHit > 0
-                ? `${costCacheHit.toLocaleString()} (${cachePercent}%)`
-                : '—'}
-            </div>
-          </div>
-          <div>
-            <div className="text-dr-dim tracking-wider mb-1">DURATION</div>
-            <div className="text-dr-text">
-              {durationMs > 0
-                ? formatDuration(durationMs)
-                : '—'}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Debrief (if available) */}
-      {mission.debrief && (
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <h2 className="text-sm font-tactical text-dr-amber tracking-wider">
-              DEBRIEF
-            </h2>
-            <div className="h-px bg-dr-border" />
-          </div>
-          <div className="whitespace-pre-wrap font-data text-dr-text text-sm leading-relaxed bg-dr-surface border border-dr-border p-4">
-            {mission.debrief}
-          </div>
-        </div>
-      )}
-
-      {/* Actions */}
-      <MissionActions
+      {/* Live Comms + Tokens + Debrief + Actions */}
+      <MissionComms
         missionId={missionId}
-        status={status}
+        initialLogs={logRows}
+        initialStatus={status}
+        initialDebrief={mission.debrief ?? null}
+        initialTokens={{
+          input: mission.costInput ?? 0,
+          output: mission.costOutput ?? 0,
+          cacheHit: mission.costCacheHit ?? 0,
+          duration: mission.durationMs ?? 0,
+        }}
         battlefieldId={id}
       />
     </div>

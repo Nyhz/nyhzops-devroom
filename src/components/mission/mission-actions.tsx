@@ -14,7 +14,7 @@ interface MissionActionsProps {
 export function MissionActions({ missionId, status, battlefieldId }: MissionActionsProps) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
-  const canAbandon = status === 'standby' || status === 'queued';
+  const canAbandon = status === 'standby' || status === 'queued' || status === 'in_combat';
 
   const handleAbandon = async () => {
     if (!confirm('Abandon this mission?')) return;
