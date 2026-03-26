@@ -28,7 +28,9 @@ Phase B3 adds the bootstrap flow: when a new battlefield is created, a special b
   - `title`: `Bootstrap: {battlefield.codename}`
   - `status`: `queued`
 - Set `bootstrapMissionId` on the battlefield record
-- Trigger orchestrator: `globalThis.orchestrator?.onMissionQueued(bootstrapMission.id)`
+- **If scaffold command is running:** do NOT queue the bootstrap mission yet. The scaffold route handler (B1) must signal completion. After scaffold completes successfully, THEN create and queue the bootstrap mission. The creation form should only fire-and-forget the scaffold POST; the scaffold route handler's completion path triggers the bootstrap queue.
+- **If no scaffold command:** trigger orchestrator immediately: `globalThis.orchestrator?.onMissionQueued(bootstrapMission.id)`
+- **Asset assignment:** Look up the ARCHITECT asset by codename. If not found, use any active asset. If no active assets exist, fail with error: "No active assets available. Run the seed script."
 
 **Skip bootstrap toggle on creation form:**
 - Toggle: `[Skip bootstrap — I'll provide my own CLAUDE.md]`
@@ -96,6 +98,8 @@ precise, and specific to this actual codebase — not generic.
 The Commander will review and approve before committing.
 ```
 
+> **Note:** SPEC.md §3.3 describes the bootstrap output as JSON stored in the debrief field (`{ claudeMd, specMd }`). This design supersedes that approach — Claude writes files directly to disk using its Write tool, which is more robust than parsing LLM-generated JSON. SPEC.md should be updated to reflect this.
+
 ### Executor Behavior for Bootstrap
 
 Bootstrap missions already skip worktrees (`mission.type !== 'bootstrap'` check in executor). They run on the repo root. No changes needed to the executor — the standard execution flow handles bootstrap like any other mission. Claude Code uses its built-in Write tool to create the files.
@@ -149,8 +153,8 @@ When EDIT is clicked, the card transforms:
 - Content area becomes a full-height `TacTextarea` with `font-data bg-dr-bg`
 - Monospace editing, styled as modifying classified intelligence
 - Buttons below: `[SAVE]` (success) and `[CANCEL]` (ghost)
-- SAVE: calls `writeBootstrapFile` Server Action, reverts to preview mode showing updated content
-- CANCEL: discards edits, reverts to preview with original disk content
+- SAVE: calls `writeBootstrapFile` Server Action to persist to disk, updates local state with the edited content (no server round-trip needed for display — the Client Component holds the content in React state and renders it immediately)
+- CANCEL: discards edits from local state, reverts to preview showing the last saved content
 
 ### Actions
 
@@ -207,7 +211,7 @@ Uses `useMissionComms` hook (from B2a) to stream the bootstrap mission's output.
 - Terminal component with live comms
 - Token stats below terminal (optional, same as mission detail)
 
-When `status` changes to `accomplished` (via hook): calls `router.refresh()` to trigger page re-render → shows review screen.
+When `status` changes to `accomplished` (via hook): wait 1 second (guard against DB write lag), then call `router.refresh()` to trigger page re-render → shows review screen. The delay ensures the mission record is fully updated before the Server Component re-reads it.
 
 ---
 
@@ -226,7 +230,7 @@ When `status` changes to `accomplished` (via hook): calls `router.refresh()` to 
 #### `regenerateBootstrap(battlefieldId: string, briefing: string): Promise<void>`
 
 1. Get battlefield, validate status is `initializing`
-2. Discard generated files: `simple-git` → `git checkout -- CLAUDE.md SPEC.md` (if they exist in git, otherwise just `fs.unlinkSync`)
+2. Discard generated files: delete from disk via `fs.unlinkSync` if they exist (do NOT use `git checkout --` since the files may not be tracked yet in a fresh repo)
 3. Update `initialBriefing` on battlefield
 4. Get old bootstrap mission, increment its `iterations`
 5. Create new bootstrap mission (same pattern as initial creation)
