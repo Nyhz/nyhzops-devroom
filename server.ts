@@ -1,4 +1,6 @@
 import 'dotenv/config';
+// Must be imported before Next.js internals — sets up AsyncLocalStorage on globalThis
+import 'next/dist/server/node-environment-baseline';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import next from 'next';
