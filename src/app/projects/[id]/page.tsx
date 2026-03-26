@@ -5,6 +5,8 @@ import { eq, desc, sql } from 'drizzle-orm';
 import { DeployMission } from '@/components/dashboard/deploy-mission';
 import { StatsBar } from '@/components/dashboard/stats-bar';
 import { MissionList } from '@/components/dashboard/mission-list';
+import { ScaffoldOutput } from '@/components/battlefield/scaffold-output';
+import { ScaffoldRetry } from '@/components/battlefield/scaffold-retry';
 import type { Battlefield } from '@/types';
 
 export default async function BattlefieldOverviewPage({
@@ -79,6 +81,14 @@ export default async function BattlefieldOverviewPage({
           </div>
         )}
       </div>
+
+      {/* Scaffold status */}
+      {battlefield.scaffoldStatus === 'running' && (
+        <ScaffoldOutput battlefieldId={id} />
+      )}
+      {battlefield.scaffoldStatus === 'failed' && (
+        <ScaffoldRetry battlefieldId={id} />
+      )}
 
       {/* Deploy Mission */}
       <DeployMission battlefieldId={id} assets={assetList} />
