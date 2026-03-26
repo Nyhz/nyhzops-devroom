@@ -1,5 +1,7 @@
 import { spawn } from 'child_process';
 import { createInterface } from 'readline';
+import fs from 'fs';
+import path from 'path';
 import { eq } from 'drizzle-orm';
 import { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
@@ -8,6 +10,8 @@ import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
 import { buildPrompt } from './prompt-builder';
 import { StreamParser } from './stream-parser';
+import { createWorktree, removeWorktree } from './worktree';
+import { mergeBranch } from './merger';
 import type { Mission, StreamResult } from '@/types';
 
 export class RateLimitError extends Error {
@@ -68,6 +72,12 @@ export async function executeMission(
     });
   };
 
+  // Hoist worktree variables so they're accessible in catch block for cleanup
+  let workingDirectory: string | null = null;
+  let worktreePath: string | null = null;
+  let worktreeBranch: string | null = mission.worktreeBranch;
+  let battlefieldRef: { repoPath: string; defaultBranch: string | null } | null = null;
+
   try {
     // Step 1: DEPLOYING
     updateStatus('deploying');
@@ -77,11 +87,49 @@ export async function executeMission(
     const battlefield = db.select().from(battlefields)
       .where(eq(battlefields.id, mission.battlefieldId)).get();
     if (!battlefield) throw new Error(`Battlefield not found: ${mission.battlefieldId}`);
+    battlefieldRef = { repoPath: battlefield.repoPath, defaultBranch: battlefield.defaultBranch };
 
     let asset = null;
     if (mission.assetId) {
       asset = db.select().from(assets)
         .where(eq(assets.id, mission.assetId)).get() || null;
+    }
+
+    // Worktree setup (all missions except bootstrap)
+    workingDirectory = battlefield.repoPath;
+
+    if (mission.type !== 'bootstrap') {
+      // Check if mission already has a worktree (e.g., continued from compromised)
+      if (worktreeBranch) {
+        // Reuse existing worktree
+        const existingPath = path.join(
+          battlefield.repoPath, '.worktrees',
+          worktreeBranch.replace(/\//g, '-')
+        );
+        if (fs.existsSync(existingPath)) {
+          worktreePath = existingPath;
+          workingDirectory = existingPath;
+          storeLog('status', `Reusing existing worktree: ${worktreeBranch}`);
+        } else {
+          // Worktree was cleaned up — create a fresh one
+          worktreeBranch = null;
+        }
+      }
+
+      if (!worktreeBranch) {
+        try {
+          worktreePath = await createWorktree(battlefield.repoPath, mission, battlefield);
+          workingDirectory = worktreePath;
+          // Re-read worktreeBranch — createWorktree sets it in the DB internally
+          const updated = db.select({ worktreeBranch: missions.worktreeBranch })
+            .from(missions).where(eq(missions.id, mission.id)).get();
+          worktreeBranch = updated?.worktreeBranch || null;
+        } catch (wtErr) {
+          console.warn(`[Executor] Worktree creation failed for mission ${mission.id}, falling back to repo root:`, wtErr);
+          storeLog('status', `Worktree creation failed: ${wtErr}. Running on repo root.`);
+          workingDirectory = battlefield.repoPath;
+        }
+      }
     }
 
     const fullPrompt = buildPrompt(mission, battlefield, asset);
@@ -99,7 +147,7 @@ export async function executeMission(
     ];
 
     const proc = spawn(config.claudePath, args, {
-      cwd: battlefield.repoPath,
+      cwd: workingDirectory,
       signal: abortController.signal,
     });
 
@@ -244,11 +292,54 @@ export async function executeMission(
           }).where(eq(assets.id, mission.assetId)).run();
         }
       }
+
+      // Merge worktree branch back to default branch
+      if (worktreeBranch && worktreePath && finalStatus === 'accomplished') {
+        storeLog('status', `Merging ${worktreeBranch} into ${battlefield.defaultBranch || 'main'}...`);
+        io.to(room).emit('mission:log', {
+          missionId: mission.id,
+          timestamp: Date.now(),
+          type: 'status',
+          content: `Merging ${worktreeBranch} into ${battlefield.defaultBranch || 'main'}...\n`,
+        });
+
+        const mergeResult = await mergeBranch(
+          battlefield.repoPath,
+          worktreeBranch,
+          battlefield.defaultBranch || 'main',
+          { ...mission, debrief: r.result } as Mission,
+          battlefield.claudeMdPath,
+        );
+
+        if (mergeResult.success) {
+          // Clean up worktree immediately
+          await removeWorktree(battlefield.repoPath, worktreePath, worktreeBranch);
+          storeLog('status', mergeResult.conflictResolved
+            ? 'Merge complete (conflicts auto-resolved). Worktree cleaned up.'
+            : 'Merge complete. Worktree cleaned up.');
+        } else {
+          // Merge failed — downgrade to compromised
+          db.update(missions).set({
+            status: 'compromised',
+            debrief: r.result + `\n\n---\n\nMERGE FAILED: ${mergeResult.error}\nBranch \`${worktreeBranch}\` preserved for inspection.`,
+            updatedAt: Date.now(),
+          }).where(eq(missions.id, mission.id)).run();
+
+          io.to(room).emit('mission:status', {
+            missionId: mission.id, status: 'compromised', timestamp: Date.now(),
+          });
+          storeLog('error', `Merge failed: ${mergeResult.error}. Branch preserved.`);
+          emitActivity('mission:compromised', `Mission compromised (merge failed): ${mission.title}`);
+        }
+      }
     } else {
       // No result message — process exited without proper completion
+      const compromisedDebrief = `Process exited with code ${exitCode}. ${stderrOutput ? 'Stderr: ' + stderrOutput.slice(0, 500) : 'No output captured.'}`;
       updateStatus('compromised', {
         completedAt: Date.now(),
-        debrief: `Process exited with code ${exitCode}. ${stderrOutput ? 'Stderr: ' + stderrOutput.slice(0, 500) : 'No output captured.'}`,
+        debrief: worktreeBranch
+          ? compromisedDebrief + `\nBranch \`${worktreeBranch}\` preserved for inspection.`
+          : compromisedDebrief,
       });
       emitActivity('mission:compromised', `Mission compromised: ${mission.title}`);
     }
@@ -279,6 +370,23 @@ export async function executeMission(
 
     if (!isAbort) {
       storeLog('error', errorMsg);
+    }
+
+    // Worktree cleanup for abandoned missions
+    if (isAbort && worktreePath && worktreeBranch && battlefieldRef) {
+      try {
+        await removeWorktree(battlefieldRef.repoPath, worktreePath, worktreeBranch);
+      } catch {
+        // Best effort cleanup
+      }
+    }
+
+    // Preserve branch info for compromised missions
+    if (!isAbort && worktreeBranch) {
+      db.update(missions).set({
+        debrief: `Mission compromised: ${errorMsg}\nBranch \`${worktreeBranch}\` preserved for inspection.`,
+        updatedAt: Date.now(),
+      }).where(eq(missions.id, mission.id)).run();
     }
   }
 }
