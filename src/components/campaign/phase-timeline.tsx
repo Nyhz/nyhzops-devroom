@@ -1,0 +1,148 @@
+import { cn, formatDuration } from '@/lib/utils';
+import { TacBadge } from '@/components/ui/tac-badge';
+import { CampaignMissionCard } from '@/components/campaign/mission-card';
+
+interface PhaseTimelineProps {
+  phases: Array<{
+    id: string;
+    phaseNumber: number;
+    name: string;
+    objective: string | null;
+    status: string | null;
+    debrief: string | null;
+    totalTokens: number | null;
+    durationMs: number | null;
+    missions: Array<{
+      id: string;
+      title: string | null;
+      status: string | null;
+      assetCodename: string | null;
+      priority: string | null;
+      durationMs: number | null;
+      costInput: number | null;
+      costOutput: number | null;
+    }>;
+  }>;
+  readOnly?: boolean;
+}
+
+const statusBorderColor: Record<string, string> = {
+  secured: 'border-l-dr-green',
+  accomplished: 'border-l-dr-green',
+  active: 'border-l-dr-amber',
+  in_combat: 'border-l-dr-amber',
+  compromised: 'border-l-dr-red',
+  standby: 'border-l-dr-dim',
+  draft: 'border-l-dr-dim',
+};
+
+function formatTokenCount(tokens: number): string {
+  if (tokens >= 1_000_000) {
+    return `${(tokens / 1_000_000).toFixed(1)}M tokens`;
+  }
+  if (tokens >= 1000) {
+    return `${(tokens / 1000).toFixed(1)}K tokens`;
+  }
+  return `${tokens} tokens`;
+}
+
+export function PhaseTimeline({ phases, readOnly: _readOnly }: PhaseTimelineProps) {
+  if (phases.length === 0) {
+    return (
+      <div className="text-dr-dim font-tactical text-sm py-8 text-center">
+        No phases in this campaign
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {phases.map((phase) => {
+        const normalizedStatus = (phase.status ?? 'standby').toLowerCase().replace(/\s+/g, '_');
+        const borderColor = statusBorderColor[normalizedStatus] ?? 'border-l-dr-dim';
+        const hasMetrics = phase.durationMs != null || phase.totalTokens != null;
+
+        return (
+          <div
+            key={phase.id}
+            className={cn(
+              'bg-dr-surface border border-dr-border border-l-2',
+              borderColor,
+            )}
+          >
+            {/* Phase header */}
+            <div className="bg-dr-elevated px-4 py-2 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="font-tactical text-xs text-dr-dim shrink-0">
+                  PHASE {phase.phaseNumber}
+                </span>
+                <span className="font-tactical text-sm text-dr-amber truncate">
+                  {phase.name}
+                </span>
+              </div>
+              {phase.status && (
+                <TacBadge status={phase.status} className="shrink-0" />
+              )}
+            </div>
+
+            {/* Phase content */}
+            <div className="p-4">
+              {/* Objective */}
+              {phase.objective && (
+                <p className="font-data text-xs text-dr-muted mb-3">
+                  {phase.objective}
+                </p>
+              )}
+
+              {/* Metrics row */}
+              {hasMetrics && (
+                <div className="flex items-center gap-4 mb-3 font-data text-xs text-dr-dim">
+                  {phase.durationMs != null && (
+                    <span>{formatDuration(phase.durationMs)}</span>
+                  )}
+                  {phase.totalTokens != null && phase.totalTokens > 0 && (
+                    <span>{formatTokenCount(phase.totalTokens)}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Mission cards */}
+              {phase.missions.length > 0 ? (
+                <div className="flex flex-wrap gap-3">
+                  {phase.missions.map((mission) => (
+                    <CampaignMissionCard
+                      key={mission.id}
+                      title={mission.title ?? 'Untitled Mission'}
+                      assetCodename={mission.assetCodename}
+                      status={mission.status}
+                      priority={mission.priority}
+                      durationMs={mission.durationMs}
+                      costInput={mission.costInput}
+                      costOutput={mission.costOutput}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="font-tactical text-xs text-dr-dim">
+                  No missions in this phase
+                </p>
+              )}
+
+              {/* Collapsible debrief */}
+              {phase.debrief && (
+                <details className="mt-4">
+                  <summary className="font-tactical text-xs text-dr-dim cursor-pointer hover:text-dr-muted select-none">
+                    DEBRIEF
+                  </summary>
+                  <div className="mt-2 p-3 bg-dr-elevated border border-dr-border font-data text-sm text-dr-muted whitespace-pre-wrap">
+                    {phase.debrief}
+                  </div>
+                </details>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
