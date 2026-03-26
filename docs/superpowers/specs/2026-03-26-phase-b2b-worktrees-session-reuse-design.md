@@ -27,7 +27,8 @@ Manages the git worktree lifecycle using `simple-git`.
 Returns the worktree directory path.
 
 **Flow:**
-1. Generate branch name: `devroom/${battlefield.codename.toLowerCase().replace(/\s+/g, '-')}/${mission.id.slice(-8)}`
+1. Generate branch name: `devroom/${battlefield.codename.toLowerCase().replace(/\s+/g, '-')}/${mission.id.slice(-12)}`
+   - Uses last 12 characters of the ULID for negligible collision probability
 2. Create branch from default branch: `git.branch([branchName, battlefield.defaultBranch || 'main'])`
 3. Compute worktree path: `${repoPath}/.worktrees/${branchName.replace(/\//g, '-')}/`
 4. Create worktree: `git.raw(['worktree', 'add', worktreePath, branchName])`
@@ -36,8 +37,8 @@ Returns the worktree directory path.
 7. Return worktree path
 
 **Branch naming examples:**
-- Battlefield "OPERATION THUNDER", mission ID `01KMNC1SH7Z585EP` → `devroom/operation-thunder/585ep`
-- Battlefield "OPERATION BLOG", mission ID `01KMNC2AB3DEF789` → `devroom/operation-blog/ef789`
+- Battlefield "OPERATION THUNDER", mission ID `01KMNC1SH7Z585EP` → `devroom/operation-thunder/h7z585epqz2p`
+- Battlefield "OPERATION BLOG", mission ID `01KMNC2AB3DEF789` → `devroom/operation-blog/2ab3def78901`
 
 **Worktree directory structure:**
 ```
@@ -142,6 +143,8 @@ Branch `{sourceBranch}` into `{targetBranch}`.
 
 The conflict resolution process runs as a simple `spawn` with `--prompt` — it does NOT go through the orchestrator or create a mission record. It's an internal maintenance operation.
 
+> **Note:** This intentionally uses `--print` (plain text output) instead of `--output-format stream-json`. Conflict resolution is a synchronous, fire-and-forget operation — we only care about exit code (resolved or not). No streaming, no real-time UI, no token tracking needed. Simpler invocation for a simpler purpose.
+
 ---
 
 ## 3. Executor Integration
@@ -154,12 +157,22 @@ The conflict resolution process runs as a simple `spawn` with `--prompt` — it 
 
 ```
 if (mission.type !== 'bootstrap') {
-  worktreePath = await createWorktree(battlefield.repoPath, mission, battlefield);
-  workingDirectory = worktreePath;
+  try {
+    worktreePath = await createWorktree(battlefield.repoPath, mission, battlefield);
+    workingDirectory = worktreePath;
+  } catch (err) {
+    // Worktree creation failed (disk full, git error, etc.)
+    // Fall back to repo root with a warning
+    console.warn(`[Executor] Worktree creation failed for mission ${mission.id}, falling back to repo root:`, err);
+    storeMissionLog('status', `Worktree creation failed: ${err}. Running on repo root.`);
+    workingDirectory = battlefield.repoPath;
+  }
 } else {
   workingDirectory = battlefield.repoPath;
 }
 ```
+
+**Fallback behavior:** If worktree creation fails, the mission runs on the repo root (same as B2a behavior). A warning is logged so the Commander knows isolation was not achieved. The mission still executes — the work is not lost, just not isolated.
 
 **Claude Code spawns with:** `cwd: workingDirectory` (already parameterized)
 
@@ -205,7 +218,11 @@ On first worktree creation for a battlefield, check if `.worktrees/` is in the r
    - New `briefing` from Commander
    - `sessionId` copied from original (Claude resumes context)
    - Auto-generated title from new briefing
+   - If original was `compromised` AND has a `worktreeBranch` (branch preserved):
+     - Copy `worktreeBranch` to new mission — the executor will detect this and reuse the existing worktree/branch instead of creating a new one
    - Status: `queued`
+
+> **Continue from compromised missions:** When the original mission was `compromised`, its worktree and branch are preserved (per §3). The continued mission reuses that same branch so Claude's session context and the filesystem state are in sync. The executor checks if `mission.worktreeBranch` already exists and skips `createWorktree` if so, using the existing worktree path instead.
 4. Trigger orchestrator: `globalThis.orchestrator?.onMissionQueued(newMission.id)`
 5. Emit `activity:event`
 6. `revalidatePath`
@@ -219,6 +236,8 @@ On first worktree creation for a battlefield, check if `.worktrees/` is in the r
    - NO `sessionId` — fresh start
    - Status: `queued`
 3. Increment `iterations` on the **original** mission record
+
+> **Note on `iterations` field:** The CLAUDE.md domain model defines `iterations` as the redeploy count. B2a's executor currently writes `numTurns` (Claude Code's turn count) to this field, which is incorrect. During B2b implementation, fix the executor to stop writing `numTurns` to `iterations`. The turn count is already captured in the `result` message and included in the debrief. `iterations` should only track redeploy count (default 0, incremented by `redeployMission`).
 4. Trigger orchestrator: `globalThis.orchestrator?.onMissionQueued(newMission.id)`
 5. Emit `activity:event`
 6. `revalidatePath`
@@ -228,10 +247,21 @@ On first worktree creation for a battlefield, check if `.worktrees/` is in the r
 
 **Modify:** `src/components/mission/mission-actions.tsx`
 
+Update `MissionActionsProps` interface to include new fields:
+```typescript
+interface MissionActionsProps {
+  missionId: string;
+  status: string;
+  battlefieldId: string;
+  sessionId: string | null;        // NEW — needed for Continue button visibility
+  worktreeBranch: string | null;   // NEW — passed to continueMission for compromised branch reuse
+}
+```
+
 Add two buttons for completed missions:
 
 **`[CONTINUE MISSION]`** (primary/amber variant):
-- Shown when status is `accomplished` or `compromised` AND mission has a `sessionId`
+- Shown when status is `accomplished` or `compromised` AND `sessionId` is not null
 - On click: expands an inline textarea for new instructions
 - On submit: calls `continueMission(missionId, briefing)`, redirects to new mission detail page
 - Label: "CONTINUE MISSION"
