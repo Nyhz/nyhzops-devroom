@@ -3,6 +3,7 @@ import { getDatabase } from '@/lib/db/index';
 import { battlefields } from '@/lib/db/schema';
 import { TacCard } from '@/components/ui/tac-card';
 import { TacBadge } from '@/components/ui/tac-badge';
+import { TacButton } from '@/components/ui/tac-button';
 import type { Battlefield } from '@/types';
 
 export default function ProjectsPage() {
@@ -16,9 +17,12 @@ export default function ProjectsPage() {
           <div className="text-dr-amber font-tactical text-sm tracking-wider mb-2">
             NO BATTLEFIELDS DEPLOYED
           </div>
-          <div className="text-dr-dim font-tactical text-xs">
+          <div className="text-dr-dim font-tactical text-xs mb-4">
             Create one to begin operations.
           </div>
+          <Link href="/projects/new">
+            <TacButton size="sm">+ NEW BATTLEFIELD</TacButton>
+          </Link>
         </div>
       </div>
     );
@@ -26,8 +30,13 @@ export default function ProjectsPage() {
 
   return (
     <div className="p-6">
-      <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase mb-6">
-        BATTLEFIELDS // SELECT THEATER OF OPERATIONS
+      <div className="flex items-center justify-between mb-6">
+        <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase">
+          BATTLEFIELDS // SELECT THEATER OF OPERATIONS
+        </div>
+        <Link href="/projects/new">
+          <TacButton size="sm">+ NEW BATTLEFIELD</TacButton>
+        </Link>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {allBattlefields.map((bf) => {
