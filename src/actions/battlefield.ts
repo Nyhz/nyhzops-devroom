@@ -10,6 +10,7 @@ import {
   missions,
   campaigns,
   phases,
+  assets,
   missionLogs,
   scheduledTasks,
   commandLogs,
@@ -22,6 +23,57 @@ import type {
   BattlefieldWithCounts,
   Battlefield,
 } from '@/types';
+
+// ---------------------------------------------------------------------------
+// createBootstrapMission — helper to create the bootstrap mission for a new battlefield
+// ---------------------------------------------------------------------------
+function createBootstrapMission(
+  battlefieldId: string,
+  codename: string,
+  briefing: string,
+): string {
+  const db = getDatabase();
+
+  // Find ARCHITECT asset, fall back to any active asset
+  let asset = db
+    .select()
+    .from(assets)
+    .where(eq(assets.codename, 'ARCHITECT'))
+    .get();
+
+  if (!asset) {
+    asset = db
+      .select()
+      .from(assets)
+      .where(eq(assets.status, 'active'))
+      .limit(1)
+      .get();
+  }
+
+  if (!asset) {
+    throw new Error('createBootstrapMission: no active assets available');
+  }
+
+  const missionId = generateId();
+  const now = Date.now();
+
+  db.insert(missions)
+    .values({
+      id: missionId,
+      battlefieldId,
+      type: 'bootstrap',
+      title: `Bootstrap: ${codename}`,
+      briefing,
+      priority: 'critical',
+      status: 'queued',
+      assetId: asset.id,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
+
+  return missionId;
+}
 
 // ---------------------------------------------------------------------------
 // createBattlefield
@@ -69,6 +121,20 @@ export async function createBattlefield(
     repoPath = data.repoPath;
   }
 
+  // Determine status and bootstrap mission
+  let status: 'initializing' | 'active' = 'active';
+  let bootstrapMissionId: string | null = null;
+  let claudeMdPath: string | null = null;
+  let specMdPath: string | null = null;
+
+  if (data.skipBootstrap) {
+    status = 'active';
+    claudeMdPath = data.claudeMdPath ?? null;
+    specMdPath = data.specMdPath ?? null;
+  } else if (data.initialBriefing?.trim()) {
+    status = 'initializing';
+  }
+
   const record = db
     .insert(battlefields)
     .values({
@@ -81,17 +147,35 @@ export async function createBattlefield(
       defaultBranch,
       scaffoldCommand: data.scaffoldCommand ?? null,
       scaffoldStatus,
-      status: 'active',
+      claudeMdPath,
+      specMdPath,
+      status,
       createdAt: now,
       updatedAt: now,
     })
     .returning()
     .get();
 
+  // Create bootstrap mission if not skipping and briefing provided
+  if (!data.skipBootstrap && data.initialBriefing?.trim()) {
+    bootstrapMissionId = createBootstrapMission(id, data.codename, data.initialBriefing.trim());
+
+    db.update(battlefields)
+      .set({ bootstrapMissionId, updatedAt: Date.now() })
+      .where(eq(battlefields.id, id))
+      .run();
+
+    // If no scaffold command, trigger orchestrator immediately
+    // If there IS a scaffold command, the scaffold route will trigger after completion
+    if (!data.scaffoldCommand) {
+      globalThis.orchestrator?.onMissionQueued(bootstrapMissionId);
+    }
+  }
+
   revalidatePath('/projects');
   revalidatePath(`/projects/${id}`);
 
-  return record;
+  return { ...record, bootstrapMissionId };
 }
 
 // ---------------------------------------------------------------------------

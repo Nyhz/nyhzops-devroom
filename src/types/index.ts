@@ -52,6 +52,9 @@ export interface CreateBattlefieldInput {
   scaffoldCommand?: string;
   defaultBranch?: string;
   repoPath?: string;
+  skipBootstrap?: boolean;
+  claudeMdPath?: string;   // when skipping bootstrap
+  specMdPath?: string;     // when skipping bootstrap
 }
 
 export interface UpdateBattlefieldInput {

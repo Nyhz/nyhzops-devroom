@@ -23,6 +23,9 @@ export function CreateBattlefield({ devBasePath }: CreateBattlefieldProps) {
   const [scaffoldCommand, setScaffoldCommand] = useState('');
   const [defaultBranch, setDefaultBranch] = useState('main');
   const [repoPath, setRepoPath] = useState('');
+  const [skipBootstrap, setSkipBootstrap] = useState(false);
+  const [claudeMdPathInput, setClaudeMdPathInput] = useState('');
+  const [specMdPathInput, setSpecMdPathInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -68,10 +71,13 @@ export function CreateBattlefield({ devBasePath }: CreateBattlefieldProps) {
           name: name.trim(),
           codename: codename.trim() || `OPERATION ${name.trim().toUpperCase()}`,
           description: description.trim() || undefined,
-          initialBriefing: initialBriefing.trim() || undefined,
+          initialBriefing: skipBootstrap ? undefined : (initialBriefing.trim() || undefined),
           scaffoldCommand: mode === 'new' && scaffoldCommand.trim() ? scaffoldCommand.trim() : undefined,
           defaultBranch: mode === 'new' ? defaultBranch.trim() || 'main' : undefined,
           repoPath: mode === 'link' ? repoPath.trim() : undefined,
+          skipBootstrap,
+          claudeMdPath: skipBootstrap ? claudeMdPathInput.trim() || undefined : undefined,
+          specMdPath: skipBootstrap ? specMdPathInput.trim() || undefined : undefined,
         });
 
         // Fire-and-forget scaffold if applicable
@@ -89,7 +95,7 @@ export function CreateBattlefield({ devBasePath }: CreateBattlefieldProps) {
         setSubmitting(false);
       }
     },
-    [name, codename, description, initialBriefing, scaffoldCommand, defaultBranch, repoPath, mode, router],
+    [name, codename, description, initialBriefing, scaffoldCommand, defaultBranch, repoPath, mode, router, skipBootstrap, claudeMdPathInput, specMdPathInput],
   );
 
   const computedRepoPath = name.trim()
@@ -168,18 +174,57 @@ export function CreateBattlefield({ devBasePath }: CreateBattlefieldProps) {
         />
       </div>
 
-      {/* Initial Briefing */}
+      {/* Initial Briefing / Skip Bootstrap */}
       <div>
-        <label className="block text-dr-amber font-tactical text-xs tracking-wider mb-1">
-          INITIAL BRIEFING
-        </label>
-        <TacTextarea
-          value={initialBriefing}
-          onChange={(e) => setInitialBriefing(e.target.value)}
-          placeholder="Commander's project briefing for bootstrap..."
-          rows={6}
-          disabled={submitting}
-        />
+        {!skipBootstrap && (
+          <>
+            <label className="block text-dr-amber font-tactical text-xs tracking-wider mb-1">
+              INITIAL BRIEFING
+            </label>
+            <TacTextarea
+              value={initialBriefing}
+              onChange={(e) => setInitialBriefing(e.target.value)}
+              placeholder="Commander's project briefing for bootstrap..."
+              rows={6}
+              disabled={submitting}
+            />
+          </>
+        )}
+
+        {skipBootstrap && (
+          <div className="space-y-3">
+            <div>
+              <label className="block text-dr-amber font-tactical text-xs tracking-wider mb-1">
+                CLAUDE.MD PATH
+              </label>
+              <TacInput
+                value={claudeMdPathInput}
+                onChange={(e) => setClaudeMdPathInput(e.target.value)}
+                placeholder="Absolute path to CLAUDE.md"
+                disabled={submitting}
+              />
+            </div>
+            <div>
+              <label className="block text-dr-amber font-tactical text-xs tracking-wider mb-1">
+                SPEC.MD PATH
+              </label>
+              <TacInput
+                value={specMdPathInput}
+                onChange={(e) => setSpecMdPathInput(e.target.value)}
+                placeholder="Absolute path to SPEC.md (optional)"
+                disabled={submitting}
+              />
+            </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setSkipBootstrap(!skipBootstrap)}
+          className="text-dr-dim text-xs hover:text-dr-muted underline mt-2"
+        >
+          {skipBootstrap ? '← Generate docs automatically' : 'Skip bootstrap — I\'ll provide my own CLAUDE.md'}
+        </button>
       </div>
 
       {/* New project fields */}

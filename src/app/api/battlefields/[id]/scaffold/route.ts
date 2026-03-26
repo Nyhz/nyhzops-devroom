@@ -41,6 +41,11 @@ export async function POST(
         .set({ scaffoldStatus: 'complete', updatedAt: Date.now() })
         .where(eq(battlefields.id, id))
         .run();
+
+      // After scaffold success, trigger bootstrap if one is waiting
+      if (battlefield.bootstrapMissionId) {
+        globalThis.orchestrator?.onMissionQueued(battlefield.bootstrapMissionId);
+      }
     } else {
       db.update(battlefields)
         .set({ scaffoldStatus: 'failed', updatedAt: Date.now() })
