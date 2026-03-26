@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { eq, desc, count, inArray, and, sql } from 'drizzle-orm';
 import fs from 'fs';
+import path from 'path';
 import simpleGit from 'simple-git';
 import { getDatabase } from '@/lib/db/index';
 import {
@@ -335,4 +336,186 @@ export async function deleteBattlefield(id: string): Promise<void> {
   });
 
   revalidatePath('/projects');
+}
+
+// ---------------------------------------------------------------------------
+// approveBootstrap — commit generated files and activate battlefield
+// ---------------------------------------------------------------------------
+export async function approveBootstrap(battlefieldId: string): Promise<void> {
+  const db = getDatabase();
+
+  const battlefield = db
+    .select()
+    .from(battlefields)
+    .where(eq(battlefields.id, battlefieldId))
+    .get();
+
+  if (!battlefield || battlefield.status !== 'initializing') {
+    throw new Error('Battlefield not found or not in initializing state');
+  }
+
+  const git = simpleGit(battlefield.repoPath);
+  await git.add(['CLAUDE.md', 'SPEC.md']);
+  await git.commit('Bootstrap: add CLAUDE.md and SPEC.md');
+
+  db.update(battlefields)
+    .set({
+      claudeMdPath: path.join(battlefield.repoPath, 'CLAUDE.md'),
+      specMdPath: path.join(battlefield.repoPath, 'SPEC.md'),
+      status: 'active',
+      updatedAt: Date.now(),
+    })
+    .where(eq(battlefields.id, battlefieldId))
+    .run();
+
+  revalidatePath(`/projects/${battlefieldId}`);
+  revalidatePath('/projects');
+}
+
+// ---------------------------------------------------------------------------
+// regenerateBootstrap — delete generated files and re-run bootstrap with new briefing
+// ---------------------------------------------------------------------------
+export async function regenerateBootstrap(
+  battlefieldId: string,
+  briefing: string,
+): Promise<void> {
+  const db = getDatabase();
+
+  const battlefield = db
+    .select()
+    .from(battlefields)
+    .where(eq(battlefields.id, battlefieldId))
+    .get();
+
+  if (!battlefield || battlefield.status !== 'initializing') {
+    throw new Error('Battlefield not found or not in initializing state');
+  }
+
+  // Delete generated files
+  try { fs.unlinkSync(path.join(battlefield.repoPath, 'CLAUDE.md')); } catch { /* ignore */ }
+  try { fs.unlinkSync(path.join(battlefield.repoPath, 'SPEC.md')); } catch { /* ignore */ }
+
+  // Update briefing on battlefield
+  db.update(battlefields)
+    .set({ initialBriefing: briefing, updatedAt: Date.now() })
+    .where(eq(battlefields.id, battlefieldId))
+    .run();
+
+  // Increment iterations on old bootstrap mission
+  if (battlefield.bootstrapMissionId) {
+    const oldMission = db
+      .select()
+      .from(missions)
+      .where(eq(missions.id, battlefield.bootstrapMissionId))
+      .get();
+
+    if (oldMission) {
+      db.update(missions)
+        .set({ iterations: (oldMission.iterations ?? 0) + 1, updatedAt: Date.now() })
+        .where(eq(missions.id, battlefield.bootstrapMissionId))
+        .run();
+    }
+  }
+
+  // Create new bootstrap mission
+  const newMissionId = createBootstrapMission(
+    battlefieldId,
+    battlefield.codename,
+    briefing,
+  );
+
+  // Update battlefield with new bootstrap mission
+  db.update(battlefields)
+    .set({ bootstrapMissionId: newMissionId, updatedAt: Date.now() })
+    .where(eq(battlefields.id, battlefieldId))
+    .run();
+
+  // Trigger orchestrator
+  globalThis.orchestrator?.onMissionQueued(newMissionId);
+
+  revalidatePath(`/projects/${battlefieldId}`);
+  revalidatePath('/projects');
+}
+
+// ---------------------------------------------------------------------------
+// abandonBootstrap — delete generated files and remove the battlefield
+// ---------------------------------------------------------------------------
+export async function abandonBootstrap(battlefieldId: string): Promise<void> {
+  const db = getDatabase();
+
+  const battlefield = db
+    .select()
+    .from(battlefields)
+    .where(eq(battlefields.id, battlefieldId))
+    .get();
+
+  if (!battlefield || battlefield.status !== 'initializing') {
+    throw new Error('Battlefield not found or not in initializing state');
+  }
+
+  // Delete generated files from disk
+  try { fs.unlinkSync(path.join(battlefield.repoPath, 'CLAUDE.md')); } catch { /* ignore */ }
+  try { fs.unlinkSync(path.join(battlefield.repoPath, 'SPEC.md')); } catch { /* ignore */ }
+
+  // Cascade delete the battlefield
+  await deleteBattlefield(battlefieldId);
+
+  revalidatePath('/projects');
+}
+
+// ---------------------------------------------------------------------------
+// writeBootstrapFile — write CLAUDE.md or SPEC.md content during bootstrap review
+// ---------------------------------------------------------------------------
+export async function writeBootstrapFile(
+  battlefieldId: string,
+  filename: string,
+  content: string,
+): Promise<void> {
+  const db = getDatabase();
+
+  const battlefield = db
+    .select()
+    .from(battlefields)
+    .where(eq(battlefields.id, battlefieldId))
+    .get();
+
+  if (!battlefield || battlefield.status !== 'initializing') {
+    throw new Error('Battlefield not found or not in initializing state');
+  }
+
+  if (filename !== 'CLAUDE.md' && filename !== 'SPEC.md') {
+    throw new Error('writeBootstrapFile: only CLAUDE.md and SPEC.md are allowed');
+  }
+
+  fs.writeFileSync(path.join(battlefield.repoPath, filename), content, 'utf-8');
+}
+
+// ---------------------------------------------------------------------------
+// readBootstrapFile — read CLAUDE.md or SPEC.md content during bootstrap review
+// ---------------------------------------------------------------------------
+export async function readBootstrapFile(
+  battlefieldId: string,
+  filename: string,
+): Promise<string> {
+  const db = getDatabase();
+
+  const battlefield = db
+    .select()
+    .from(battlefields)
+    .where(eq(battlefields.id, battlefieldId))
+    .get();
+
+  if (!battlefield) {
+    throw new Error(`readBootstrapFile: battlefield ${battlefieldId} not found`);
+  }
+
+  if (filename !== 'CLAUDE.md' && filename !== 'SPEC.md') {
+    throw new Error('readBootstrapFile: only CLAUDE.md and SPEC.md are allowed');
+  }
+
+  try {
+    return fs.readFileSync(path.join(battlefield.repoPath, filename), 'utf-8');
+  } catch {
+    return '';
+  }
 }
