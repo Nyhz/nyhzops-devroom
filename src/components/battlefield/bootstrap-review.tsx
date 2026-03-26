@@ -5,6 +5,7 @@ import { useState } from "react";
 import { TacButton } from "@/components/ui/tac-button";
 import { TacTextarea } from "@/components/ui/tac-input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Markdown } from "@/components/ui/markdown";
 import {
   approveBootstrap,
   regenerateBootstrap,
@@ -174,9 +175,9 @@ export function BootstrapReview({
           </div>
         ) : (
           <ScrollArea className="max-h-96">
-            <pre className="whitespace-pre-wrap font-data text-dr-text p-4 text-sm">
-              {content}
-            </pre>
+            <div className="font-data p-4 text-sm">
+              <Markdown content={content} />
+            </div>
           </ScrollArea>
         )}
       </div>

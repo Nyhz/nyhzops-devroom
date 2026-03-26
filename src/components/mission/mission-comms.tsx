@@ -6,6 +6,7 @@ import { useMissionComms } from '@/hooks/use-mission-comms';
 import { Terminal } from '@/components/ui/terminal';
 import { TacBadge } from '@/components/ui/tac-badge';
 import { MissionActions } from '@/components/mission/mission-actions';
+import { Markdown } from '@/components/ui/markdown';
 import { formatDuration } from '@/lib/utils';
 import type { MissionLog, MissionStatus } from '@/types';
 
@@ -156,8 +157,8 @@ export function MissionComms({
             </h2>
             <div className="h-px bg-dr-border" />
           </div>
-          <div className="whitespace-pre-wrap font-data text-dr-text text-sm leading-relaxed bg-dr-surface border border-dr-border p-4">
-            {liveDebrief}
+          <div className="font-data text-sm leading-relaxed bg-dr-surface border border-dr-border p-4">
+            <Markdown content={liveDebrief} />
           </div>
         </div>
       )}

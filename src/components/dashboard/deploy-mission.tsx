@@ -2,7 +2,7 @@
 
 import { useState, useRef, useTransition } from 'react';
 import { TacButton } from '@/components/ui/tac-button';
-import { TacTextarea } from '@/components/ui/tac-input';
+import { TacTextareaWithImages } from '@/components/ui/tac-textarea-with-images';
 import { TacCard } from '@/components/ui/tac-card';
 import { createMission, createAndDeployMission } from '@/actions/mission';
 
@@ -81,11 +81,11 @@ export function DeployMission({ battlefieldId, assets, className }: DeployMissio
       </div>
 
       <div className="space-y-3">
-        <TacTextarea
+        <TacTextareaWithImages
           placeholder="Describe the mission objective and any relevant intel..."
           rows={3}
           value={briefing}
-          onChange={(e) => setBriefing(e.target.value)}
+          onChange={setBriefing}
           disabled={isPending}
         />
 

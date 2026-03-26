@@ -5,6 +5,7 @@ import { getMission } from '@/actions/mission';
 import { getDatabase } from '@/lib/db/index';
 import { missionLogs } from '@/lib/db/schema';
 import { TacBadge } from '@/components/ui/tac-badge';
+import { Markdown } from '@/components/ui/markdown';
 import { MissionComms } from '@/components/mission/mission-comms';
 
 export default async function MissionDetailPage({
@@ -67,8 +68,8 @@ export default async function MissionDetailPage({
           </h2>
           <div className="h-px bg-dr-border" />
         </div>
-        <div className="whitespace-pre-wrap font-data text-dr-text text-sm leading-relaxed">
-          {mission.briefing}
+        <div className="font-data text-sm leading-relaxed">
+          <Markdown content={mission.briefing} />
         </div>
       </div>
 
