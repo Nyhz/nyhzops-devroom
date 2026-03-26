@@ -1,5 +1,93 @@
 import fs from 'fs';
+import { count, eq, and } from 'drizzle-orm';
 import type { Mission, Battlefield, Asset } from '@/types';
+import { getDatabase } from '@/lib/db/index';
+import { campaigns, phases } from '@/lib/db/schema';
+
+function buildCampaignMissionPrompt(
+  mission: Mission,
+  battlefield: Battlefield,
+  asset: Asset | null,
+): string {
+  const db = getDatabase();
+  const sections: string[] = [];
+
+  // 1. CLAUDE.md (static, cached)
+  if (battlefield.claudeMdPath) {
+    try {
+      sections.push(fs.readFileSync(battlefield.claudeMdPath, 'utf-8'));
+    } catch { /* skip */ }
+  }
+
+  // 2. Asset system prompt
+  if (asset?.systemPrompt) {
+    sections.push(asset.systemPrompt);
+  }
+
+  // 3. Campaign context
+  const campaign = db.select().from(campaigns)
+    .where(eq(campaigns.id, mission.campaignId!)).get();
+
+  let phaseContext = '';
+  if (mission.phaseId) {
+    const phase = db.select().from(phases)
+      .where(eq(phases.id, mission.phaseId)).get();
+
+    if (phase && campaign) {
+      const totalPhases = db.select({ value: count() }).from(phases)
+        .where(eq(phases.campaignId, campaign.id)).all();
+
+      // Get previous phase debrief
+      let prevDebrief = 'This is Phase 1 — no previous debrief.';
+      if (phase.phaseNumber > 1) {
+        const prevPhase = db.select().from(phases)
+          .where(and(
+            eq(phases.campaignId, campaign.id),
+            eq(phases.phaseNumber, phase.phaseNumber - 1)
+          )).get();
+        if (prevPhase?.debrief) {
+          prevDebrief = prevPhase.debrief;
+        }
+      }
+
+      phaseContext = [
+        '## Campaign Context',
+        '',
+        `**Operation**: ${campaign.name}`,
+        `**Objective**: ${campaign.objective}`,
+        `**Phase**: ${phase.name} (${phase.phaseNumber} of ${totalPhases[0]?.value || '?'})`,
+        '',
+        '### Previous Phase Debrief',
+        prevDebrief,
+      ].join('\n');
+    }
+  }
+
+  if (phaseContext) sections.push(phaseContext);
+
+  // 4. Mission briefing
+  sections.push([
+    '## Mission Briefing',
+    '',
+    `**Mission**: ${mission.title}`,
+    `**Priority**: ${mission.priority || 'normal'}`,
+    '',
+    mission.briefing,
+  ].join('\n'));
+
+  // 5. Operational parameters (campaign-specific)
+  sections.push([
+    '## Operational Parameters',
+    '',
+    '- Execute the task above.',
+    '- Other missions may run in parallel. Stay within your assigned scope.',
+    '- Commit with clear, descriptive messages.',
+    '- Provide debrief addressed to the Commander:',
+    '  what was done, what changed, risks, and recommended next actions.',
+  ].join('\n'));
+
+  return sections.join('\n\n---\n\n');
+}
 
 function buildBootstrapPrompt(mission: Mission, battlefield: Battlefield): string {
   return `## Battlefield Bootstrap — Intelligence Generation
@@ -63,6 +151,10 @@ export function buildPrompt(
 ): string {
   if (mission.type === 'bootstrap') {
     return buildBootstrapPrompt(mission, battlefield);
+  }
+
+  if (mission.campaignId) {
+    return buildCampaignMissionPrompt(mission, battlefield, asset);
   }
 
   const sections: string[] = [];
