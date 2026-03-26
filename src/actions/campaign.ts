@@ -189,6 +189,7 @@ export async function getCampaign(
         assetId: missions.assetId,
         useWorktree: missions.useWorktree,
         worktreeBranch: missions.worktreeBranch,
+        dependsOn: missions.dependsOn,
         sessionId: missions.sessionId,
         debrief: missions.debrief,
         iterations: missions.iterations,

@@ -1,0 +1,1 @@
+ALTER TABLE `missions` ADD `depends_on` text;

@@ -39,6 +39,7 @@ export const missions = sqliteTable('missions', {
   assetId: text('asset_id').references(() => assets.id),
   useWorktree: integer('use_worktree').default(0),
   worktreeBranch: text('worktree_branch'),
+  dependsOn: text('depends_on'),
   sessionId: text('session_id'),
   debrief: text('debrief'),
   iterations: integer('iterations').default(0),
