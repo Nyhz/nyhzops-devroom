@@ -3,7 +3,9 @@ import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import next from 'next';
 import os from 'os';
+import { eq } from 'drizzle-orm';
 import { getDatabase, runMigrations, closeDatabase } from './src/lib/db/index';
+import { campaigns } from './src/lib/db/schema';
 import { setupSocketIO } from './src/lib/socket/server';
 import { config } from './src/lib/config';
 import { Orchestrator } from './src/lib/orchestrator/orchestrator';
@@ -47,6 +49,16 @@ async function start() {
   const orchestrator = new Orchestrator(io);
   globalThis.orchestrator = orchestrator;
   console.log(`[DEVROOM] Orchestrator online — ${config.maxAgents} agent slots`);
+
+  // 5c. Startup recovery: pause any campaigns that were active when server stopped
+  const db = getDatabase();
+  const activeCampaigns = db.select().from(campaigns)
+    .where(eq(campaigns.status, 'active')).all();
+  for (const c of activeCampaigns) {
+    db.update(campaigns).set({ status: 'paused', updatedAt: Date.now() })
+      .where(eq(campaigns.id, c.id)).run();
+    console.log(`[DEVROOM] Campaign ${c.id} paused — server restarted`);
+  }
 
   // 6. Detect local IP
   const localIP = getLocalIP();

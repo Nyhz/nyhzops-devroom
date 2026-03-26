@@ -1,13 +1,15 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 import { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
 import { missions } from '@/lib/db/schema';
 import { config } from '@/lib/config';
 import { executeMission, RateLimitError } from './executor';
+import { CampaignExecutor } from './campaign-executor';
 import type { Mission } from '@/types';
 
 export class Orchestrator {
   public activeJobs: Map<string, AbortController> = new Map();
+  public activeCampaigns: Map<string, CampaignExecutor> = new Map();
   private retryCount: Map<string, number> = new Map();
   private io: SocketIOServer;
   private maxAgents: number;
@@ -52,6 +54,17 @@ export class Orchestrator {
         this.activeJobs.delete(missionId);
         console.log(`[Orchestrator] Mission ${missionId} done (${this.activeJobs.size}/${this.maxAgents} slots)`);
         this.drainQueue();
+
+        // Notify campaign executor if this is a campaign mission
+        const completedMission = db.select().from(missions).where(eq(missions.id, missionId)).get();
+        if (completedMission?.campaignId) {
+          const campaignExec = this.activeCampaigns.get(completedMission.campaignId);
+          if (campaignExec) {
+            campaignExec.onCampaignMissionComplete(missionId).catch(err => {
+              console.error(`[Orchestrator] Campaign mission complete handler failed:`, err);
+            });
+          }
+        }
       });
   }
 
@@ -71,6 +84,46 @@ export class Orchestrator {
     return this.activeJobs.has(missionId);
   }
 
+  async startCampaign(campaignId: string): Promise<void> {
+    const executor = new CampaignExecutor(campaignId, this.io);
+    this.activeCampaigns.set(campaignId, executor);
+    await executor.start();
+  }
+
+  async resumeCampaign(campaignId: string): Promise<void> {
+    let executor = this.activeCampaigns.get(campaignId);
+    if (!executor) {
+      executor = new CampaignExecutor(campaignId, this.io);
+      this.activeCampaigns.set(campaignId, executor);
+    }
+    await executor.resume();
+  }
+
+  async skipAndContinueCampaign(campaignId: string): Promise<void> {
+    let executor = this.activeCampaigns.get(campaignId);
+    if (!executor) {
+      executor = new CampaignExecutor(campaignId, this.io);
+      this.activeCampaigns.set(campaignId, executor);
+    }
+    await executor.skipAndContinue();
+  }
+
+  async abortCampaign(campaignId: string): Promise<void> {
+    // Abort all active missions for this campaign
+    const db = getDatabase();
+    const campaignMissions = db.select({ id: missions.id }).from(missions)
+      .where(and(
+        eq(missions.campaignId, campaignId),
+        inArray(missions.status, ['queued', 'deploying', 'in_combat'])
+      )).all();
+
+    for (const m of campaignMissions) {
+      await this.onMissionAbort(m.id);
+    }
+
+    this.activeCampaigns.delete(campaignId);
+  }
+
   async shutdown(): Promise<void> {
     console.log(`[Orchestrator] Shutting down ${this.activeJobs.size} active missions...`);
     const db = getDatabase();
@@ -86,6 +139,7 @@ export class Orchestrator {
     }
 
     this.activeJobs.clear();
+    this.activeCampaigns.clear();
   }
 
   private async drainQueue(): Promise<void> {
