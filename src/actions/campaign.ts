@@ -3,8 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { eq, desc, and, inArray } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
-import { campaigns, phases, missions, missionLogs, assets } from '@/lib/db/schema';
+import { campaigns, phases, missions, missionLogs, assets, battlefields } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
+import { generatePlan } from '@/lib/orchestrator/plan-generator';
 import type { Campaign, CampaignWithPlan, PlanJSON, Phase, Mission } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -306,8 +307,37 @@ export async function deleteCampaign(id: string): Promise<void> {
 export async function generateBattlePlan(
   campaignId: string,
 ): Promise<void> {
-  // Will be implemented after plan-generator.ts is created
-  throw new Error('Not implemented — waiting for plan-generator');
+  const db = getDatabase();
+
+  const campaign = db.select().from(campaigns).where(eq(campaigns.id, campaignId)).get();
+  if (!campaign) throw new Error(`generateBattlePlan: campaign ${campaignId} not found`);
+  if (campaign.status !== 'draft' && campaign.status !== 'planning') {
+    throw new Error(
+      `generateBattlePlan: can only generate plan for draft or planning campaigns (current: ${campaign.status})`,
+    );
+  }
+
+  const battlefield = db.select().from(battlefields).where(eq(battlefields.id, campaign.battlefieldId)).get();
+  if (!battlefield) throw new Error(`generateBattlePlan: battlefield ${campaign.battlefieldId} not found`);
+
+  const availableAssets = db.select().from(assets).where(eq(assets.status, 'active')).all();
+
+  // Generate plan via Claude Code
+  const plan = await generatePlan(campaign, battlefield, availableAssets);
+
+  // Clear existing plan if regenerating
+  deletePlanData(campaignId);
+
+  // Insert new phases and missions from generated plan
+  insertPlanFromJSON(campaignId, campaign.battlefieldId, plan);
+
+  // Update campaign status to 'planning'
+  db.update(campaigns).set({
+    status: 'planning',
+    updatedAt: Date.now(),
+  }).where(eq(campaigns.id, campaignId)).run();
+
+  revalidateCampaignPaths(campaign.battlefieldId, campaignId);
 }
 
 // ---------------------------------------------------------------------------
