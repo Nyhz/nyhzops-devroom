@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation';
 import { getDatabase } from '@/lib/db/index';
 import { battlefields, missions, assets } from '@/lib/db/schema';
-import { eq, count, and } from 'drizzle-orm';
-import { SearchInput } from '@/components/ui/search-input';
+import { eq, desc, sql } from 'drizzle-orm';
 import { DeployMission } from '@/components/dashboard/deploy-mission';
+import { StatsBar } from '@/components/dashboard/stats-bar';
+import { MissionList } from '@/components/dashboard/mission-list';
 import type { Battlefield } from '@/types';
 
 export default async function BattlefieldOverviewPage({
@@ -31,39 +32,36 @@ export default async function BattlefieldOverviewPage({
     .all()
     .map((a) => ({ ...a, status: a.status ?? 'active' }));
 
-  // Stat counts
-  const countByStatus = (status: string) => {
-    const result = db
-      .select({ value: count() })
-      .from(missions)
-      .where(and(eq(missions.battlefieldId, id), eq(missions.status, status)))
-      .all();
-    return result[0]?.value ?? 0;
-  };
-
-  const inCombat = countByStatus('in_combat');
-  const accomplished = countByStatus('accomplished');
-  const compromised = countByStatus('compromised');
-  const standby = countByStatus('standby');
-
-  // Cache hit calculation
-  const allMissions = db
-    .select({
-      costInput: missions.costInput,
-      costCacheHit: missions.costCacheHit,
-    })
-    .from(missions)
+  // Query missions with asset join
+  const missionRows = db.select({
+    id: missions.id,
+    title: missions.title,
+    status: missions.status,
+    priority: missions.priority,
+    iterations: missions.iterations,
+    costInput: missions.costInput,
+    costCacheHit: missions.costCacheHit,
+    createdAt: missions.createdAt,
+    assetCodename: assets.codename,
+  }).from(missions)
+    .leftJoin(assets, eq(missions.assetId, assets.id))
     .where(eq(missions.battlefieldId, id))
+    .orderBy(
+      sql`CASE ${missions.status} WHEN 'in_combat' THEN 0 WHEN 'deploying' THEN 1 WHEN 'queued' THEN 2 WHEN 'standby' THEN 3 WHEN 'accomplished' THEN 4 WHEN 'compromised' THEN 5 WHEN 'abandoned' THEN 6 END`,
+      desc(missions.createdAt)
+    )
     .all();
 
-  let cacheHitPct = 0;
-  const totalInput = allMissions.reduce((s, m) => s + (m.costInput ?? 0), 0);
-  const totalCacheHit = allMissions.reduce((s, m) => s + (m.costCacheHit ?? 0), 0);
-  if (totalInput + totalCacheHit > 0) {
-    cacheHitPct = Math.round((totalCacheHit / (totalInput + totalCacheHit)) * 100);
-  }
+  // Stats computation
+  const inCombatCount = missionRows.filter(m => m.status === 'in_combat' || m.status === 'deploying').length;
+  const accomplishedCount = missionRows.filter(m => m.status === 'accomplished').length;
+  const compromisedCount = missionRows.filter(m => m.status === 'compromised').length;
+  const standbyCount = missionRows.filter(m => m.status === 'standby' || m.status === 'queued').length;
 
-  const totalMissions = inCombat + accomplished + compromised + standby;
+  // Cache hit calculation
+  const totalInput = missionRows.reduce((sum, m) => sum + (m.costInput || 0), 0);
+  const totalCacheHit = missionRows.reduce((sum, m) => sum + (m.costCacheHit || 0), 0);
+  const cacheHitPercent = totalInput > 0 ? `${Math.round((totalCacheHit / totalInput) * 100)}%` : '—';
 
   return (
     <div className="p-6 space-y-6">
@@ -86,61 +84,16 @@ export default async function BattlefieldOverviewPage({
       <DeployMission battlefieldId={id} assets={assetList} />
 
       {/* Stats bar */}
-      <div className="flex gap-px">
-        <div className="flex-1 bg-dr-surface border border-dr-border p-3 text-center">
-          <div className="text-dr-amber font-tactical text-lg">{inCombat}</div>
-          <div className="text-dr-dim font-tactical text-[10px] tracking-wider uppercase">
-            IN COMBAT
-          </div>
-        </div>
-        <div className="flex-1 bg-dr-surface border border-dr-border p-3 text-center">
-          <div className="text-dr-green font-tactical text-lg">{accomplished}</div>
-          <div className="text-dr-dim font-tactical text-[10px] tracking-wider uppercase">
-            ACCOMPLISHED
-          </div>
-        </div>
-        <div className="flex-1 bg-dr-surface border border-dr-border p-3 text-center">
-          <div className="text-dr-red font-tactical text-lg">{compromised}</div>
-          <div className="text-dr-dim font-tactical text-[10px] tracking-wider uppercase">
-            COMPROMISED
-          </div>
-        </div>
-        <div className="flex-1 bg-dr-surface border border-dr-border p-3 text-center">
-          <div className="text-dr-dim font-tactical text-lg">{standby}</div>
-          <div className="text-dr-dim font-tactical text-[10px] tracking-wider uppercase">
-            STANDBY
-          </div>
-        </div>
-        <div className="flex-1 bg-dr-surface border border-dr-border p-3 text-center">
-          <div className="text-dr-green font-tactical text-lg">{cacheHitPct}%</div>
-          <div className="text-dr-dim font-tactical text-[10px] tracking-wider uppercase">
-            CACHE HIT
-          </div>
-        </div>
-      </div>
+      <StatsBar
+        inCombat={inCombatCount}
+        accomplished={accomplishedCount}
+        compromised={compromisedCount}
+        standby={standbyCount}
+        cacheHitPercent={cacheHitPercent}
+      />
 
       {/* Missions section */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase">
-            MISSIONS
-          </div>
-          <SearchInput placeholder="Search missions..." className="w-64" />
-        </div>
-        {totalMissions === 0 ? (
-          <div className="bg-dr-surface border border-dr-border p-8 text-center">
-            <div className="text-dr-dim font-tactical text-xs">
-              No missions deployed yet. Deploy your first mission above.
-            </div>
-          </div>
-        ) : (
-          <div className="bg-dr-surface border border-dr-border p-4">
-            <div className="text-dr-muted font-tactical text-xs">
-              {totalMissions} mission{totalMissions !== 1 ? 's' : ''} on record.
-            </div>
-          </div>
-        )}
-      </div>
+      <MissionList missions={missionRows} battlefieldId={id} />
     </div>
   );
 }
