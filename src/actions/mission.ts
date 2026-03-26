@@ -292,3 +292,137 @@ export async function abandonMission(id: string): Promise<Mission> {
 
   return updated;
 }
+
+// ---------------------------------------------------------------------------
+// continueMission
+// ---------------------------------------------------------------------------
+export async function continueMission(
+  missionId: string,
+  briefing: string,
+): Promise<Mission> {
+  const db = getDatabase();
+
+  // Get the original mission
+  const original = db.select().from(missions).where(eq(missions.id, missionId)).get();
+  if (!original) throw new Error('Mission not found');
+  if (original.status !== 'accomplished' && original.status !== 'compromised') {
+    throw new Error('Can only continue accomplished or compromised missions');
+  }
+  if (!original.sessionId) {
+    throw new Error('Cannot continue mission without a session ID');
+  }
+
+  const now = Date.now();
+  const id = generateId();
+
+  // Auto-generate title from new briefing
+  let title = briefing.split('\n')[0].replace(/^#+\s*/, '').trim();
+  if (title.length > 80) title = title.slice(0, 80) + '...';
+  if (!title) title = 'Continued mission';
+
+  // Build the new mission — carries over sessionId for context preservation
+  const newMission: typeof missions.$inferInsert = {
+    id,
+    battlefieldId: original.battlefieldId,
+    title,
+    briefing,
+    status: 'queued',
+    priority: original.priority || 'normal',
+    assetId: original.assetId,
+    sessionId: original.sessionId, // KEY: reuse session for context
+    // If original was compromised and has a preserved branch, reuse it
+    worktreeBranch: original.status === 'compromised' ? original.worktreeBranch : null,
+    useWorktree: 1,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  db.insert(missions).values(newMission).run();
+
+  // Emit activity
+  const bf = db
+    .select({ codename: battlefields.codename })
+    .from(battlefields)
+    .where(eq(battlefields.id, original.battlefieldId))
+    .get();
+
+  globalThis.io?.to('hq:activity').emit('activity:event', {
+    type: 'mission:created',
+    battlefieldCodename: bf?.codename || 'UNKNOWN',
+    missionTitle: title,
+    timestamp: now,
+    detail: `Continued from mission: ${original.title}. Status: QUEUED`,
+  });
+
+  revalidatePath(`/projects/${original.battlefieldId}`);
+
+  // Trigger orchestrator
+  globalThis.orchestrator?.onMissionQueued(id);
+
+  return db.select().from(missions).where(eq(missions.id, id)).get() as Mission;
+}
+
+// ---------------------------------------------------------------------------
+// redeployMission
+// ---------------------------------------------------------------------------
+export async function redeployMission(missionId: string): Promise<Mission> {
+  const db = getDatabase();
+
+  // Get the original mission
+  const original = db.select().from(missions).where(eq(missions.id, missionId)).get();
+  if (!original) throw new Error('Mission not found');
+  if (!['accomplished', 'compromised', 'abandoned'].includes(original.status!)) {
+    throw new Error('Can only redeploy terminal missions');
+  }
+
+  const now = Date.now();
+  const id = generateId();
+
+  // Create new mission — same briefing, fresh start (no sessionId)
+  const newMission: typeof missions.$inferInsert = {
+    id,
+    battlefieldId: original.battlefieldId,
+    title: original.title,
+    briefing: original.briefing,
+    status: 'queued',
+    priority: original.priority || 'normal',
+    assetId: original.assetId,
+    // No sessionId — fresh start
+    useWorktree: 1,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  db.insert(missions).values(newMission).run();
+
+  // Increment iterations on the ORIGINAL mission
+  db.update(missions)
+    .set({
+      iterations: (original.iterations || 0) + 1,
+      updatedAt: now,
+    })
+    .where(eq(missions.id, missionId))
+    .run();
+
+  // Emit activity
+  const bf = db
+    .select({ codename: battlefields.codename })
+    .from(battlefields)
+    .where(eq(battlefields.id, original.battlefieldId))
+    .get();
+
+  globalThis.io?.to('hq:activity').emit('activity:event', {
+    type: 'mission:created',
+    battlefieldCodename: bf?.codename || 'UNKNOWN',
+    missionTitle: original.title,
+    timestamp: now,
+    detail: `Redeployed. Status: QUEUED`,
+  });
+
+  revalidatePath(`/projects/${original.battlefieldId}`);
+
+  // Trigger orchestrator
+  globalThis.orchestrator?.onMissionQueued(id);
+
+  return db.select().from(missions).where(eq(missions.id, id)).get() as Mission;
+}
