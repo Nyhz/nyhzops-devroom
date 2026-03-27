@@ -44,6 +44,24 @@ export function setupSocketIO(io: SocketIOServer) {
       socket.leave(`campaign:${campaignId}`);
     });
 
+    socket.on('briefing:subscribe', (campaignId: string) => {
+      socket.join(`briefing:${campaignId}`);
+    });
+
+    socket.on('briefing:unsubscribe', (campaignId: string) => {
+      socket.leave(`briefing:${campaignId}`);
+    });
+
+    socket.on('briefing:send', async (data: { campaignId: string; message: string }) => {
+      try {
+        const { sendBriefingMessage } = await import('@/lib/briefing/briefing-engine');
+        await sendBriefingMessage(io, data.campaignId, data.message);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Briefing failed';
+        socket.emit('briefing:error', { campaignId: data.campaignId, error: message });
+      }
+    });
+
     socket.on('disconnect', () => {
       console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
     });
