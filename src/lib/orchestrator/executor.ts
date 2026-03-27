@@ -15,7 +15,6 @@ import { mergeBranch } from './merger';
 import { askCaptain } from '@/lib/captain/captain';
 import { storeCaptainLog, getRecentCaptainLogs } from '@/lib/captain/captain-db';
 import { escalate } from '@/lib/captain/escalation';
-import { reviewDebrief } from '@/lib/captain/debrief-reviewer';
 import { runCaptainReview } from '@/lib/captain/review-handler';
 import { getCaptainLogs } from '@/actions/captain';
 import type { Mission, StreamResult } from '@/types';
