@@ -15,6 +15,7 @@ import { mergeBranch } from './merger';
 import { askCaptain } from '@/lib/captain/captain';
 import { storeCaptainLog, getRecentCaptainLogs } from '@/lib/captain/captain-db';
 import { escalate } from '@/lib/captain/escalation';
+import { reviewDebrief } from '@/lib/captain/debrief-reviewer';
 import type { Mission, StreamResult } from '@/types';
 
 export class RateLimitError extends Error {
@@ -439,6 +440,56 @@ export async function executeMission(
             missionsCompleted: (currentAsset.missionsCompleted || 0) + 1,
           }).where(eq(assets.id, mission.assetId)).run();
         }
+      }
+
+      // Captain auto-review of debrief (fire-and-forget)
+      if (finalStatus === 'accomplished') {
+        reviewDebrief({
+          missionBriefing: mission.briefing,
+          missionDebrief: r.result,
+          claudeMd: claudeMdContent,
+          missionId: mission.id,
+          battlefieldId: mission.battlefieldId,
+        }).then(async (review) => {
+          // Log the review
+          storeCaptainLog({
+            missionId: mission.id,
+            battlefieldId: mission.battlefieldId,
+            campaignId: mission.campaignId,
+            question: `[DEBRIEF_REVIEW] Mission: ${mission.title}`,
+            answer: review.satisfactory ? 'Satisfactory' : `Concerns: ${review.concerns.join(', ')}`,
+            reasoning: review.reasoning,
+            confidence: review.satisfactory ? 'high' : 'medium',
+            escalated: review.recommendation === 'escalate' ? 1 : 0,
+          });
+
+          if (review.recommendation === 'retry') {
+            // Auto-redeploy with concerns noted in briefing
+            const { redeployMission } = await import('@/actions/mission');
+            await redeployMission(mission.id);
+          } else if (review.recommendation === 'escalate') {
+            await escalate({
+              level: 'warning',
+              title: `Debrief Review: ${mission.title}`,
+              detail: `Concerns: ${review.concerns.join('. ')}. Reasoning: ${review.reasoning}`,
+              entityType: 'mission',
+              entityId: mission.id,
+              battlefieldId: mission.battlefieldId,
+            });
+          } else if (review.concerns.length > 0) {
+            // Satisfactory but with concerns — info notification
+            await escalate({
+              level: 'info',
+              title: `Debrief Note: ${mission.title}`,
+              detail: review.concerns.join('. '),
+              entityType: 'mission',
+              entityId: mission.id,
+              battlefieldId: mission.battlefieldId,
+            });
+          }
+        }).catch(err => {
+          console.error('[Captain] Debrief review failed:', err);
+        });
       }
 
       // Merge worktree branch back to default branch

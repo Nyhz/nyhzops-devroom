@@ -8,6 +8,8 @@ import { getDatabase } from '@/lib/db/index';
 import { campaigns, phases, missions, battlefields } from '@/lib/db/schema';
 import { config } from '@/lib/config';
 import { escalate } from '@/lib/captain/escalation';
+import { handlePhaseFailure } from '@/lib/captain/phase-failure-handler';
+import { storeCaptainLog } from '@/lib/captain/captain-db';
 import type { Mission } from '@/types';
 
 // Terminal statuses — a mission in one of these won't change further
@@ -377,32 +379,102 @@ export class CampaignExecutor {
       return;
     }
 
-    const hasCompromised = phaseMissions.some(m => m.status === 'compromised');
+    const compromisedMissions = phaseMissions.filter(m => m.status === 'compromised');
+    const accomplishedMissions = phaseMissions.filter(m => m.status === 'accomplished');
+    const hasCompromised = compromisedMissions.length > 0;
 
     if (hasCompromised) {
-      // Pause campaign — awaiting Commander orders
-      db.update(phases).set({ status: 'compromised' })
-        .where(eq(phases.id, phaseId)).run();
-      this.emitPhaseStatus(phaseId, phase.phaseNumber, 'compromised');
-
-      db.update(campaigns).set({
-        status: 'paused',
-        updatedAt: Date.now(),
-      }).where(eq(campaigns.id, this.campaignId)).run();
-      this.emitCampaignStatus('paused');
-
-      console.log(`[Campaign] ${this.campaignId} — Phase ${phase.phaseNumber} compromised. Campaign paused. Awaiting Commander orders.`);
-
-      // Get campaign + battlefield for escalation context
+      // Get campaign + battlefield for context
       const campaign = db.select().from(campaigns)
         .where(eq(campaigns.id, this.campaignId)).get();
-      const compromisedCount = phaseMissions.filter(m => m.status === 'compromised').length;
 
-      if (campaign) {
+      if (!campaign) {
+        console.error(`[Campaign] Campaign ${this.campaignId} not found in onPhaseComplete.`);
+        return;
+      }
+
+      // Count total phases for Captain context
+      const allPhases = db.select().from(phases)
+        .where(eq(phases.campaignId, this.campaignId)).all();
+      const totalPhases = allPhases.length;
+
+      // Read CLAUDE.md for Captain context
+      let claudeMd: string | null = null;
+      const battlefield = db.select().from(battlefields)
+        .where(eq(battlefields.id, campaign.battlefieldId)).get();
+      if (battlefield?.claudeMdPath) {
+        try {
+          claudeMd = fs.readFileSync(battlefield.claudeMdPath, 'utf-8');
+        } catch { /* skip */ }
+      }
+
+      // Let Captain decide before pausing
+      console.log(`[Campaign] ${this.campaignId} — Phase ${phase.phaseNumber} has ${compromisedMissions.length} compromised mission(s). Consulting Captain...`);
+
+      const decision = await handlePhaseFailure({
+        campaign,
+        phase,
+        compromisedMissions: compromisedMissions as Mission[],
+        accomplishedMissions: accomplishedMissions as Mission[],
+        claudeMd,
+        totalPhases,
+      });
+
+      // Log the decision
+      storeCaptainLog({
+        missionId: compromisedMissions[0]?.id || '',
+        battlefieldId: campaign.battlefieldId,
+        campaignId: campaign.id,
+        question: `[PHASE_FAILURE] Phase ${phase.name}: ${compromisedMissions.length} mission(s) compromised`,
+        answer: `Decision: ${decision.decision}. ${decision.reasoning}`,
+        reasoning: decision.reasoning,
+        confidence: decision.decision === 'escalate' ? 'low' : 'medium',
+        escalated: decision.decision === 'escalate' ? 1 : 0,
+      });
+
+      if (decision.decision === 'retry') {
+        console.log(`[Campaign] ${this.campaignId} — Captain decided to retry ${compromisedMissions.length} mission(s).`);
+
+        // Redeploy failed missions with modified briefings
+        const { redeployMission } = await import('@/actions/mission');
+        for (const m of compromisedMissions) {
+          // If Captain provided a modified briefing, update the mission before redeploying
+          const newBriefing = decision.retryBriefings?.[m.id];
+          if (newBriefing) {
+            db.update(missions).set({
+              briefing: newBriefing,
+              updatedAt: Date.now(),
+            }).where(eq(missions.id, m.id)).run();
+          }
+          await redeployMission(m.id);
+        }
+        // Don't pause — redeployed missions will run and onCampaignMissionComplete will re-evaluate
+        return;
+
+      } else if (decision.decision === 'skip') {
+        console.log(`[Campaign] ${this.campaignId} — Captain decided to skip failed missions and continue.`);
+        // Captain says skip — use existing skipAndContinue logic
+        await this.skipAndContinue();
+        return;
+
+      } else {
+        // Escalate — pause the campaign (existing behavior)
+        db.update(phases).set({ status: 'compromised' })
+          .where(eq(phases.id, phaseId)).run();
+        this.emitPhaseStatus(phaseId, phase.phaseNumber, 'compromised');
+
+        db.update(campaigns).set({
+          status: 'paused',
+          updatedAt: Date.now(),
+        }).where(eq(campaigns.id, this.campaignId)).run();
+        this.emitCampaignStatus('paused');
+
+        console.log(`[Campaign] ${this.campaignId} — Captain escalated. Phase ${phase.phaseNumber} compromised. Campaign paused. Awaiting Commander orders.`);
+
         escalate({
           level: 'critical',
           title: `Campaign Paused: ${campaign.name}`,
-          detail: `Phase ${phase.name} compromised. ${compromisedCount} mission(s) failed.`,
+          detail: `Phase ${phase.name} compromised. ${compromisedMissions.length} mission(s) failed. Captain: ${decision.reasoning}`,
           entityType: 'campaign',
           entityId: this.campaignId,
           battlefieldId: campaign.battlefieldId,
@@ -414,9 +486,9 @@ export class CampaignExecutor {
         }).catch((err) => {
           console.error('[Campaign] Escalation failed:', err);
         });
-      }
 
-      return;
+        return;
+      }
     }
 
     // All accomplished (or accomplished + abandoned via skip) — phase secured
