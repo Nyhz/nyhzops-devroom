@@ -40,8 +40,8 @@ export function Sidebar() {
 
   return (
     <aside className="bg-dr-surface border-r border-dr-border flex flex-col overflow-y-auto">
-      {/* Brand block */}
-      <div className="px-5 pt-5 pb-4">
+      {/* Brand block — clickable, goes to War Room */}
+      <Link href="/" className="block px-5 pt-5 pb-4 hover:bg-dr-elevated transition-colors">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 bg-dr-amber flex items-center justify-center text-dr-bg font-bold text-base shrink-0">
             N
@@ -56,6 +56,27 @@ export function Sidebar() {
             <span className="text-dr-muted text-sm">DEVROOM</span>
           </div>
         </div>
+      </Link>
+
+      {/* Separator */}
+      <div className="border-t border-dr-border" />
+
+      {/* Global nav — always visible */}
+      <div className="px-3 py-2 space-y-0.5">
+        <Link
+          href="/"
+          className="flex items-center gap-3 px-3 py-2.5 text-sm text-dr-muted hover:text-dr-text hover:bg-dr-elevated transition-colors"
+        >
+          <span className="w-5 text-center text-xs">⌘</span>
+          <span className="flex-1">WAR ROOM</span>
+        </Link>
+        <Link
+          href="/battlefields"
+          className="flex items-center gap-3 px-3 py-2.5 text-sm text-dr-muted hover:text-dr-text hover:bg-dr-elevated transition-colors"
+        >
+          <span className="w-5 text-center text-xs">◉</span>
+          <span className="flex-1">HQ</span>
+        </Link>
       </div>
 
       {/* Separator */}
