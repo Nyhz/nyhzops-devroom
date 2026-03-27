@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Share_Tech_Mono, IBM_Plex_Mono, Courier_Prime } from 'next/font/google';
 import { SocketProvider } from '@/components/providers/socket-provider';
-import { AppShell } from '@/components/layout/app-shell';
+import { ToastProvider } from '@/components/providers/toast-provider';
 import './globals.css';
 
 const shareTechMono = Share_Tech_Mono({
@@ -36,9 +36,8 @@ export default function RootLayout({
     <html lang="en" className={`${shareTechMono.variable} ${ibmPlexMono.variable} ${courierPrime.variable}`}>
       <body>
         <SocketProvider>
-          <AppShell>
-            {children}
-          </AppShell>
+          {children}
+          <ToastProvider />
         </SocketProvider>
       </body>
     </html>
