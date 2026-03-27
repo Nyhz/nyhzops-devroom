@@ -109,7 +109,7 @@ export async function sendEscalation(params: {
   options: Array<{ label: string; callbackData: string }>;
 }): Promise<number> {
   const text = [
-    '\u26a0\ufe0f *DEVROOM \u2014 ESCALATION*',
+    '\u26a0\ufe0f *DEVROOM SENTINEL \u2014 ESCALATION*',
     '',
     `*${params.title}*`,
     '',

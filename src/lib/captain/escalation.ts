@@ -74,8 +74,8 @@ export async function escalate(params: {
         // Send plain text message
         const text = [
           params.level === 'critical'
-            ? '\ud83d\udea8 *DEVROOM \u2014 CRITICAL*'
-            : '\u26a0\ufe0f *DEVROOM \u2014 WARNING*',
+            ? '\ud83d\udea8 *DEVROOM SENTINEL \u2014 CRITICAL*'
+            : '\u26a0\ufe0f *DEVROOM SENTINEL \u2014 WARNING*',
           '',
           `*${params.title}*`,
           '',
