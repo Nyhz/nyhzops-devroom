@@ -6,6 +6,7 @@ import { TacInput } from '@/components/ui/tac-input';
 import {
   TacModal,
   TacModalContent,
+  TacModalFooter,
   TacModalHeader,
   TacModalTitle,
   TacModalDescription,
@@ -100,7 +101,7 @@ export function DossierSelector({ onApply, className }: DossierSelectorProps) {
         </TacModalHeader>
 
         {view === 'list' && (
-          <div className="space-y-2 mt-4">
+          <div className="px-5 pb-5 space-y-2">
             {isPending && allDossiers.length === 0 && (
               <div className="text-dr-dim font-tactical text-sm py-8 text-center">
                 Loading dossiers...
@@ -149,79 +150,78 @@ export function DossierSelector({ onApply, className }: DossierSelectorProps) {
         )}
 
         {view === 'form' && selectedDossier && (
-          <div className="space-y-4 mt-4">
-            {/* Template preview */}
-            <div className="bg-dr-bg border border-dr-border p-3">
-              <div className="text-dr-dim font-tactical text-xs tracking-wider mb-1">
-                TEMPLATE
+          <>
+            <div className="px-5 pb-5 space-y-4">
+              {/* Template preview */}
+              <div className="bg-dr-bg border border-dr-border p-3">
+                <div className="text-dr-dim font-tactical text-xs tracking-wider mb-1">
+                  TEMPLATE
+                </div>
+                <div className="text-dr-muted font-tactical text-xs whitespace-pre-wrap">
+                  {selectedDossier.briefingTemplate}
+                </div>
               </div>
-              <div className="text-dr-muted font-tactical text-xs whitespace-pre-wrap">
-                {selectedDossier.briefingTemplate}
-              </div>
+
+              {/* Variable inputs */}
+              {variables.length > 0 && (
+                <div className="space-y-3">
+                  <div className="text-dr-amber font-tactical text-xs tracking-wider">
+                    VARIABLES
+                  </div>
+                  {variables.map((v) => (
+                    <div key={v.key}>
+                      <label className="block text-dr-text font-tactical text-xs mb-1">
+                        {v.label}
+                        <span className="text-dr-dim ml-2">{'{{' + v.key + '}}'}</span>
+                      </label>
+                      {v.description && (
+                        <div className="text-dr-dim font-tactical text-xs mb-1">
+                          {v.description}
+                        </div>
+                      )}
+                      <TacInput
+                        value={variableValues[v.key] ?? ''}
+                        onChange={(e) =>
+                          setVariableValues((prev) => ({
+                            ...prev,
+                            [v.key]: e.target.value,
+                          }))
+                        }
+                        placeholder={v.placeholder}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {variables.length === 0 && (
+                <div className="text-dr-dim font-tactical text-xs text-center py-2">
+                  No variables — template will be applied as-is.
+                </div>
+              )}
             </div>
 
-            {/* Variable inputs */}
-            {variables.length > 0 && (
-              <div className="space-y-3">
-                <div className="text-dr-amber font-tactical text-xs tracking-wider">
-                  VARIABLES
-                </div>
-                {variables.map((v) => (
-                  <div key={v.key}>
-                    <label className="block text-dr-text font-tactical text-xs mb-1">
-                      {v.label}
-                      <span className="text-dr-dim ml-2">{'{{' + v.key + '}}'}</span>
-                    </label>
-                    {v.description && (
-                      <div className="text-dr-dim font-tactical text-xs mb-1">
-                        {v.description}
-                      </div>
-                    )}
-                    <TacInput
-                      value={variableValues[v.key] ?? ''}
-                      onChange={(e) =>
-                        setVariableValues((prev) => ({
-                          ...prev,
-                          [v.key]: e.target.value,
-                        }))
-                      }
-                      placeholder={v.placeholder}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {variables.length === 0 && (
-              <div className="text-dr-dim font-tactical text-xs text-center py-2">
-                No variables — template will be applied as-is.
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex items-center justify-between pt-2 border-t border-dr-border">
+            <TacModalFooter>
               <TacButton variant="ghost" size="sm" onClick={handleBack}>
                 BACK
               </TacButton>
-              <div className="flex gap-2">
-                <TacButton
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleOpenChange(false)}
-                >
-                  CANCEL
-                </TacButton>
-                <TacButton
-                  variant="success"
-                  size="sm"
-                  onClick={handleApply}
-                  disabled={isPending}
-                >
-                  APPLY
-                </TacButton>
-              </div>
-            </div>
-          </div>
+              <TacButton
+                variant="ghost"
+                size="sm"
+                onClick={() => handleOpenChange(false)}
+              >
+                CANCEL
+              </TacButton>
+              <TacButton
+                variant="success"
+                size="sm"
+                onClick={handleApply}
+                disabled={isPending}
+              >
+                APPLY
+              </TacButton>
+            </TacModalFooter>
+          </>
         )}
       </TacModalContent>
     </TacModal>

@@ -9,6 +9,7 @@ import { TacButton } from '@/components/ui/tac-button';
 import {
   TacModal,
   TacModalContent,
+  TacModalFooter,
   TacModalHeader,
   TacModalTitle,
 } from '@/components/ui/modal';
@@ -102,20 +103,12 @@ export function AssetList({ assets }: AssetListProps) {
           <TacModalHeader>
             <TacModalTitle>CONFIRM DECOMMISSION</TacModalTitle>
           </TacModalHeader>
-          <div className="py-4">
-            <p className="text-dr-text font-tactical text-sm">
+          <div className="px-5 pb-5">
+            <p className="text-dr-muted font-data text-xs">
               Commander, confirm decommission of this asset? Assets with mission history will be set to OFFLINE instead of deleted.
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <TacButton
-              variant="danger"
-              size="sm"
-              onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)}
-              disabled={isPending}
-            >
-              {isPending ? 'PROCESSING...' : 'DECOMMISSION'}
-            </TacButton>
+          <TacModalFooter>
             <TacButton
               variant="ghost"
               size="sm"
@@ -124,7 +117,15 @@ export function AssetList({ assets }: AssetListProps) {
             >
               CANCEL
             </TacButton>
-          </div>
+            <TacButton
+              variant="danger"
+              size="sm"
+              onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)}
+              disabled={isPending}
+            >
+              {isPending ? 'PROCESSING...' : 'DECOMMISSION'}
+            </TacButton>
+          </TacModalFooter>
         </TacModalContent>
       </TacModal>
 

@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { TacButton } from '@/components/ui/tac-button';
+import { useConfirm } from '@/hooks/use-confirm';
 import { regenerateBootstrap, abandonBootstrap } from '@/actions/battlefield';
 
 interface BootstrapErrorProps {
@@ -20,6 +22,7 @@ export function BootstrapError({
 }: BootstrapErrorProps) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
+  const [confirm, ConfirmDialog] = useConfirm();
 
   async function handleRetry() {
     setIsPending(true);
@@ -28,23 +31,27 @@ export function BootstrapError({
       router.refresh();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to retry bootstrap';
-      alert(message);
+      toast.error(message);
     } finally {
       setIsPending(false);
     }
   }
 
   async function handleAbandon() {
-    if (!confirm('This will delete the battlefield and all associated data.')) {
-      return;
-    }
+    const result = await confirm({
+      title: 'ABANDON BATTLEFIELD',
+      description: 'This action is permanent and cannot be undone.',
+      body: <p>This will delete the battlefield and all associated data.</p>,
+      actions: [{ label: 'ABANDON', variant: 'danger' }],
+    });
+    if (result !== 0) return;
     setIsPending(true);
     try {
       await abandonBootstrap(battlefieldId);
       router.push('/');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to abandon bootstrap';
-      alert(message);
+      toast.error(message);
       setIsPending(false);
     }
   }
@@ -77,6 +84,8 @@ export function BootstrapError({
           ABANDON
         </TacButton>
       </div>
+
+      <ConfirmDialog />
     </div>
   );
 }

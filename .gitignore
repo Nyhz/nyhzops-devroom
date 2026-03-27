@@ -46,3 +46,4 @@ devroom.db
 devroom.db-wal
 devroom.db-shm
 .superpowers/
+.worktrees/

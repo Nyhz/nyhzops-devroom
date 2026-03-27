@@ -127,7 +127,7 @@ On submit:
    c. Wait for completion. If it fails, show the error but still create the battlefield (Commander can fix later).
    d. After scaffold, run `git add -A && git commit -m "Initial scaffold"`.
 5. Create battlefield record with status `initializing`.
-6. Create a bootstrap mission (type `bootstrap`, asset ARCHITECT, priority `critical`).
+6. Create a bootstrap mission (type `bootstrap`, asset PATHFINDER, priority `critical`).
 7. Queue the bootstrap mission immediately.
 8. Redirect to the battlefield page, which shows scaffold output (if any) followed by bootstrap in progress.
 
@@ -333,7 +333,7 @@ Server Component + Client children for real-time:
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  MISSION: Fix authentication bug                             │
-│  Status: ● IN COMBAT | Asset: ARCHITECT | Priority: HIGH    │
+│  Status: ● IN COMBAT | Asset: OPERATIVE | Priority: HIGH    │
 │  Battlefield: OPERATION THUNDER                              │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
@@ -412,7 +412,7 @@ Multi-phase operation. Phases execute sequentially. Within each phase, missions 
 │  │                                                          ││
 │  │  ┌─────────────────┐  ┌─────────────────┐               ││
 │  │  │ Code audit      │  │ Test coverage   │               ││
-│  │  │ ARCHITECT       │  │ ASSERT          │               ││
+│  │  │ OPERATIVE       │  │ ASSERT          │               ││
 │  │  │ ● ACCOMPLISHED  │  │ ● ACCOMPLISHED  │               ││
 │  │  │ 1m 9s  226.8K   │  │ 1m 36s  456.3K  │               ││
 │  │  └─────────────────┘  └─────────────────┘               ││
@@ -454,20 +454,16 @@ Phase containers: left border (green=secured, amber=active). Header: `Phase {n}`
 
 ### 7.1 Defaults (seeded)
 
-| Codename   | Specialty   | Description                                               |
-|------------|-------------|-----------------------------------------------------------|
-| ARCHITECT  | general     | Full-stack generalist. Follows project conventions.       |
-| ASSERT     | testing     | QA specialist. Tests, edge cases, coverage.               |
-| CANVAS     | frontend    | Frontend specialist. UI, styling, responsive.             |
-| CRITIC     | review      | Code reviewer. Issues, improvements.                      |
-| DISTILL    | docs        | Documentation specialist.                                 |
-| GOPHER     | backend     | Backend specialist. APIs, databases, logic.               |
-| REBASE     | devops      | Infrastructure, CI/CD, migrations.                        |
-| SCANNER    | security    | Security auditor. Vulnerabilities, hardening.             |
+| Codename    | Specialty              | Model  | Description                                               |
+|-------------|------------------------|--------|-----------------------------------------------------------|
+| PATHFINDER  | project bootstrapping  | Sonnet | Recon and initialization. Generates CLAUDE.md + SPEC.md.  |
+| GENERAL     | campaign leadership    | Opus   | Plans campaigns, assigns assets, defines execution order.  |
+| OPERATIVE   | mission execution      | Sonnet | Versatile executor. Features, bugs, refactoring, any task.|
+| WATCHDOG    | code review            | Sonnet | Reviews quality, security, performance, maintainability.   |
+| ASSERT      | testing                | Sonnet | Tests, edge cases, coverage analysis.                      |
+| DISTILL     | docs                   | Sonnet | Documentation maintainer. Keeps docs aligned with code.    |
 
-All default to `claude-sonnet-4-6`.
-
-### 7.2 Management — `/battlefields/[id]/assets`
+### 7.2 Management — `/assets`
 
 Grid of cards: codename, specialty, model, status, completed count. Edit, toggle offline, recruit new.
 

@@ -64,11 +64,7 @@ export function AssetForm({ editAsset, onClose }: AssetFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase mb-4">
-        {editAsset ? 'MODIFY ASSET' : 'RECRUIT NEW ASSET'}
-      </div>
-
+    <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-4">
       {error && (
         <div className="bg-dr-red/10 border border-dr-red text-dr-red font-tactical text-xs p-3">
           {error}
@@ -82,7 +78,7 @@ export function AssetForm({ editAsset, onClose }: AssetFormProps) {
         <TacInput
           value={codename}
           onChange={(e) => setCodename(e.target.value.toUpperCase())}
-          placeholder="e.g. ARCHITECT"
+          placeholder="e.g. OPERATIVE"
           required
         />
       </div>

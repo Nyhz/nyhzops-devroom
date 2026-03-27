@@ -1,9 +1,13 @@
+import { eq } from 'drizzle-orm';
+import { getDatabase } from '@/lib/db/index';
+import { battlefields } from '@/lib/db/schema';
 import { getGitStatus, getGitLog, getBranches } from '@/actions/git';
 import { GitStatus } from '@/components/git/git-status';
 import { GitLog } from '@/components/git/git-log';
 import { GitBranches } from '@/components/git/git-branches';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageWrapper } from '@/components/layout/page-wrapper';
+import { PageHeader } from '@/components/layout/page-header';
 
 export default async function GitPage({
   params,
@@ -18,17 +22,16 @@ export default async function GitPage({
     getBranches(id),
   ]);
 
+  const db = getDatabase();
+  const bf = db.select({ codename: battlefields.codename }).from(battlefields).where(eq(battlefields.id, id)).get();
+
   return (
     <PageWrapper className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-dr-amber text-sm font-tactical tracking-wider">
-            GIT OPERATIONS
-          </h1>
-          <p className="text-dr-dim text-xs font-tactical mt-1">
-            Branch: <span className="text-dr-green">{branches.current}</span>
-          </p>
-        </div>
+      <div>
+        <PageHeader codename={bf?.codename ?? ''} section="GIT" title="Git" />
+        <p className="text-dr-dim text-xs font-tactical mt-1">
+          Branch: <span className="text-dr-green">{branches.current}</span>
+        </p>
       </div>
 
       <Tabs defaultValue="status">

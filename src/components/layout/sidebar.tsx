@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getDatabase } from "@/lib/db/index";
-import { battlefields, assets, missions, campaigns } from "@/lib/db/schema";
+import { battlefields, missions, campaigns } from "@/lib/db/schema";
 import { count, eq } from "drizzle-orm";
 import { config } from "@/lib/config";
 import { BattlefieldSelector } from "./battlefield-selector";
@@ -12,12 +12,6 @@ export function Sidebar() {
   const db = getDatabase();
 
   const allBattlefields = db.select().from(battlefields).all() as Battlefield[];
-
-  const assetCountResult = db
-    .select({ value: count() })
-    .from(assets)
-    .all();
-  const assetCount = assetCountResult[0]?.value ?? 0;
 
   // Get per-battlefield counts — we'll pass all of them and let the client pick
   const missionCounts: Record<string, number> = {};
@@ -75,7 +69,6 @@ export function Sidebar() {
 
       {/* Nav links */}
       <SidebarNav
-        assetCount={assetCount}
         missionCounts={missionCounts}
         campaignCounts={campaignCounts}
       />
@@ -98,7 +91,7 @@ export function Sidebar() {
         <div className="mt-1.5 flex items-center gap-2">
           <span className="text-dr-dim text-sm">●</span>
           <span className="text-dr-dim text-sm">
-            0/{config.maxAgents} assets deployed
+            {globalThis.orchestrator?.getActiveCount() ?? 0}/{config.maxAgents} assets deployed
           </span>
         </div>
       </div>

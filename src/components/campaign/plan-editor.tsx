@@ -23,6 +23,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@/lib/utils';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacInput, TacTextarea } from '@/components/ui/tac-input';
+import { useConfirm } from '@/hooks/use-confirm';
 import { updateBattlePlan } from '@/actions/campaign';
 import type { PlanJSON, PlanPhase, PlanMission, MissionPriority } from '@/types';
 
@@ -413,6 +414,7 @@ function SortablePhaseItem({
   onDeleteMission: (missionIndex: number) => void;
   onAddMission: () => void;
 }) {
+  const [confirmDelete, ConfirmDeleteDialog] = useConfirm();
   const {
     attributes,
     listeners,
@@ -463,14 +465,14 @@ function SortablePhaseItem({
           {phase.missions.length} mission{phase.missions.length !== 1 ? 's' : ''}
         </span>
         <button
-          onClick={() => {
-            if (
-              phase.missions.length > 0 &&
-              !window.confirm(
-                `Delete phase "${phase.name || `Phase ${phaseIndex + 1}`}" and its ${phase.missions.length} mission(s)?`,
-              )
-            ) {
-              return;
+          onClick={async () => {
+            if (phase.missions.length > 0) {
+              const result = await confirmDelete({
+                title: 'DELETE PHASE',
+                description: `Delete "${phase.name || `Phase ${phaseIndex + 1}`}" and its ${phase.missions.length} mission(s)?`,
+                actions: [{ label: 'DELETE', variant: 'danger' }],
+              });
+              if (result !== 0) return;
             }
             onDeletePhase();
           }}
@@ -527,6 +529,8 @@ function SortablePhaseItem({
           </div>
         </SortableContext>
       </div>
+
+      <ConfirmDeleteDialog />
     </div>
   );
 }

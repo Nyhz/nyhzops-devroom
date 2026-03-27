@@ -164,51 +164,48 @@ export function MissionActions({
               {isPending ? 'REDEPLOYING...' : 'REDEPLOY'}
             </TacButton>
           )}
+          {canContinue && !showContinue && (
+            <TacButton
+              variant="primary"
+              onClick={() => setShowContinue(true)}
+              disabled={isPending}
+            >
+              CONTINUE MISSION
+            </TacButton>
+          )}
         </div>
 
-        {canContinue && (
+        {canContinue && showContinue && (
           <div className="space-y-3">
-            {!showContinue ? (
+            <h3 className="text-sm font-tactical text-dr-amber tracking-wider">
+              CONTINUE MISSION
+            </h3>
+            <TacTextarea
+              placeholder="Describe what to do next..."
+              value={continueBriefing}
+              onChange={(e) => setContinueBriefing(e.target.value)}
+              rows={4}
+              className="w-full"
+            />
+            <div className="flex gap-3">
               <TacButton
                 variant="primary"
-                onClick={() => setShowContinue(true)}
+                onClick={handleContinueDeploy}
+                disabled={isPending || !continueBriefing.trim()}
+              >
+                {isPending ? 'DEPLOYING...' : 'DEPLOY'}
+              </TacButton>
+              <TacButton
+                variant="ghost"
+                onClick={() => {
+                  setShowContinue(false);
+                  setContinueBriefing('');
+                }}
                 disabled={isPending}
               >
-                CONTINUE MISSION
+                CANCEL
               </TacButton>
-            ) : (
-              <div className="space-y-3">
-                <h3 className="text-sm font-tactical text-dr-amber tracking-wider">
-                  CONTINUE MISSION
-                </h3>
-                <TacTextarea
-                  placeholder="Describe what to do next..."
-                  value={continueBriefing}
-                  onChange={(e) => setContinueBriefing(e.target.value)}
-                  rows={4}
-                  className="w-full"
-                />
-                <div className="flex gap-3">
-                  <TacButton
-                    variant="primary"
-                    onClick={handleContinueDeploy}
-                    disabled={isPending || !continueBriefing.trim()}
-                  >
-                    {isPending ? 'DEPLOYING...' : 'DEPLOY'}
-                  </TacButton>
-                  <TacButton
-                    variant="ghost"
-                    onClick={() => {
-                      setShowContinue(false);
-                      setContinueBriefing('');
-                    }}
-                    disabled={isPending}
-                  >
-                    CANCEL
-                  </TacButton>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
       </div>

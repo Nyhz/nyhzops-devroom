@@ -146,7 +146,7 @@ export default async function BattlefieldOverviewPage({
     .leftJoin(assets, eq(missions.assetId, assets.id))
     .where(eq(missions.battlefieldId, id))
     .orderBy(
-      sql`CASE ${missions.status} WHEN 'in_combat' THEN 0 WHEN 'deploying' THEN 1 WHEN 'queued' THEN 2 WHEN 'standby' THEN 3 WHEN 'accomplished' THEN 4 WHEN 'compromised' THEN 5 WHEN 'abandoned' THEN 6 END`,
+      sql`CASE ${missions.status} WHEN 'in_combat' THEN 0 WHEN 'deploying' THEN 1 WHEN 'reviewing' THEN 2 WHEN 'queued' THEN 3 WHEN 'standby' THEN 4 WHEN 'accomplished' THEN 5 WHEN 'compromised' THEN 6 WHEN 'abandoned' THEN 7 END`,
       desc(missions.createdAt)
     )
     .all();

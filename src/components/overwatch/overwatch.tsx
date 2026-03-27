@@ -151,9 +151,6 @@ function OverwatchDashboard({
   const [flashKeys, setFlashKeys] = useState<Set<string>>(new Set());
   const prevStats = useRef(initialStats);
 
-  // Track which mission rooms we're subscribed to
-  const subscribedRooms = useRef<Set<string>>(new Set());
-
   // Detect stat changes and flash
   useEffect(() => {
     const changed = new Set<string>();
@@ -172,58 +169,37 @@ function OverwatchDashboard({
     }
   }, [stats]);
 
-  // Subscribe to active mission rooms for multiplexed comms
+  // Socket.IO event handlers — only high-level events, not raw mission logs
   useEffect(() => {
     if (!socket) return;
 
-    const activeMissionIds = liveMissions
-      .filter((m) => m.status === 'in_combat' || m.status === 'deploying')
-      .map((m) => m.id);
-
-    // Subscribe to new rooms
-    for (const id of activeMissionIds) {
-      if (!subscribedRooms.current.has(id)) {
-        socket.emit('mission:subscribe', id);
-        subscribedRooms.current.add(id);
-      }
-    }
-
-    // Unsubscribe from finished rooms
-    for (const id of subscribedRooms.current) {
-      if (!activeMissionIds.includes(id)) {
-        socket.emit('mission:unsubscribe', id);
-        subscribedRooms.current.delete(id);
-      }
-    }
-  }, [socket, liveMissions]);
-
-  // Socket.IO event handlers
-  useEffect(() => {
-    if (!socket) return;
-
-    // Mission log — multiplexed comms
-    const handleLog = (data: { missionId: string; timestamp: number; type: string; content: string }) => {
-      const mission = liveMissions.find((m) => m.id === data.missionId);
-      const title = mission?.title ?? data.missionId.slice(0, 8);
+    const addCommsEntry = (
+      battlefieldCodename: string,
+      content: string,
+      type: CommsEntry['type'],
+    ) => {
       commsIdCounter.current += 1;
       setCommsLog((prev) => {
         const next = [
           ...prev,
           {
             id: `comms-${commsIdCounter.current}`,
-            missionTitle: title,
-            content: data.content,
-            type: 'log' as const,
-            timestamp: data.timestamp,
+            missionTitle: battlefieldCodename,
+            content,
+            type,
+            timestamp: Date.now(),
           },
         ];
-        // Keep last 200 lines
         return next.length > 200 ? next.slice(next.length - 200) : next;
       });
     };
 
     // Mission status changes
     const handleStatus = (data: { missionId: string; status: string }) => {
+      const mission = liveMissions.find((m) => m.id === data.missionId);
+      const codename = mission?.battlefieldCodename ?? 'UNKNOWN';
+      const title = mission?.title ?? data.missionId.slice(0, 8);
+
       setLiveMissions((prev) =>
         prev.map((m) => (m.id === data.missionId ? { ...m, status: data.status } : m)),
       );
@@ -244,45 +220,52 @@ function OverwatchDashboard({
           playCompromised();
         } else if (data.status === 'queued') {
           updated.queued = prev.queued + 1;
+        } else if (data.status === 'reviewing') {
+          updated.inCombat = Math.max(0, prev.inCombat - 1);
         }
         return updated;
       });
 
-      // Add completion entries to comms
-      const mission = liveMissions.find((m) => m.id === data.missionId);
-      const title = mission?.title ?? data.missionId.slice(0, 8);
-      if (data.status === 'accomplished' || data.status === 'compromised') {
-        commsIdCounter.current += 1;
-        setCommsLog((prev) => [
-          ...prev,
-          {
-            id: `comms-${commsIdCounter.current}`,
-            missionTitle: title,
-            content: data.status === 'accomplished' ? 'MISSION ACCOMPLISHED' : 'MISSION COMPROMISED',
-            type: data.status as 'accomplished' | 'compromised',
-            timestamp: Date.now(),
-          },
-        ]);
+      // Add status change to comms
+      const statusLabel = data.status.toUpperCase().replace('_', ' ');
+      if (data.status === 'accomplished') {
+        addCommsEntry(codename, `MISSION ACCOMPLISHED — ${title}`, 'accomplished');
+      } else if (data.status === 'compromised') {
+        addCommsEntry(codename, `MISSION COMPROMISED — ${title}`, 'compromised');
+      } else {
+        addCommsEntry(codename, `${title} → ${statusLabel}`, 'status');
       }
     };
 
-    // Captain escalation
+    // Activity events (mission created, captain events, notifications, etc.)
     const handleActivity = (event: ActivityEvent) => {
+      const codename = event.battlefieldCodename ?? 'SYSTEM';
+
       if (event.type.includes('captain') || event.type.includes('escalat')) {
+        playEscalation();
+      }
+
+      addCommsEntry(codename, `${event.missionTitle ?? event.type}${event.detail ? ` — ${event.detail}` : ''}`, 'log');
+    };
+
+    // Notifications
+    const handleNotification = (data: { title: string; detail?: string; level: string }) => {
+      addCommsEntry('CAPTAIN', `${data.title}${data.detail ? ` — ${data.detail}` : ''}`, data.level === 'warning' ? 'compromised' : 'status');
+      if (data.level === 'warning') {
         playEscalation();
       }
     };
 
-    socket.on('mission:log', handleLog);
     socket.on('mission:status', handleStatus);
     socket.on('activity:event', handleActivity);
+    socket.on('notification:new', handleNotification);
 
     return () => {
-      socket.off('mission:log', handleLog);
       socket.off('mission:status', handleStatus);
       socket.off('activity:event', handleActivity);
+      socket.off('notification:new', handleNotification);
     };
-  }, [socket, liveMissions]);
+  }, [socket, liveMissions, battlefieldSummaries]);
 
   // Auto-scroll comms
   useEffect(() => {
@@ -369,7 +352,7 @@ function OverwatchDashboard({
         <main className="flex flex-col min-h-0">
           <div className="px-6 py-3 border-b border-dr-border flex items-center justify-between shrink-0">
             <span className="text-dr-amber font-tactical text-sm tracking-widest uppercase">
-              MULTIPLEXED COMMS
+              OPERATIONS FEED
             </span>
             <span className="text-dr-dim font-data text-sm">
               {liveMissions.filter((m) => m.status === 'in_combat' || m.status === 'deploying').length} active streams
@@ -565,9 +548,8 @@ function CommsLine({ entry }: { entry: CommsEntry }) {
   if (entry.type === 'accomplished') {
     return (
       <div className="py-0.5">
-        <span className="text-dr-green font-tactical">
-          &#10003; [{entry.missionTitle}] ACCOMPLISHED
-        </span>
+        <span className="text-dr-amber">[{entry.missionTitle}]</span>{' '}
+        <span className="text-dr-green font-tactical">{entry.content}</span>
       </div>
     );
   }
@@ -575,9 +557,8 @@ function CommsLine({ entry }: { entry: CommsEntry }) {
   if (entry.type === 'compromised') {
     return (
       <div className="py-0.5">
-        <span className="text-dr-red font-tactical">
-          &#10007; [{entry.missionTitle}] COMPROMISED
-        </span>
+        <span className="text-dr-amber">[{entry.missionTitle}]</span>{' '}
+        <span className="text-dr-red font-tactical">{entry.content}</span>
       </div>
     );
   }

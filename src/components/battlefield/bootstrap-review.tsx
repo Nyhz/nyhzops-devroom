@@ -7,6 +7,7 @@ import { TacButton } from "@/components/ui/tac-button";
 import { TacTextarea } from "@/components/ui/tac-input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Markdown } from "@/components/ui/markdown";
+import { useConfirm } from "@/hooks/use-confirm";
 import {
   approveBootstrap,
   regenerateBootstrap,
@@ -30,6 +31,7 @@ export function BootstrapReview({
   initialSpecMd,
 }: BootstrapReviewProps) {
   const router = useRouter();
+  const [confirm, ConfirmDialog] = useConfirm();
 
   const [claudeMd, setClaudeMd] = useState(initialClaudeMd);
   const [specMd, setSpecMd] = useState(initialSpecMd);
@@ -103,13 +105,13 @@ export function BootstrapReview({
   }
 
   async function handleAbandon() {
-    if (
-      !confirm(
-        "This will delete the battlefield and all associated data.",
-      )
-    ) {
-      return;
-    }
+    const result = await confirm({
+      title: 'ABANDON BATTLEFIELD',
+      description: 'This action is permanent and cannot be undone.',
+      body: <p>This will delete the battlefield and all associated data.</p>,
+      actions: [{ label: 'ABANDON', variant: 'danger' }],
+    });
+    if (result !== 0) return;
     setIsPending(true);
     try {
       await abandonBootstrap(battlefieldId);
@@ -266,6 +268,8 @@ export function BootstrapReview({
           ABANDON
         </TacButton>
       </div>
+
+      <ConfirmDialog />
     </div>
   );
 }

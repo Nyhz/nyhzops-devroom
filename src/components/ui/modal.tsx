@@ -24,6 +24,7 @@ export function TacModalContent({
     <DialogContent
       className={cn(
         'bg-dr-surface border border-dr-border text-dr-text font-tactical',
+        'rounded-none sm:max-w-lg p-0 gap-0 ring-0',
         className,
       )}
       {...props}
@@ -35,7 +36,12 @@ export function TacModalHeader({
   className,
   ...props
 }: React.ComponentProps<typeof DialogHeader>) {
-  return <DialogHeader className={cn(className)} {...props} />;
+  return (
+    <DialogHeader
+      className={cn('p-5 pb-3', className)}
+      {...props}
+    />
+  );
 }
 
 export function TacModalTitle({
@@ -55,7 +61,7 @@ export function TacModalDescription({
   ...props
 }: React.ComponentProps<typeof DialogDescription>) {
   return (
-    <DialogDescription className={cn('text-dr-muted', className)} {...props} />
+    <DialogDescription className={cn('text-dr-muted font-data text-xs', className)} {...props} />
   );
 }
 
@@ -66,7 +72,7 @@ export function TacModalFooter({
   return (
     <DialogFooter
       className={cn(
-        'border-t-dr-border bg-dr-elevated',
+        'mx-0 mb-0 rounded-none border-t border-t-dr-border bg-dr-elevated p-4 flex-row justify-center',
         className,
       )}
       {...props}

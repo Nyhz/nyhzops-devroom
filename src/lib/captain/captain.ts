@@ -1,5 +1,4 @@
 import { spawn } from 'child_process';
-import fs from 'fs';
 import { config } from '@/lib/config';
 import type { CaptainLog, CaptainConfidence } from '@/types';
 
@@ -135,16 +134,11 @@ function parseDecision(raw: string): CaptainDecision {
 export async function askCaptain(params: AskCaptainParams): Promise<CaptainDecision> {
   const prompt = buildCaptainPrompt(params);
 
-  // Write prompt to temp file to avoid shell arg length limits
-  const tmpFile = `/tmp/devroom-captain-prompt-${Date.now()}.txt`;
-  fs.writeFileSync(tmpFile, prompt, 'utf-8');
-
   return new Promise<CaptainDecision>((resolve) => {
     const proc = spawn(config.claudePath, [
       '--print',
       '--dangerously-skip-permissions',
       '--max-turns', '1',
-      '--prompt-file', tmpFile,
     ], { cwd: '/tmp' });
 
     let stdout = '';
@@ -153,10 +147,10 @@ export async function askCaptain(params: AskCaptainParams): Promise<CaptainDecis
     proc.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
     proc.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); });
 
-    proc.on('close', (code) => {
-      // Clean up temp file
-      try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
+    proc.stdin?.write(prompt);
+    proc.stdin?.end();
 
+    proc.on('close', (code) => {
       if (code === 0 && stdout.trim()) {
         resolve(parseDecision(stdout));
       } else {
@@ -171,7 +165,6 @@ export async function askCaptain(params: AskCaptainParams): Promise<CaptainDecis
     });
 
     proc.on('error', (err) => {
-      try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
       console.error(`[Captain] Spawn error:`, err.message);
       resolve({
         answer: 'Proceed with your best judgment based on the project conventions.',

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacCard } from '@/components/ui/tac-card';
 import { TacBadge } from '@/components/ui/tac-badge';
+import { useConfirm } from '@/hooks/use-confirm';
 import { toggleScheduledTask, deleteScheduledTask } from '@/actions/schedule';
 import { formatCronHuman } from '@/lib/scheduler/cron';
 import { formatRelativeTime } from '@/lib/utils';
@@ -27,6 +28,7 @@ export function ScheduleList({
   const [editingTask, setEditingTask] = useState<ScheduledTask | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [confirm, ConfirmDialog] = useConfirm();
 
   function handleToggle(task: ScheduledTask) {
     startTransition(async () => {
@@ -39,8 +41,13 @@ export function ScheduleList({
     });
   }
 
-  function handleDelete(task: ScheduledTask) {
-    if (!confirm(`Delete scheduled task "${task.name}"?`)) return;
+  async function handleDelete(task: ScheduledTask) {
+    const result = await confirm({
+      title: 'DELETE SCHEDULED TASK',
+      description: `Delete "${task.name}"? This cannot be undone.`,
+      actions: [{ label: 'DELETE', variant: 'danger' }],
+    });
+    if (result !== 0) return;
     startTransition(async () => {
       try {
         await deleteScheduledTask(task.id);
@@ -102,11 +109,7 @@ export function ScheduleList({
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-dr-amber font-tactical text-sm uppercase tracking-wider">
-          Scheduled Tasks
-        </h2>
+      <div className="flex items-center justify-end">
         <TacButton size="sm" onClick={() => setShowCreate(true)}>
           + New Task
         </TacButton>
@@ -212,6 +215,8 @@ export function ScheduleList({
           </TacCard>
         ))}
       </div>
+
+      <ConfirmDialog />
     </div>
   );
 }

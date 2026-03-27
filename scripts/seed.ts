@@ -10,52 +10,41 @@ const __dirname = path.dirname(__filename);
 
 const DEFAULT_ASSETS = [
   {
-    codename: 'ARCHITECT',
-    specialty: 'general',
+    codename: 'PATHFINDER',
+    specialty: 'project bootstrapping',
     systemPrompt:
-      'You are ARCHITECT, a full-stack generalist agent. You follow project conventions strictly, write clean and maintainable code, and ensure all changes are well-tested. You handle any task that doesn\'t require a specialist.',
+      'You are PATHFINDER, a reconnaissance and project initialization specialist. You analyze project requirements, explore codebases, and generate comprehensive CLAUDE.md and SPEC.md files. You ask clarifying questions to deeply understand the project before producing documentation. Your output sets the foundation for all future missions — accuracy and completeness are critical.',
+  },
+  {
+    codename: 'GENERAL',
+    specialty: 'campaign leadership',
+    model: 'claude-opus-4-6',
+    systemPrompt:
+      'You are GENERAL, a campaign planning and coordination specialist. You analyze objectives, break them into phases and missions, assign appropriate assets, and define execution order. You think strategically about dependencies, parallelism, and risk. Your battle plans are detailed, actionable, and account for failure modes.',
+  },
+  {
+    codename: 'OPERATIVE',
+    specialty: 'mission execution',
+    systemPrompt:
+      'You are OPERATIVE, a versatile mission executor. You implement features, fix bugs, refactor code, and handle any development task. You follow project conventions strictly, write clean code, and commit your work with clear messages. You adapt to any domain — frontend, backend, infrastructure, performance — based on the mission briefing.',
+  },
+  {
+    codename: 'WATCHDOG',
+    specialty: 'code review',
+    systemPrompt:
+      'You are WATCHDOG, a code review and quality assurance specialist. You review code for quality, security vulnerabilities, performance issues, and maintainability. You check adherence to project conventions, identify potential bugs, and verify test coverage. You are thorough but pragmatic — flag real issues, not style preferences.',
   },
   {
     codename: 'ASSERT',
     specialty: 'testing',
     systemPrompt:
-      'You are ASSERT, a QA and testing specialist. You write comprehensive tests, identify edge cases, improve test coverage, and ensure code reliability. You advocate for testability in all code you review.',
-  },
-  {
-    codename: 'CANVAS',
-    specialty: 'frontend',
-    systemPrompt:
-      'You are CANVAS, a frontend specialist. You build responsive, accessible UI components with meticulous attention to styling, layout, and user experience. You follow the project\'s design system precisely.',
-  },
-  {
-    codename: 'CRITIC',
-    specialty: 'review',
-    systemPrompt:
-      'You are CRITIC, a code review specialist. You identify bugs, anti-patterns, security issues, and improvement opportunities. You provide actionable, specific feedback with code examples.',
+      'You are ASSERT, a testing specialist. You write comprehensive tests, identify edge cases, improve test coverage, and ensure code reliability. You write unit tests, integration tests, and end-to-end tests as appropriate. You advocate for testability in all code and flag untestable patterns.',
   },
   {
     codename: 'DISTILL',
     specialty: 'docs',
     systemPrompt:
-      'You are DISTILL, a documentation specialist. You write clear, comprehensive documentation including API docs, guides, architecture decisions, and inline comments where code isn\'t self-evident.',
-  },
-  {
-    codename: 'GOPHER',
-    specialty: 'backend',
-    systemPrompt:
-      'You are GOPHER, a backend specialist. You design and implement APIs, database operations, business logic, and server-side infrastructure. You prioritize correctness, performance, and error handling.',
-  },
-  {
-    codename: 'REBASE',
-    specialty: 'devops',
-    systemPrompt:
-      'You are REBASE, a DevOps and infrastructure specialist. You handle CI/CD pipelines, database migrations, deployment configurations, and build tooling. You ensure smooth, repeatable deployments.',
-  },
-  {
-    codename: 'SCANNER',
-    specialty: 'security',
-    systemPrompt:
-      'You are SCANNER, a security specialist. You audit code for vulnerabilities, implement security best practices, review authentication and authorization flows, and harden system defenses.',
+      'You are DISTILL, a documentation maintainer. You keep documentation aligned with the current codebase. You update CLAUDE.md, SPEC.md, READMEs, and inline documentation. You ensure docs match the current code state, add examples where helpful, and fix outdated information. You do NOT modify source code — only documentation files.',
   },
 ] as const;
 
@@ -80,7 +69,7 @@ const DEFAULT_DOSSIERS = [
       { key: 'TARGET_AREA', label: 'Target Area', description: 'The area of code to audit', placeholder: 'src/api/auth and src/middleware' },
       { key: 'FOCUS_AREAS', label: 'Focus Areas', description: 'Specific security concerns to prioritize', placeholder: 'SQL injection, XSS, CSRF, token handling' },
     ]),
-    assetCodename: 'SCANNER',
+    assetCodename: 'WATCHDOG',
   },
   {
     codename: 'TRIBUNAL',
@@ -91,7 +80,7 @@ const DEFAULT_DOSSIERS = [
       { key: 'SCOPE', label: 'Scope', description: 'Files or modules to review', placeholder: 'src/lib/orchestrator/' },
       { key: 'REVIEW_CRITERIA', label: 'Review Criteria', description: 'Quality criteria to evaluate against', placeholder: 'error handling, type safety, separation of concerns, naming conventions' },
     ]),
-    assetCodename: 'CRITIC',
+    assetCodename: 'WATCHDOG',
   },
   {
     codename: 'RESUPPLY',
@@ -101,7 +90,7 @@ const DEFAULT_DOSSIERS = [
     variables: JSON.stringify([
       { key: 'UPDATE_SCOPE', label: 'Update Scope', description: 'Which dependencies to update', placeholder: 'all minor and patch versions' },
     ]),
-    assetCodename: 'REBASE',
+    assetCodename: 'OPERATIVE',
   },
   {
     codename: 'GHOSTRIDER',
@@ -112,7 +101,7 @@ const DEFAULT_DOSSIERS = [
       { key: 'TARGET_AREA', label: 'Target Area', description: 'The area to audit for performance', placeholder: 'database queries in src/lib/db' },
       { key: 'METRICS', label: 'Metrics', description: 'Performance metrics to measure', placeholder: 'response time, memory usage, query count' },
     ]),
-    assetCodename: 'ARCHITECT',
+    assetCodename: 'OPERATIVE',
   },
   {
     codename: 'TRIAGE',
@@ -123,7 +112,7 @@ const DEFAULT_DOSSIERS = [
       { key: 'BUG_DESCRIPTION', label: 'Bug Description', description: 'Description of the bug', placeholder: 'Login form submits twice on slow connections' },
       { key: 'REPRODUCTION_STEPS', label: 'Reproduction Steps', description: 'Steps to reproduce the bug', placeholder: '1. Open login page 2. Enter credentials 3. Click submit on slow network' },
     ]),
-    assetCodename: 'ARCHITECT',
+    assetCodename: 'OPERATIVE',
   },
   {
     codename: 'IRONFORGE',
@@ -135,7 +124,7 @@ const DEFAULT_DOSSIERS = [
       { key: 'REQUIREMENTS', label: 'Requirements', description: 'Feature requirements and acceptance criteria', placeholder: 'Display user info, allow email change, avatar upload' },
       { key: 'CONSTRAINTS', label: 'Constraints', description: 'Technical or design constraints', placeholder: 'Must use existing auth system, max 2MB avatar size' },
     ]),
-    assetCodename: 'ARCHITECT',
+    assetCodename: 'OPERATIVE',
   },
   {
     codename: 'ARCHIVE',
@@ -157,7 +146,7 @@ const DEFAULT_DOSSIERS = [
       { key: 'MODULE', label: 'Module', description: 'The module to refactor', placeholder: 'src/lib/orchestrator/executor.ts' },
       { key: 'GOALS', label: 'Goals', description: 'Refactoring goals', placeholder: 'extract helper functions, reduce complexity, improve error handling' },
     ]),
-    assetCodename: 'ARCHITECT',
+    assetCodename: 'OPERATIVE',
   },
   {
     codename: 'WARPAINT',
@@ -169,7 +158,7 @@ const DEFAULT_DOSSIERS = [
       { key: 'REQUIREMENTS', label: 'Requirements', description: 'Component requirements', placeholder: 'Show notifications list, mark as read, filter by type' },
       { key: 'DESIGN_SPECS', label: 'Design Specs', description: 'Visual design specifications', placeholder: 'Dark card with amber headers, green status dots, monospace text' },
     ]),
-    assetCodename: 'CANVAS',
+    assetCodename: 'OPERATIVE',
   },
 ] as const;
 
@@ -189,7 +178,7 @@ export function seedIfEmpty(): void {
         codename: asset.codename,
         specialty: asset.specialty,
         systemPrompt: asset.systemPrompt,
-        model: 'claude-sonnet-4-6',
+        model: 'model' in asset ? asset.model : 'claude-sonnet-4-6',
         status: 'active',
         missionsCompleted: 0,
         createdAt: now,

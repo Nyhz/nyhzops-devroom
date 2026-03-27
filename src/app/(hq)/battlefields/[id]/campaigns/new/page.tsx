@@ -1,5 +1,9 @@
+import { eq } from 'drizzle-orm';
+import { getDatabase } from '@/lib/db/index';
+import { battlefields } from '@/lib/db/schema';
 import { NewCampaignForm } from './form';
 import { PageWrapper } from '@/components/layout/page-wrapper';
+import { PageHeader } from '@/components/layout/page-header';
 
 export default async function NewCampaignPage({
   params,
@@ -7,20 +11,12 @@ export default async function NewCampaignPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const db = getDatabase();
+  const bf = db.select({ codename: battlefields.codename }).from(battlefields).where(eq(battlefields.id, id)).get();
 
   return (
     <PageWrapper maxWidth className="flex flex-col gap-6">
-      {/* Breadcrumb */}
-      <div className="font-tactical text-xs text-dr-dim uppercase tracking-wider">
-        CAMPAIGNS // NEW
-      </div>
-
-      {/* Title */}
-      <h1 className="font-tactical text-lg text-dr-amber uppercase tracking-wider">
-        NEW CAMPAIGN
-      </h1>
-
-      {/* Form */}
+      <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title="New Campaign" />
       <NewCampaignForm battlefieldId={id} />
     </PageWrapper>
   );

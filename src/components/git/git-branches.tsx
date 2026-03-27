@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacInput } from '@/components/ui/tac-input';
 import { cn } from '@/lib/utils';
+import { useConfirm } from '@/hooks/use-confirm';
 import { checkoutBranch, deleteBranch, createBranch } from '@/actions/git';
 import type { GitBranchesResult } from '@/types';
 
@@ -18,6 +19,7 @@ export function GitBranches({ battlefieldId, initialBranches, className }: GitBr
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [newBranchName, setNewBranchName] = useState('');
+  const [confirm, ConfirmDialog] = useConfirm();
 
   const { current, local } = initialBranches;
 
@@ -32,8 +34,13 @@ export function GitBranches({ battlefieldId, initialBranches, className }: GitBr
     runAction(() => checkoutBranch(battlefieldId, branch));
   }
 
-  function handleDelete(branch: string) {
-    if (!confirm(`Delete branch "${branch}"? This cannot be undone.`)) return;
+  async function handleDelete(branch: string) {
+    const result = await confirm({
+      title: 'DELETE BRANCH',
+      description: `Delete branch "${branch}"? This cannot be undone.`,
+      actions: [{ label: 'DELETE', variant: 'danger' }],
+    });
+    if (result !== 0) return;
     runAction(() => deleteBranch(battlefieldId, branch));
   }
 
@@ -143,6 +150,8 @@ export function GitBranches({ battlefieldId, initialBranches, className }: GitBr
           })
         )}
       </div>
+
+      <ConfirmDialog />
     </div>
   );
 }

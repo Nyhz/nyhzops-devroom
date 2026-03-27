@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { PageWrapper } from '@/components/layout/page-wrapper';
+import { PageHeader } from '@/components/layout/page-header';
 import { listCampaigns, listTemplates, runTemplate } from '@/actions/campaign';
 import { getDatabase } from '@/lib/db/index';
-import { phases, missions } from '@/lib/db/schema';
+import { battlefields, phases, missions } from '@/lib/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacCard } from '@/components/ui/tac-card';
@@ -29,8 +31,10 @@ export default async function CampaignsPage({
   const campaignList = allCampaigns.filter((c) => !c.isTemplate);
   const templateList = await listTemplates(id);
 
-  // Gather phase/mission counts per campaign
   const db = getDatabase();
+  const bf = db.select({ codename: battlefields.codename }).from(battlefields).where(eq(battlefields.id, id)).get();
+
+  // Gather phase/mission counts per campaign
   const counts = campaignList.map((c) => {
     const campaignPhases = db
       .select({ id: phases.id })
@@ -74,18 +78,14 @@ export default async function CampaignsPage({
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="font-tactical text-lg text-dr-amber uppercase tracking-wider">
-          CAMPAIGNS
-        </h1>
+    <PageWrapper>
+      <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title="Campaigns">
         <Link href={`/battlefields/${id}/campaigns/new`}>
           <TacButton variant="primary" size="sm">
             + NEW CAMPAIGN
           </TacButton>
         </Link>
-      </div>
+      </PageHeader>
 
       {/* Campaign grid */}
       {campaignList.length === 0 ? (
@@ -175,6 +175,6 @@ export default async function CampaignsPage({
           </div>
         )}
       </div>
-    </div>
+    </PageWrapper>
   );
 }

@@ -168,7 +168,7 @@ All tables use ULID primary keys (TEXT). Timestamps are Unix milliseconds (INTEG
 | Column | Type | Notes |
 |--------|------|-------|
 | id | TEXT PK | ULID |
-| codename | TEXT NOT NULL UNIQUE | e.g. "ARCHITECT" |
+| codename | TEXT NOT NULL UNIQUE | e.g. "OPERATIVE" |
 | specialty | TEXT NOT NULL | |
 | systemPrompt | TEXT | |
 | model | TEXT DEFAULT 'claude-sonnet-4-6' | |

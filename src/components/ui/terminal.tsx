@@ -1,7 +1,6 @@
 "use client"
 
-import { useRef, useEffect } from 'react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useRef, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
 interface LogEntry {
@@ -15,11 +14,20 @@ interface TerminalProps {
   className?: string;
 }
 
+interface DisplayEntry {
+  timestamp: number;
+  type: 'log' | 'status' | 'error';
+  content: string;
+  count: number;
+}
+
 const typeStyles = {
   log: 'text-dr-muted',
   status: 'text-dr-green',
   error: 'text-dr-red',
 } as const;
+
+const TOOL_PATTERN = /^Tool: \w+$/;
 
 function formatTimestamp(ms: number): string {
   const d = new Date(ms);
@@ -31,26 +39,64 @@ function formatTimestamp(ms: number): string {
   });
 }
 
+function groupLogs(logs: LogEntry[]): DisplayEntry[] {
+  const result: DisplayEntry[] = [];
+
+  for (const entry of logs) {
+    const prev = result[result.length - 1];
+    const isToolCall = TOOL_PATTERN.test(entry.content.trim());
+
+    if (
+      isToolCall &&
+      prev &&
+      prev.content.trim() === entry.content.trim() &&
+      prev.type === entry.type
+    ) {
+      prev.count++;
+      prev.timestamp = entry.timestamp;
+    } else {
+      result.push({ ...entry, count: 1 });
+    }
+  }
+
+  return result;
+}
+
 export function Terminal({ logs, className }: TerminalProps) {
-  const endRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const grouped = useMemo(() => groupLogs(logs), [logs]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs.length]);
+    const el = containerRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [grouped.length]);
 
   return (
-    <ScrollArea className={cn('max-h-96 bg-dr-bg p-3', className)}>
+    <div
+      ref={containerRef}
+      className={cn(
+        'h-[480px] overflow-y-auto bg-dr-bg p-3 border border-dr-border',
+        className,
+      )}
+    >
       <div className="space-y-0.5 font-data text-xs">
-        {logs.map((entry, i) => (
+        {grouped.map((entry, i) => (
           <div key={`${entry.timestamp}-${i}`} className="flex gap-3 leading-relaxed">
             <span className="text-dr-dim shrink-0 select-none">
               {formatTimestamp(entry.timestamp)}
             </span>
-            <span className={typeStyles[entry.type]}>{entry.content}</span>
+            <span className={typeStyles[entry.type]}>
+              {entry.content}
+              {entry.count > 1 && (
+                <span className="text-dr-dim ml-1.5">({entry.count})</span>
+              )}
+            </span>
           </div>
         ))}
-        <div ref={endRef} />
       </div>
-    </ScrollArea>
+    </div>
   );
 }

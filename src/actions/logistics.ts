@@ -102,9 +102,10 @@ export async function getGlobalStats(): Promise<GlobalStats> {
     totalCacheTokens += row.sumCache;
   }
 
+  const totalInputContext = totalInputTokens + totalCacheTokens;
   const cacheHitPercent =
-    totalInputTokens > 0
-      ? Math.round((totalCacheTokens / totalInputTokens) * 100)
+    totalInputContext > 0
+      ? Math.round((totalCacheTokens / totalInputContext) * 100)
       : 0;
 
   return {

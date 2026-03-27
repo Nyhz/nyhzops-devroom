@@ -5,9 +5,9 @@ import { getMission } from '@/actions/mission';
 import { getCaptainLogs } from '@/actions/captain';
 import { getDatabase } from '@/lib/db/index';
 import { missionLogs } from '@/lib/db/schema';
-import { TacBadge } from '@/components/ui/tac-badge';
-import { Markdown } from '@/components/ui/markdown';
+import { LiveStatusBadge } from '@/components/mission/live-status-badge';
 import { MissionComms } from '@/components/mission/mission-comms';
+import { PageWrapper } from '@/components/layout/page-wrapper';
 import { formatRelativeTime } from '@/lib/utils';
 
 export default async function MissionDetailPage({
@@ -35,7 +35,7 @@ export default async function MissionDetailPage({
   const status = mission.status ?? 'standby';
 
   return (
-    <div className="space-y-6">
+    <PageWrapper>
       {/* Header */}
       <div className="space-y-3">
         <div className="text-xs font-tactical text-dr-dim tracking-wider">
@@ -50,7 +50,7 @@ export default async function MissionDetailPage({
           MISSION: {mission.title}
         </h1>
         <div className="flex items-center gap-4 text-xs font-tactical">
-          <TacBadge status={status} />
+          <LiveStatusBadge missionId={missionId} initialStatus={status} />
           <span className="text-dr-muted">
             Asset:{' '}
             <span className="text-dr-text">
@@ -72,8 +72,10 @@ export default async function MissionDetailPage({
           </h2>
           <div className="h-px bg-dr-border" />
         </div>
-        <div className="font-data text-sm leading-relaxed">
-          <Markdown content={mission.briefing} />
+        <div className="bg-dr-surface border border-dr-border p-4 font-data text-sm leading-relaxed">
+          {mission.briefing.split('\n').filter(Boolean).map((paragraph, i) => (
+            <p key={i} className="text-dr-text mb-2 last:mb-0">{paragraph}</p>
+          ))}
         </div>
       </div>
 
@@ -150,6 +152,6 @@ export default async function MissionDetailPage({
           </div>
         </div>
       )}
-    </div>
+    </PageWrapper>
   );
 }

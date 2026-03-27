@@ -1,4 +1,6 @@
 import { notFound } from 'next/navigation';
+import { PageWrapper } from '@/components/layout/page-wrapper';
+import { PageHeader } from '@/components/layout/page-header';
 import { getBattlefield } from '@/actions/battlefield';
 import { ConfigForm } from '@/components/config/config-form';
 
@@ -15,18 +17,9 @@ export default async function ConfigPage({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <div className="text-dr-dim font-tactical text-xs tracking-wider mb-1">
-          {battlefield.codename} // SETTINGS
-        </div>
-        <h1 className="text-dr-amber font-tactical text-lg tracking-wider uppercase">
-          Configuration
-        </h1>
-      </div>
+    <PageWrapper>
+      <PageHeader codename={battlefield.codename} section="CONFIG" title="Config" />
 
-      {/* Config form */}
       <ConfigForm
         id={battlefield.id}
         name={battlefield.name}
@@ -40,6 +33,6 @@ export default async function ConfigPage({
         claudeMdPath={battlefield.claudeMdPath}
         specMdPath={battlefield.specMdPath}
       />
-    </div>
+    </PageWrapper>
   );
 }

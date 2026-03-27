@@ -127,13 +127,15 @@ async function resolveConflicts(
       '--print',
       '--dangerously-skip-permissions',
       '--max-turns', '20',
-      '--prompt', prompt,
     ], {
       cwd: repoPath,
     });
 
     // We don't need stdout — just the exit code tells us if resolution succeeded
     proc.stdout?.resume(); // Drain stdout to prevent backpressure
+
+    proc.stdin?.write(prompt);
+    proc.stdin?.end();
 
     proc.on('close', (code) => {
       resolve(code === 0);

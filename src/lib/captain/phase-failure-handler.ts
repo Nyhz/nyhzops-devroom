@@ -1,5 +1,4 @@
 import { spawn } from 'child_process';
-import fs from 'fs';
 import { eq, and, like } from 'drizzle-orm';
 import { config } from '@/lib/config';
 import { getDatabase } from '@/lib/db/index';
@@ -149,15 +148,11 @@ export async function handlePhaseFailure(params: {
 
   const prompt = buildPhaseFailurePrompt(params);
 
-  const tmpFile = `/tmp/devroom-phase-failure-${Date.now()}.txt`;
-  fs.writeFileSync(tmpFile, prompt, 'utf-8');
-
   return new Promise<PhaseFailureDecision>((resolve) => {
     const proc = spawn(config.claudePath, [
       '--print',
       '--dangerously-skip-permissions',
       '--max-turns', '1',
-      '--prompt-file', tmpFile,
     ], { cwd: '/tmp' });
 
     let stdout = '';
@@ -166,12 +161,12 @@ export async function handlePhaseFailure(params: {
     proc.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
     proc.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); });
 
-    proc.on('close', (code) => {
-      try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
+    proc.stdin?.write(prompt);
+    proc.stdin?.end();
 
+    proc.on('close', (code) => {
       if (code === 0 && stdout.trim()) {
         const decision = parseDecision(stdout);
-        // Double-check: if Captain says retry but we're at limit, force escalate
         if (decision.decision === 'retry' && retryCount >= 2) {
           resolve({
             decision: 'escalate',
@@ -187,7 +182,6 @@ export async function handlePhaseFailure(params: {
     });
 
     proc.on('error', (err) => {
-      try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
       console.error(`[Captain] Phase failure handler spawn error:`, err.message);
       resolve(FALLBACK_DECISION);
     });

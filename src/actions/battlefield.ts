@@ -18,12 +18,48 @@ import {
 } from '@/lib/db/schema';
 import { generateId, toKebabCase } from '@/lib/utils';
 import { config } from '@/lib/config';
+import { getNextRun } from '@/lib/scheduler/cron';
 import type {
   CreateBattlefieldInput,
   UpdateBattlefieldInput,
   BattlefieldWithCounts,
   Battlefield,
 } from '@/types';
+
+// ---------------------------------------------------------------------------
+// seedMaintenanceTasks — create default maintenance tasks for a battlefield
+// ---------------------------------------------------------------------------
+function seedMaintenanceTasks(battlefieldId: string): void {
+  const db = getDatabase();
+
+  const existing = db
+    .select()
+    .from(scheduledTasks)
+    .where(
+      and(
+        eq(scheduledTasks.battlefieldId, battlefieldId),
+        eq(scheduledTasks.name, 'WORKTREE SWEEP'),
+      ),
+    )
+    .get();
+
+  if (!existing) {
+    db.insert(scheduledTasks)
+      .values({
+        id: generateId(),
+        battlefieldId,
+        name: 'WORKTREE SWEEP',
+        type: 'maintenance',
+        cron: '0 3 * * *',
+        enabled: 1,
+        nextRunAt: getNextRun('0 3 * * *'),
+        runCount: 0,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+      .run();
+  }
+}
 
 // ---------------------------------------------------------------------------
 // createBootstrapMission — helper to create the bootstrap mission for a new battlefield
@@ -35,11 +71,11 @@ function createBootstrapMission(
 ): string {
   const db = getDatabase();
 
-  // Find ARCHITECT asset, fall back to any active asset
+  // Find PATHFINDER asset, fall back to any active asset
   let asset = db
     .select()
     .from(assets)
-    .where(eq(assets.codename, 'ARCHITECT'))
+    .where(eq(assets.codename, 'PATHFINDER'))
     .get();
 
   if (!asset) {
@@ -173,6 +209,9 @@ export async function createBattlefield(
     }
   }
 
+  // Seed default maintenance tasks
+  seedMaintenanceTasks(id);
+
   revalidatePath('/');
   revalidatePath(`/battlefields/${id}`);
 
@@ -277,6 +316,35 @@ export async function updateBattlefield(
   revalidatePath(`/battlefields/${id}`);
 
   return record;
+}
+
+// ---------------------------------------------------------------------------
+// archiveBattlefield
+// ---------------------------------------------------------------------------
+export async function archiveBattlefield(id: string): Promise<void> {
+  const db = getDatabase();
+
+  const battlefield = db
+    .select()
+    .from(battlefields)
+    .where(eq(battlefields.id, id))
+    .get();
+
+  if (!battlefield) {
+    throw new Error(`archiveBattlefield: battlefield ${id} not found`);
+  }
+
+  if (battlefield.status === 'archived') {
+    throw new Error(`archiveBattlefield: battlefield ${id} is already archived`);
+  }
+
+  db.update(battlefields)
+    .set({ status: 'archived', updatedAt: Date.now() })
+    .where(eq(battlefields.id, id))
+    .run();
+
+  revalidatePath('/');
+  revalidatePath(`/battlefields/${id}`);
 }
 
 // ---------------------------------------------------------------------------

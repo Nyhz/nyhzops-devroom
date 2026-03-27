@@ -55,7 +55,7 @@ export default async function BattlefieldLayout({
             ASSETS
           </span>
           <Link
-            href={`/battlefields/${id}/assets`}
+            href="/assets"
             className="text-dr-dim font-tactical text-[10px] hover:text-dr-muted transition-colors"
           >
             manage

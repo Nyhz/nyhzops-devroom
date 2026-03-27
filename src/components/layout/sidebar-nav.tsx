@@ -8,13 +8,12 @@ interface NavItem {
   icon: string;
   label: string;
   segment: string;
-  countKey?: "missions" | "campaigns" | "assets";
+  countKey?: "missions" | "campaigns";
 }
 
 const NAV_ITEMS: NavItem[] = [
   { icon: "■", label: "MISSIONS", segment: "", countKey: "missions" },
   { icon: "✕", label: "CAMPAIGNS", segment: "campaigns", countKey: "campaigns" },
-  { icon: "◎", label: "ASSETS", segment: "assets", countKey: "assets" },
   { icon: "◆", label: "GIT", segment: "git" },
   { icon: "▶", label: "CONSOLE", segment: "console" },
   { icon: "⏱", label: "SCHEDULE", segment: "schedule" },
@@ -22,30 +21,27 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 interface SidebarNavProps {
-  assetCount: number;
   missionCounts: Record<string, number>;
   campaignCounts: Record<string, number>;
 }
 
-export function SidebarNav({ assetCount, missionCounts, campaignCounts }: SidebarNavProps) {
+export function SidebarNav({ missionCounts, campaignCounts }: SidebarNavProps) {
   const pathname = usePathname();
 
   // Extract battlefield ID from URL
   const segments = pathname.split("/");
-  const projectsIndex = segments.indexOf("projects");
-  const battlefieldId = projectsIndex >= 0 ? segments[projectsIndex + 1] : undefined;
+  const bfIndex = segments.indexOf("battlefields");
+  const battlefieldId = bfIndex >= 0 ? segments[bfIndex + 1] : undefined;
 
   if (!battlefieldId) {
     return null;
   }
 
   // Determine active section from pathname
-  // /battlefields/[id] → missions (default), /battlefields/[id]/campaigns → campaigns, etc.
-  const afterId = segments.slice(projectsIndex + 2).join("/");
+  const afterId = segments.slice(bfIndex + 2).join("/");
 
   function getCount(item: NavItem): number | undefined {
     if (!item.countKey) return undefined;
-    if (item.countKey === "assets") return assetCount;
     if (item.countKey === "missions") return missionCounts[battlefieldId!] ?? 0;
     if (item.countKey === "campaigns") return campaignCounts[battlefieldId!] ?? 0;
     return undefined;
@@ -53,7 +49,6 @@ export function SidebarNav({ assetCount, missionCounts, campaignCounts }: Sideba
 
   function isActive(item: NavItem): boolean {
     if (item.segment === "") {
-      // Missions is active for /battlefields/[id] and /battlefields/[id]/missions
       return afterId === "" || afterId === "missions" || afterId.startsWith("missions/");
     }
     return afterId === item.segment || afterId.startsWith(`${item.segment}/`);

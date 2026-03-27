@@ -22,7 +22,7 @@ Phase B3 adds the bootstrap flow: when a new battlefield is created, a special b
 - New battlefields default to status `initializing` (changed from `active` in B1)
 - After creating the battlefield record, automatically create a bootstrap mission:
   - `type`: `bootstrap`
-  - `assetId`: look up the ARCHITECT asset by codename
+  - `assetId`: look up the PATHFINDER asset by codename
   - `priority`: `critical`
   - `briefing`: the Commander's `initialBriefing`
   - `title`: `Bootstrap: {battlefield.codename}`
@@ -30,7 +30,7 @@ Phase B3 adds the bootstrap flow: when a new battlefield is created, a special b
 - Set `bootstrapMissionId` on the battlefield record
 - **If scaffold command is running:** do NOT queue the bootstrap mission yet. The scaffold route handler (B1) must signal completion. After scaffold completes successfully, THEN create and queue the bootstrap mission. The creation form should only fire-and-forget the scaffold POST; the scaffold route handler's completion path triggers the bootstrap queue.
 - **If no scaffold command:** trigger orchestrator immediately: `globalThis.orchestrator?.onMissionQueued(bootstrapMission.id)`
-- **Asset assignment:** Look up the ARCHITECT asset by codename. If not found, use any active asset. If no active assets exist, fail with error: "No active assets available. Run the seed script."
+- **Asset assignment:** Look up the PATHFINDER asset by codename. If not found, use any active asset. If no active assets exist, fail with error: "No active assets available. Run the seed script."
 
 **Skip bootstrap toggle on creation form:**
 - Toggle: `[Skip bootstrap — I'll provide my own CLAUDE.md]`

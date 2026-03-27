@@ -378,7 +378,7 @@ devroom/
 
 ```
 - id              TEXT PRIMARY KEY (ULID)
-- codename        TEXT NOT NULL UNIQUE     -- e.g. "ARCHITECT", "ASSERT"
+- codename        TEXT NOT NULL UNIQUE     -- e.g. "OPERATIVE", "ASSERT"
 - specialty       TEXT NOT NULL
 - systemPrompt    TEXT
 - model           TEXT DEFAULT 'claude-sonnet-4-6'
@@ -702,17 +702,16 @@ Bottom bar: `● LOCAL ACCESS ONLY — NOT SAFE TO EXPOSE TO A NETWORK`. Green d
 ├────────┬────────────────────────────────────────┬───────────────┤
 │        │                                        │               │
 │  N     │  Battlefields // Project Name          │  ASSETS       │
-│  NYHZ  │  PROJECT CODENAME                      │  ● ARCHITECT  │
-│  OPS ● │  Description text                      │  ● ASSERT     │
-│  DEV-  │                                        │  ● CANVAS     │
+│  NYHZ  │  PROJECT CODENAME                      │  ● PATHFINDER │
+│  OPS ● │  Description text                      │  ● GENERAL    │
+│  DEV-  │                                        │  ● OPERATIVE  │
 │  ROOM  │  ┌─ DEPLOY MISSION ──────────────┐     │  ...          │
 │        │  │ [textarea] [asset] [deploy]   │     │               │
 │ ─────  │  └───────────────────────────────┘     │  BREAKDOWN    │
-│ PROJ ▾ │                                        │  CANVAS  83   │
-│        │  0 IN COMBAT │ 251 ACCOMPLISHED │ ...  │  ARCHITECT 77 │
+│ PROJ ▾ │                                        │  OPERATIVE 83 │
+│        │  0 IN COMBAT │ 251 ACCOMPLISHED │ ...  │  PATHFINDER 7 │
 │ ■ MISS │                                        │  ...          │
 │ ✕ CAMP │  MISSIONS          [Search...]         │               │
-│ ◎ ASST │  ┌─────────────────────────────┐       │               │
 │ ◆ GIT  │  │ mission title    ● ACCOMP.  │       │               │
 │ ▶ CONS │  │ ASSET · 9 mins ago    VIEW  │       │               │
 │ ⏱ SCHD │  ├─────────────────────────────┤       │               │
@@ -745,7 +744,7 @@ All system-generated text addresses the user as **Commander**:
 **Mission debrief:**
 ```
 DEBRIEF — Mission: Fix authentication bug
-Status: ACCOMPLISHED | Asset: ARCHITECT
+Status: ACCOMPLISHED | Asset: OPERATIVE
 Duration: 2m 14s | Tokens: 45.2K (91% cache hit)
 
 Commander, the authentication module has been updated. The JWT refresh

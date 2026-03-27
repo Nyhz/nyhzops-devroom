@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { eq, desc, count, like, sql, and } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
-import { missions, assets, battlefields, missionLogs } from '@/lib/db/schema';
+import { missions, assets, battlefields, missionLogs, captainLogs } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import type {
   Mission,
@@ -227,6 +227,68 @@ export async function listMissions(
 }
 
 // ---------------------------------------------------------------------------
+// deployMission — move a standby mission to queued so the orchestrator picks it up
+// ---------------------------------------------------------------------------
+export async function deployMission(id: string): Promise<Mission> {
+  const db = getDatabase();
+
+  const mission = db
+    .select()
+    .from(missions)
+    .where(eq(missions.id, id))
+    .get();
+
+  if (!mission) {
+    throw new Error(`deployMission: mission ${id} not found`);
+  }
+
+  if (mission.status !== 'standby') {
+    throw new Error(
+      `deployMission: mission ${id} cannot be deployed from status '${mission.status}' — only standby missions can be deployed`,
+    );
+  }
+
+  const now = Date.now();
+
+  const updated = db
+    .update(missions)
+    .set({
+      status: 'queued',
+      updatedAt: now,
+    })
+    .where(eq(missions.id, id))
+    .returning()
+    .get();
+
+  if (!updated) {
+    throw new Error(`deployMission: update failed for mission ${id}`);
+  }
+
+  // Get battlefield codename for activity event
+  const battlefield = db
+    .select({ codename: battlefields.codename })
+    .from(battlefields)
+    .where(eq(battlefields.id, mission.battlefieldId))
+    .get();
+
+  if (globalThis.io && battlefield) {
+    globalThis.io.to('hq:activity').emit('activity:event', {
+      type: 'mission:queued',
+      battlefieldCodename: battlefield.codename,
+      missionTitle: mission.title,
+      timestamp: now,
+    });
+  }
+
+  revalidatePath(`/battlefields/${mission.battlefieldId}`);
+
+  // Notify the orchestrator to pick up the mission
+  globalThis.orchestrator?.onMissionQueued(updated.id);
+
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
 // abandonMission
 // ---------------------------------------------------------------------------
 export async function abandonMission(id: string): Promise<Mission> {
@@ -425,4 +487,55 @@ export async function redeployMission(missionId: string): Promise<Mission> {
   globalThis.orchestrator?.onMissionQueued(id);
 
   return db.select().from(missions).where(eq(missions.id, id)).get() as Mission;
+}
+
+// ---------------------------------------------------------------------------
+// removeMission — permanently delete a mission and all related records
+// ---------------------------------------------------------------------------
+export async function removeMission(id: string): Promise<{ battlefieldId: string }> {
+  const db = getDatabase();
+
+  const mission = db
+    .select()
+    .from(missions)
+    .where(eq(missions.id, id))
+    .get();
+
+  if (!mission) {
+    throw new Error(`removeMission: mission ${id} not found`);
+  }
+
+  // If in_combat, abort first
+  if (mission.status === 'in_combat') {
+    globalThis.orchestrator?.onMissionAbort(id);
+  }
+
+  const battlefieldId = mission.battlefieldId;
+
+  // Delete related records first (no cascade in SQLite by default)
+  db.delete(missionLogs).where(eq(missionLogs.missionId, id)).run();
+  db.delete(captainLogs).where(eq(captainLogs.missionId, id)).run();
+
+  // Delete the mission
+  db.delete(missions).where(eq(missions.id, id)).run();
+
+  // Get battlefield codename for activity event
+  const battlefield = db
+    .select({ codename: battlefields.codename })
+    .from(battlefields)
+    .where(eq(battlefields.id, battlefieldId))
+    .get();
+
+  if (globalThis.io && battlefield) {
+    globalThis.io.to('hq:activity').emit('activity:event', {
+      type: 'mission:removed',
+      battlefieldCodename: battlefield.codename,
+      missionTitle: mission.title,
+      timestamp: Date.now(),
+    });
+  }
+
+  revalidatePath(`/battlefields/${battlefieldId}`);
+
+  return { battlefieldId };
 }

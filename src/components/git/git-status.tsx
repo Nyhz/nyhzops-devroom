@@ -251,7 +251,7 @@ function FileRow({
   return (
     <div className="flex items-center justify-between px-3 py-1.5 border-b border-dr-border/50 last:border-b-0 hover:bg-dr-elevated/50">
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        <span className={cn('text-xs font-tactical uppercase w-12 shrink-0', accentClass)}>
+        <span className={cn('text-xs font-tactical uppercase w-20 shrink-0', accentClass)}>
           {status}
         </span>
         <span className="text-dr-text text-xs font-data truncate">{path}</span>

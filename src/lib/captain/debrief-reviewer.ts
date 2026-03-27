@@ -1,5 +1,4 @@
 import { spawn } from 'child_process';
-import fs from 'fs';
 import { config } from '@/lib/config';
 
 export interface DebriefReview {
@@ -109,15 +108,11 @@ export async function reviewDebrief(params: {
     claudeMd: params.claudeMd,
   });
 
-  const tmpFile = `/tmp/devroom-debrief-review-${Date.now()}.txt`;
-  fs.writeFileSync(tmpFile, prompt, 'utf-8');
-
   return new Promise<DebriefReview>((resolve) => {
     const proc = spawn(config.claudePath, [
       '--print',
       '--dangerously-skip-permissions',
       '--max-turns', '1',
-      '--prompt-file', tmpFile,
     ], { cwd: '/tmp' });
 
     let stdout = '';
@@ -126,19 +121,24 @@ export async function reviewDebrief(params: {
     proc.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
     proc.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); });
 
-    proc.on('close', (code) => {
-      try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
+    // Pipe prompt via stdin
+    proc.stdin?.write(prompt);
+    proc.stdin?.end();
 
+    proc.on('close', (code) => {
       if (code === 0 && stdout.trim()) {
-        resolve(parseReview(stdout));
+        const review = parseReview(stdout);
+        if (review.reasoning === 'Unable to parse review') {
+          console.warn(`[Captain] Debrief review: could not parse JSON from output (${stdout.length} chars). First 300 chars: ${stdout.slice(0, 300)}`);
+        }
+        resolve(review);
       } else {
-        console.warn(`[Captain] Debrief review exited with code ${code}. stderr: ${stderr.slice(0, 200)}`);
+        console.warn(`[Captain] Debrief review exited with code ${code}. stderr: ${stderr.slice(0, 500)}`);
         resolve(FALLBACK_REVIEW);
       }
     });
 
     proc.on('error', (err) => {
-      try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
       console.error(`[Captain] Debrief review spawn error:`, err.message);
       resolve(FALLBACK_REVIEW);
     });

@@ -7,9 +7,7 @@ import next from 'next';
 import os from 'os';
 import { eq } from 'drizzle-orm';
 import { getDatabase, runMigrations, closeDatabase } from './src/lib/db/index';
-import { battlefields, campaigns, scheduledTasks } from './src/lib/db/schema';
-import { generateId } from './src/lib/utils';
-import { getNextRun } from './src/lib/scheduler/cron';
+import { battlefields, campaigns } from './src/lib/db/schema';
 import { setupSocketIO } from './src/lib/socket/server';
 import { config } from './src/lib/config';
 import { Orchestrator } from './src/lib/orchestrator/orchestrator';
@@ -91,35 +89,6 @@ async function start() {
   globalThis.scheduler = scheduler;
   scheduler.start();
 
-  // 5g. Seed WORKTREE SWEEP if not exists
-  {
-    const existingSweep = db
-      .select()
-      .from(scheduledTasks)
-      .where(eq(scheduledTasks.name, 'WORKTREE SWEEP'))
-      .get();
-
-    if (!existingSweep) {
-      const firstBattlefield = db.select().from(battlefields).limit(1).get();
-      if (firstBattlefield) {
-        db.insert(scheduledTasks)
-          .values({
-            id: generateId(),
-            battlefieldId: firstBattlefield.id,
-            name: 'WORKTREE SWEEP',
-            type: 'maintenance',
-            cron: '0 3 * * *',
-            enabled: 1,
-            nextRunAt: getNextRun('0 3 * * *'),
-            runCount: 0,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          })
-          .run();
-        console.log('[DEVROOM] Seeded WORKTREE SWEEP daily task');
-      }
-    }
-  }
 
   // 5h. Telegram polling
   if (telegramIsEnabled()) {

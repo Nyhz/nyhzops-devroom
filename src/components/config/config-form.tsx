@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { updateBattlefield, regenerateBootstrap, readBootstrapFile } from '@/actions/battlefield';
+import { updateBattlefield, regenerateBootstrap, readBootstrapFile, archiveBattlefield, deleteBattlefield } from '@/actions/battlefield';
 import { TacInput, TacTextarea } from '@/components/ui/tac-input';
 import { TacButton } from '@/components/ui/tac-button';
 import {
@@ -12,6 +12,7 @@ import {
   TacModalHeader,
   TacModalTitle,
 } from '@/components/ui/modal';
+import { useConfirm } from '@/hooks/use-confirm';
 
 interface ConfigFormProps {
   id: string;
@@ -41,6 +42,7 @@ export function ConfigForm({
   specMdPath: initialSpecMdPath,
 }: ConfigFormProps) {
   const router = useRouter();
+  const [confirmAction, ConfirmDialog] = useConfirm();
 
   // Editable fields
   const [name, setName] = useState(initialName);
@@ -93,10 +95,12 @@ export function ConfigForm({
   }, [id, name, codename, description, briefing, defaultBranch, devServerCommand, autoStartDevServer, router]);
 
   const handleRebootstrap = useCallback(async () => {
-    const confirmed = window.confirm(
-      'This will re-generate CLAUDE.md and SPEC.md. Continue?',
-    );
-    if (!confirmed) return;
+    const result = await confirmAction({
+      title: 'RE-BOOTSTRAP',
+      description: 'This will re-generate CLAUDE.md and SPEC.md using the current briefing.',
+      actions: [{ label: 'REGENERATE', variant: 'primary' }],
+    });
+    if (result !== 0) return;
 
     setError('');
 
@@ -109,7 +113,57 @@ export function ConfigForm({
       setError(message);
       toast.error(message);
     }
-  }, [id, briefing, router]);
+  }, [id, briefing, router, confirmAction]);
+
+  const handleArchive = useCallback(async () => {
+    const result = await confirmAction({
+      title: 'ARCHIVE BATTLEFIELD',
+      description: 'This battlefield will become read-only.',
+      body: (
+        <p>
+          Archiving preserves all data (missions, campaigns, logs) but prevents
+          new missions from being deployed. This can be reversed by changing the
+          status in the database.
+        </p>
+      ),
+      actions: [{ label: 'ARCHIVE', variant: 'danger' }],
+    });
+    if (result !== 0) return;
+    try {
+      await archiveBattlefield(id);
+      toast.success('Battlefield archived');
+      router.push('/');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to archive';
+      setError(message);
+      toast.error(message);
+    }
+  }, [id, router, confirmAction]);
+
+  const handleDelete = useCallback(async () => {
+    const result = await confirmAction({
+      title: 'DELETE BATTLEFIELD',
+      description: 'This action is permanent and cannot be undone.',
+      body: (
+        <p>
+          This will permanently delete the battlefield and all associated data
+          including missions, campaigns, logs, and scheduled tasks. The git
+          repository on disk will not be removed.
+        </p>
+      ),
+      actions: [{ label: 'DELETE PERMANENTLY', variant: 'danger' }],
+    });
+    if (result !== 0) return;
+    try {
+      await deleteBattlefield(id);
+      toast.success('Battlefield deleted');
+      router.push('/');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete';
+      setError(message);
+      toast.error(message);
+    }
+  }, [id, router, confirmAction]);
 
   const handlePreview = useCallback(
     async (filename: 'CLAUDE.md' | 'SPEC.md') => {
@@ -330,6 +384,50 @@ export function ConfigForm({
         </div>
       </div>
 
+      {/* Danger Zone */}
+      <div className="border border-dr-red/30 bg-dr-red/5">
+        <div className="px-6 py-3 border-b border-dr-red/30">
+          <span className="text-dr-red font-tactical text-xs uppercase tracking-wider">
+            DANGER ZONE
+          </span>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-dr-text font-tactical text-sm">Archive Battlefield</div>
+              <div className="text-dr-muted font-data text-xs mt-0.5">
+                Mark as read-only. No new missions can be deployed.
+              </div>
+            </div>
+            <TacButton
+              type="button"
+              variant="danger"
+              onClick={handleArchive}
+              disabled={saving}
+            >
+              ARCHIVE
+            </TacButton>
+          </div>
+          <div className="border-t border-dr-red/20" />
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-dr-text font-tactical text-sm">Delete Battlefield</div>
+              <div className="text-dr-muted font-data text-xs mt-0.5">
+                Permanently remove this battlefield and all associated data.
+              </div>
+            </div>
+            <TacButton
+              type="button"
+              variant="danger"
+              onClick={handleDelete}
+              disabled={saving}
+            >
+              DELETE
+            </TacButton>
+          </div>
+        </div>
+      </div>
+
       {/* Preview Modal */}
       <TacModal open={previewOpen} onOpenChange={setPreviewOpen}>
         <TacModalContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -349,6 +447,8 @@ export function ConfigForm({
           </div>
         </TacModalContent>
       </TacModal>
+
+      <ConfirmDialog />
     </>
   );
 }

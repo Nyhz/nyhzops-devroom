@@ -1,3 +1,5 @@
+import { PageWrapper } from '@/components/layout/page-wrapper';
+import { PageHeader } from '@/components/layout/page-header';
 import { getBattlefield } from '@/actions/battlefield';
 import { getDevServerStatus, getPackageScripts, getCommandHistory } from '@/actions/console';
 import { DevServerPanel } from '@/components/console/dev-server-panel';
@@ -21,7 +23,9 @@ export default async function ConsolePage({
   const devCommand = battlefield?.devServerCommand ?? 'npm run dev';
 
   return (
-    <div className="space-y-6">
+    <PageWrapper>
+      <PageHeader codename={battlefield?.codename ?? ''} section="CONSOLE" title="Console" />
+
       {/* Dev Server Section */}
       <div className="space-y-2">
         <h2 className="text-dr-amber text-sm font-tactical tracking-wider">
@@ -49,6 +53,6 @@ export default async function ConsolePage({
         </h2>
         <CommandOutput battlefieldId={id} commandHistory={history} />
       </div>
-    </div>
+    </PageWrapper>
   );
 }

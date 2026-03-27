@@ -1,9 +1,10 @@
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
-import { assets, campaigns, scheduledTasks } from '@/lib/db/schema';
+import { assets, battlefields, campaigns } from '@/lib/db/schema';
 import { listScheduledTasks } from '@/actions/schedule';
 import { ScheduleList } from '@/components/schedule/schedule-list';
 import { PageWrapper } from '@/components/layout/page-wrapper';
+import { PageHeader } from '@/components/layout/page-header';
 import type { Asset, Campaign } from '@/types';
 
 export default async function SchedulePage({
@@ -17,6 +18,7 @@ export default async function SchedulePage({
 
   const db = getDatabase();
   const allAssets = db.select().from(assets).all() as Asset[];
+  const bf = db.select({ codename: battlefields.codename }).from(battlefields).where(eq(battlefields.id, battlefieldId)).get();
   const campaignTemplates = db
     .select()
     .from(campaigns)
@@ -25,6 +27,7 @@ export default async function SchedulePage({
 
   return (
     <PageWrapper>
+      <PageHeader codename={bf?.codename ?? ''} section="SCHEDULE" title="Schedule" />
       <ScheduleList
         tasks={tasks}
         battlefieldId={battlefieldId}

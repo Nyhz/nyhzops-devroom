@@ -11,6 +11,7 @@ const GLOBAL_LINKS = [
 
 const BOTTOM_LINKS = [
   { href: '/captain-log', icon: '⚓', label: "CAPTAIN'S LOG" },
+  { href: '/assets', icon: '◎', label: 'ASSETS' },
   { href: '/logistics', icon: '◈', label: 'LOGISTICS' },
 ] as const;
 
