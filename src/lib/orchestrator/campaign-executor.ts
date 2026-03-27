@@ -118,13 +118,13 @@ export class CampaignExecutor {
     if (allTerminal) {
       const hasCompromised = phaseMissions.some(m => m.status === 'compromised');
       if (hasCompromised) {
-        // Re-pause — infinite loop guard
+        // Re-compromise — infinite loop guard
         db.update(campaigns).set({
-          status: 'paused',
+          status: 'compromised',
           updatedAt: Date.now(),
         }).where(eq(campaigns.id, this.campaignId)).run();
-        this.emitCampaignStatus('paused');
-        console.log(`[Campaign] ${this.campaignId} — all missions terminal with compromised. Re-paused.`);
+        this.emitCampaignStatus('compromised');
+        console.log(`[Campaign] ${this.campaignId} — all missions terminal with compromised. Re-compromised.`);
         return;
       }
       // All terminal, none compromised — phase is complete
@@ -464,16 +464,16 @@ export class CampaignExecutor {
         this.emitPhaseStatus(phaseId, phase.phaseNumber, 'compromised');
 
         db.update(campaigns).set({
-          status: 'paused',
+          status: 'compromised',
           updatedAt: Date.now(),
         }).where(eq(campaigns.id, this.campaignId)).run();
-        this.emitCampaignStatus('paused');
+        this.emitCampaignStatus('compromised');
 
-        console.log(`[Campaign] ${this.campaignId} — Captain escalated. Phase ${phase.phaseNumber} compromised. Campaign paused. Awaiting Commander orders.`);
+        console.log(`[Campaign] ${this.campaignId} — Captain escalated. Phase ${phase.phaseNumber} compromised. Campaign compromised. Awaiting Commander orders.`);
 
         escalate({
           level: 'critical',
-          title: `Campaign Paused: ${campaign.name}`,
+          title: `Campaign Compromised: ${campaign.name}`,
           detail: `Phase ${phase.name} compromised. ${compromisedMissions.length} mission(s) failed. Captain: ${decision.reasoning}`,
           entityType: 'campaign',
           entityId: this.campaignId,
@@ -641,14 +641,10 @@ export class CampaignExecutor {
    */
   private runClaudeForDebrief(prompt: string, cwd: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const tmpFile = path.join(os.tmpdir(), `devroom-debrief-${Date.now()}.txt`);
-      fs.writeFileSync(tmpFile, prompt, 'utf-8');
-
       const proc = spawn(config.claudePath, [
         '--print',
         '--dangerously-skip-permissions',
         '--max-turns', '5',
-        '--prompt-file', tmpFile,
       ], { cwd });
 
       let stdout = '';
@@ -657,9 +653,10 @@ export class CampaignExecutor {
       proc.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
       proc.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); });
 
-      proc.on('close', (code) => {
-        try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
+      proc.stdin?.write(prompt);
+      proc.stdin?.end();
 
+      proc.on('close', (code) => {
         if (code === 0 && stdout.trim()) {
           resolve(stdout.trim());
         } else {
@@ -668,7 +665,6 @@ export class CampaignExecutor {
       });
 
       proc.on('error', (err) => {
-        try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
         reject(err);
       });
     });
