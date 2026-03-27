@@ -131,7 +131,8 @@ devroom/
 │   │   │   ├── captain-db.ts         # Captain decision persistence
 │   │   │   ├── debrief-reviewer.ts   # Mission result review + quality assessment
 │   │   │   ├── escalation.ts         # Telegram escalation for critical decisions
-│   │   │   └── phase-failure-handler.ts  # Phase failure recovery logic
+│   │   │   ├── phase-failure-handler.ts  # Phase failure recovery logic
+│   │   │   └── review-handler.ts     # Captain review runner — post-completion review with retry/escalation
 │   │   ├── process/
 │   │   │   ├── dev-server.ts         # Dev server lifecycle (start/stop/restart, port tracking)
 │   │   │   └── command-runner.ts     # Quick command execution + streaming output
@@ -283,6 +284,7 @@ devroom/
 | `QUEUED`       | muted   | Waiting for an available agent slot.         |
 | `DEPLOYING`    | amber   | Setting up worktree / preparing process.     |
 | `IN COMBAT`    | amber   | Claude Code process actively running.        |
+| `REVIEWING`    | blue    | Captain AI reviewing debrief quality.        |
 | `ACCOMPLISHED` | green   | Completed successfully.                      |
 | `COMPROMISED`  | red     | Failed or errored.                           |
 | `ABANDONED`    | dim     | Cancelled by Commander or interrupted.       |
@@ -320,7 +322,7 @@ devroom/
 - type            TEXT DEFAULT 'standard'  -- standard | bootstrap | conflict_resolution | phase_debrief
 - title           TEXT NOT NULL
 - briefing        TEXT NOT NULL            -- markdown, may contain base64 images
-- status          TEXT DEFAULT 'standby'   -- standby|queued|deploying|in_combat|accomplished|compromised|abandoned
+- status          TEXT DEFAULT 'standby'   -- standby|queued|deploying|in_combat|reviewing|accomplished|compromised|abandoned
 - priority        TEXT DEFAULT 'normal'    -- low|normal|high|critical
 - assetId         TEXT REFERENCES assets(id)
 - useWorktree     INTEGER DEFAULT 0
@@ -329,6 +331,7 @@ devroom/
 - sessionId       TEXT                     -- Claude Code session for reuse
 - debrief         TEXT
 - iterations      INTEGER DEFAULT 0
+- reviewAttempts   INTEGER DEFAULT 0        -- captain review retry count
 - costInput       INTEGER DEFAULT 0
 - costOutput      INTEGER DEFAULT 0
 - costCacheHit    INTEGER DEFAULT 0
@@ -848,7 +851,7 @@ Notification = In-app + Telegram alert
 
 **Battlefields:** `INITIALIZING → ACTIVE → ARCHIVED`
 
-**Missions:** `STANDBY → QUEUED → DEPLOYING → IN COMBAT → ACCOMPLISHED / COMPROMISED / ABANDONED`
+**Missions:** `STANDBY → QUEUED → DEPLOYING → IN COMBAT → REVIEWING → ACCOMPLISHED / COMPROMISED / ABANDONED`
 
 **Phases:** `STANDBY → ACTIVE → SECURED / COMPROMISED`
 

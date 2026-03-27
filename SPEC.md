@@ -275,8 +275,8 @@ Rows (div-based, not `<table>`):
 ### 5.1 Lifecycle
 
 ```
-STANDBY → QUEUED → DEPLOYING → IN COMBAT → ACCOMPLISHED
-                                          → COMPROMISED
+STANDBY → QUEUED → DEPLOYING → IN COMBAT → REVIEWING → ACCOMPLISHED
+                                                     → COMPROMISED
                                           → ABANDONED
 ```
 
@@ -313,7 +313,10 @@ In `executor.ts` when the orchestrator dequeues a mission:
    - Parse final token usage.
    - Generate debrief (§5.6).
    - If worktree + success: trigger merge (§11).
-   - **Status → ACCOMPLISHED** or **COMPROMISED**.
+   - **Status → REVIEWING** (captain review begins asynchronously).
+   - Captain reviews debrief quality via `review-handler.ts` (up to 2 retries for successful missions, 1 for compromised).
+   - On review pass: **Status → ACCOMPLISHED** or **COMPROMISED**.
+   - On review fail after retries: escalate to Commander via Telegram.
    - Emit: `mission:status`, `mission:debrief`, `mission:tokens`, `activity:event`.
 
 ### 5.5 Session Reuse
