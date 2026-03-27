@@ -158,23 +158,10 @@ function WarRoomDashboard({
   });
 
   return (
-    <div className="h-screen flex flex-col bg-dr-bg">
-      {/* ── Top Bar ─────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-dr-border bg-dr-surface shrink-0">
-        <div className="flex items-center gap-4">
-          {/* Brand */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-dr-green/20 border border-dr-green/40 flex items-center justify-center">
-              <span className="text-dr-green font-tactical text-base font-bold">N</span>
-            </div>
-            <div>
-              <span className="text-dr-text font-tactical text-base tracking-wider">DEVROOM</span>
-              <span className="text-dr-amber font-tactical text-xs tracking-widest ml-2">WAR ROOM</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Status indicators */}
+    <div className="flex flex-col h-full bg-dr-bg">
+      {/* ── Status Bar ────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-6 py-2.5 border-b border-dr-border bg-dr-surface shrink-0">
+        <span className="text-dr-amber font-tactical text-sm tracking-widest uppercase">WAR ROOM</span>
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
             <span className="text-dr-dim font-tactical text-xs tracking-wider">AGENTS:</span>
@@ -195,17 +182,11 @@ function WarRoomDashboard({
           <div className="text-dr-muted font-data text-sm">
             {dateStr} {timeStr}
           </div>
-          <Link
-            href="/battlefields"
-            className="px-5 py-2 bg-dr-green/10 border border-dr-green/40 text-dr-green font-tactical text-sm tracking-wider hover:bg-dr-green/20 transition-colors"
-          >
-            ENTER HQ
-          </Link>
         </div>
-      </header>
+      </div>
 
       {/* ── Main Content ────────────────────────────────────────── */}
-      <div className="flex-1 grid grid-cols-[380px_1fr_380px] min-h-0">
+      <div className="flex-1 grid grid-cols-[320px_1fr_320px] min-h-0">
         {/* Left: Activity Feed */}
         <aside className="border-r border-dr-border bg-dr-surface overflow-y-auto">
           <div className="px-4 py-4 border-b border-dr-border">
