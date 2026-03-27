@@ -148,19 +148,33 @@ async function start() {
   });
 
   // 8. Graceful shutdown
+  let shuttingDown = false;
   const shutdown = async () => {
+    if (shuttingDown) return; // Prevent double-shutdown from rapid Ctrl+C
+    shuttingDown = true;
+
     console.log('\n[DEVROOM] STANDING DOWN...');
     stopTelegramPolling();
     scheduler.stop();
     devServerManager.stopAll();
     await orchestrator.shutdown();
-    httpServer.close(() => {
-      io.close(() => {
-        closeDatabase();
-        console.log('[DEVROOM] All systems offline. Goodbye, Commander.');
-        process.exit(0);
-      });
-    });
+
+    // Force exit after 5 seconds if graceful close hangs
+    const forceExit = setTimeout(() => {
+      console.log('[DEVROOM] Force exit — connections did not drain in time.');
+      process.exit(0);
+    }, 5000);
+    forceExit.unref(); // Don't let this timer keep the process alive
+
+    try {
+      io.close();
+      httpServer.close();
+      closeDatabase();
+      console.log('[DEVROOM] All systems offline. Goodbye, Commander.');
+      process.exit(0);
+    } catch {
+      process.exit(0);
+    }
   };
 
   process.on('SIGINT', shutdown);
