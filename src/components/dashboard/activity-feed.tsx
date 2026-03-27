@@ -66,7 +66,7 @@ export function ActivityFeed({ className }: ActivityFeedProps) {
 
   return (
     <div className={cn('flex flex-col', className)}>
-      <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase mb-2">
+      <div className="text-dr-amber font-tactical text-sm tracking-widest uppercase mb-3">
         ACTIVITY FEED
       </div>
       <div className="bg-dr-surface border border-dr-border max-h-80 overflow-y-auto">
