@@ -1,6 +1,8 @@
+import { PageWrapper } from '@/components/layout/page-wrapper';
+
 export default function AssetsLoading() {
   return (
-    <div className="p-6 space-y-6">
+    <PageWrapper>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="h-5 w-24 bg-dr-elevated animate-pulse" />
@@ -27,6 +29,6 @@ export default function AssetsLoading() {
           </div>
         ))}
       </div>
-    </div>
+    </PageWrapper>
   );
 }

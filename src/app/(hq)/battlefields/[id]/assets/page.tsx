@@ -1,6 +1,7 @@
 import { getDatabase } from '@/lib/db/index';
 import { assets } from '@/lib/db/schema';
 import { AssetList } from '@/components/asset/asset-list';
+import { PageWrapper } from '@/components/layout/page-wrapper';
 import type { Asset } from '@/types';
 
 export default async function AssetsPage({
@@ -13,8 +14,8 @@ export default async function AssetsPage({
   const allAssets = db.select().from(assets).all() as Asset[];
 
   return (
-    <div className="p-8">
+    <PageWrapper>
       <AssetList assets={allAssets} />
-    </div>
+    </PageWrapper>
   );
 }

@@ -8,6 +8,7 @@ import { TacButton } from '@/components/ui/tac-button';
 import { StatsBar } from '@/components/dashboard/stats-bar';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { formatRelativeTime } from '@/lib/utils';
+import { PageWrapper } from '@/components/layout/page-wrapper';
 import type { Battlefield } from '@/types';
 
 export default function ProjectsPage() {
@@ -79,7 +80,7 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="p-8 space-y-8">
+    <PageWrapper className="space-y-8">
       {/* Global Stats */}
       <div>
         <div className="text-dr-amber font-tactical text-sm tracking-widest uppercase mb-3">
@@ -192,6 +193,6 @@ export default function ProjectsPage() {
           </div>
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 }

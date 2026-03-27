@@ -3,6 +3,7 @@ import { getDatabase } from '@/lib/db/index';
 import { assets, campaigns, scheduledTasks } from '@/lib/db/schema';
 import { listScheduledTasks } from '@/actions/schedule';
 import { ScheduleList } from '@/components/schedule/schedule-list';
+import { PageWrapper } from '@/components/layout/page-wrapper';
 import type { Asset, Campaign } from '@/types';
 
 export default async function SchedulePage({
@@ -23,13 +24,13 @@ export default async function SchedulePage({
     .all() as Campaign[];
 
   return (
-    <div className="p-8 space-y-6">
+    <PageWrapper>
       <ScheduleList
         tasks={tasks}
         battlefieldId={battlefieldId}
         assets={allAssets}
         campaignTemplates={campaignTemplates}
       />
-    </div>
+    </PageWrapper>
   );
 }

@@ -3,6 +3,7 @@ import { GitStatus } from '@/components/git/git-status';
 import { GitLog } from '@/components/git/git-log';
 import { GitBranches } from '@/components/git/git-branches';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { PageWrapper } from '@/components/layout/page-wrapper';
 
 export default async function GitPage({
   params,
@@ -18,7 +19,7 @@ export default async function GitPage({
   ]);
 
   return (
-    <div className="p-8 space-y-4">
+    <PageWrapper className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-dr-amber text-sm font-tactical tracking-wider">
@@ -67,6 +68,6 @@ export default async function GitPage({
           <GitBranches battlefieldId={id} initialBranches={branches} />
         </TabsContent>
       </Tabs>
-    </div>
+    </PageWrapper>
   );
 }

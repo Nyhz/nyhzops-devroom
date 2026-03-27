@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getCaptainLogs, getCaptainStats } from '@/actions/captain';
 import { TacBadge } from '@/components/ui/tac-badge';
 import { formatRelativeTime } from '@/lib/utils';
+import { PageWrapper } from '@/components/layout/page-wrapper';
 
 export default async function CaptainLogPage() {
   const [logs, stats] = await Promise.all([
@@ -14,7 +15,7 @@ export default async function CaptainLogPage() {
     : 0;
 
   return (
-    <div className="p-8 space-y-6">
+    <PageWrapper>
       {/* Header */}
       <div className="space-y-3">
         <h1 className="text-xl font-tactical text-dr-amber tracking-wider">
@@ -125,7 +126,7 @@ export default async function CaptainLogPage() {
           ))}
         </div>
       )}
-    </div>
+    </PageWrapper>
   );
 }
 

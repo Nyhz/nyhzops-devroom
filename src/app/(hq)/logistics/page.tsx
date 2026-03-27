@@ -5,6 +5,7 @@ import {
   getDailyUsage,
   getRateLimitStatus,
 } from '@/actions/logistics';
+import { PageWrapper } from '@/components/layout/page-wrapper';
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -41,7 +42,7 @@ export default async function LogisticsPage() {
   );
 
   return (
-    <div className="p-8 space-y-6">
+    <PageWrapper>
       {/* Header */}
       <div>
         <h1 className="text-dr-amber font-tactical text-xl tracking-widest uppercase">
@@ -287,6 +288,6 @@ export default async function LogisticsPage() {
           </div>
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 }

@@ -11,6 +11,7 @@ import { BootstrapReview } from '@/components/battlefield/bootstrap-review';
 import { BootstrapComms } from '@/components/battlefield/bootstrap-comms';
 import { BootstrapError } from '@/components/battlefield/bootstrap-error';
 import { readBootstrapFile } from '@/actions/battlefield';
+import { PageWrapper } from '@/components/layout/page-wrapper';
 import type { Battlefield } from '@/types';
 
 export default async function BattlefieldOverviewPage({
@@ -34,18 +35,18 @@ export default async function BattlefieldOverviewPage({
   // 1. Scaffold running
   if (battlefield.scaffoldStatus === 'running') {
     return (
-      <div className="p-6">
+      <PageWrapper>
         <ScaffoldOutput battlefieldId={id} />
-      </div>
+      </PageWrapper>
     );
   }
 
   // 2. Scaffold failed
   if (battlefield.scaffoldStatus === 'failed') {
     return (
-      <div className="p-6">
+      <PageWrapper>
         <ScaffoldRetry battlefieldId={id} />
-      </div>
+      </PageWrapper>
     );
   }
 
@@ -59,7 +60,7 @@ export default async function BattlefieldOverviewPage({
       const claudeMd = await readBootstrapFile(id, 'CLAUDE.md');
       const specMd = await readBootstrapFile(id, 'SPEC.md');
       return (
-        <div className="p-6">
+        <PageWrapper>
           <BootstrapReview
             battlefieldId={id}
             codename={battlefield.codename || ''}
@@ -67,20 +68,20 @@ export default async function BattlefieldOverviewPage({
             initialClaudeMd={claudeMd}
             initialSpecMd={specMd}
           />
-        </div>
+        </PageWrapper>
       );
     }
 
     if (bootstrapMission?.status === 'compromised') {
       return (
-        <div className="p-6">
+        <PageWrapper>
           <BootstrapError
             battlefieldId={id}
             codename={battlefield.codename || ''}
             debrief={bootstrapMission.debrief?.slice(0, 200) || ''}
             initialBriefing={battlefield.initialBriefing || ''}
           />
-        </div>
+        </PageWrapper>
       );
     }
 
@@ -96,28 +97,28 @@ export default async function BattlefieldOverviewPage({
 
     // No bootstrap mission — waiting state
     return (
-      <div className="p-6 flex items-center justify-center h-full">
+      <PageWrapper className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="text-dr-amber text-xl font-tactical tracking-wider mb-2">
             {battlefield.codename} — AWAITING BOOTSTRAP
           </div>
           <div className="text-dr-dim text-sm">No active bootstrap mission found.</div>
         </div>
-      </div>
+      </PageWrapper>
     );
   }
 
   // 4. Archived
   if (battlefield.status === 'archived') {
     return (
-      <div className="p-6 flex items-center justify-center h-full">
+      <PageWrapper className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="text-dr-dim text-xl font-tactical tracking-wider mb-2">
             {battlefield.codename} — ARCHIVED
           </div>
           <div className="text-dr-dim text-sm">This battlefield has been archived.</div>
         </div>
-      </div>
+      </PageWrapper>
     );
   }
 
@@ -173,7 +174,7 @@ export default async function BattlefieldOverviewPage({
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <PageWrapper>
       {/* Header */}
       <div>
         <div className="text-dr-dim font-tactical text-xs tracking-wider mb-1">
@@ -210,6 +211,6 @@ export default async function BattlefieldOverviewPage({
 
       {/* Missions section */}
       <MissionList missions={missionRows} battlefieldId={id} />
-    </div>
+    </PageWrapper>
   );
 }

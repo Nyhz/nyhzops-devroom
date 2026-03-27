@@ -1,6 +1,8 @@
+import { PageWrapper } from '@/components/layout/page-wrapper';
+
 export default function BattlefieldLoading() {
   return (
-    <div className="p-6 space-y-6">
+    <PageWrapper>
       {/* Header skeleton */}
       <div>
         <div className="h-3 w-48 bg-dr-elevated animate-pulse mb-2" />
@@ -45,6 +47,6 @@ export default function BattlefieldLoading() {
           <div className="h-3 w-1/2 bg-dr-elevated animate-pulse" />
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 }

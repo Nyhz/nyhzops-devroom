@@ -1,4 +1,5 @@
 import { NewCampaignForm } from './form';
+import { PageWrapper } from '@/components/layout/page-wrapper';
 
 export default async function NewCampaignPage({
   params,
@@ -8,7 +9,7 @@ export default async function NewCampaignPage({
   const { id } = await params;
 
   return (
-    <div className="p-8 flex flex-col gap-6 max-w-3xl">
+    <PageWrapper maxWidth className="flex flex-col gap-6">
       {/* Breadcrumb */}
       <div className="font-tactical text-xs text-dr-dim uppercase tracking-wider">
         CAMPAIGNS // NEW
@@ -21,6 +22,6 @@ export default async function NewCampaignPage({
 
       {/* Form */}
       <NewCampaignForm battlefieldId={id} />
-    </div>
+    </PageWrapper>
   );
 }
