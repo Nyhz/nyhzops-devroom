@@ -1,14 +1,18 @@
 import { notFound } from 'next/navigation';
 import { getDatabase } from '@/lib/db/index';
-import { assets } from '@/lib/db/schema';
+import { assets, battlefields, missions, phases } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getCampaign } from '@/actions/campaign';
+import { getBriefingMessages } from '@/actions/briefing';
 import { TacBadge } from '@/components/ui/tac-badge';
-import { GeneratePlanButton } from '@/components/campaign/generate-plan-button';
+import { BriefingChat } from '@/components/campaign/briefing-chat';
 import { CampaignControls } from '@/components/campaign/campaign-controls';
+import { CampaignResults } from '@/components/campaign/campaign-results';
 import { PlanEditor } from '@/components/campaign/plan-editor';
 import { PhaseTimeline } from '@/components/campaign/phase-timeline';
 import { CampaignLiveView } from '@/components/campaign/campaign-live-view';
+import { PageWrapper } from '@/components/layout/page-wrapper';
+import { PageHeader } from '@/components/layout/page-header';
 import type { PlanJSON, MissionPriority } from '@/types';
 
 export default async function CampaignDetailPage({
@@ -24,62 +28,40 @@ export default async function CampaignDetailPage({
   const status = campaign.status ?? 'draft';
   const isTemplate = Boolean(campaign.isTemplate);
 
-  // Header — shared across all statuses
-  const header = (
-    <div className="flex flex-col gap-2">
-      <div className="font-tactical text-xs text-dr-dim uppercase tracking-wider">
-        CAMPAIGNS // {campaign.name}
-      </div>
-      <div className="flex items-center gap-4">
-        <h1 className="font-tactical text-lg text-dr-amber uppercase tracking-wider">
-          {campaign.name}
-        </h1>
-        <TacBadge status={status} />
-        {isTemplate && (
-          <span className="font-tactical text-[10px] text-dr-blue border border-dr-blue/40 px-2 py-0.5 uppercase tracking-wider">
-            TEMPLATE
-          </span>
-        )}
-      </div>
-      {campaign.objective && (
-        <p className="font-data text-sm text-dr-muted max-w-3xl">
-          {campaign.objective}
-        </p>
-      )}
-    </div>
+  const db = getDatabase();
+  const bf = db.select({ codename: battlefields.codename }).from(battlefields).where(eq(battlefields.id, id)).get();
+
+  const controls = (
+    <CampaignControls
+      campaignId={campaignId}
+      battlefieldId={id}
+      status={status}
+      isTemplate={isTemplate}
+    />
   );
 
   // --- DRAFT ---
   if (status === 'draft') {
+    const briefingMessages = await getBriefingMessages(campaignId);
+
     return (
-      <div className="flex flex-col gap-6">
-        {header}
-        <GeneratePlanButton campaignId={campaignId} />
-        <CampaignControls
-          campaignId={campaignId}
-          battlefieldId={id}
-          status={status}
-          isTemplate={isTemplate}
-        />
-      </div>
+      <PageWrapper>
+        <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
+        <BriefingChat campaignId={campaignId} initialMessages={briefingMessages} />
+        {controls}
+      </PageWrapper>
     );
   }
 
   // --- PLANNING ---
   if (status === 'planning') {
-    // Templates in planning: show read-only phase timeline + RUN TEMPLATE button
     if (isTemplate) {
       return (
-        <div className="flex flex-col gap-6">
-          {header}
+        <PageWrapper>
+          <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
           <PhaseTimeline phases={campaign.phases} />
-          <CampaignControls
-            campaignId={campaignId}
-            battlefieldId={id}
-            status={status}
-            isTemplate={isTemplate}
-          />
-        </div>
+          {controls}
+        </PageWrapper>
       );
     }
 
@@ -100,7 +82,6 @@ export default async function CampaignDetailPage({
     };
 
     // Get active assets for the plan editor
-    const db = getDatabase();
     const activeAssets = db
       .select({
         id: assets.id,
@@ -112,56 +93,99 @@ export default async function CampaignDetailPage({
       .all();
 
     return (
-      <div className="flex flex-col gap-6">
-        {header}
+      <PageWrapper>
+        <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
         <PlanEditor
           campaignId={campaignId}
           battlefieldId={id}
           initialPlan={planJSON}
           assets={activeAssets}
         />
-        <CampaignControls
-          campaignId={campaignId}
-          battlefieldId={id}
-          status={status}
-          isTemplate={isTemplate}
-        />
-      </div>
+        {controls}
+      </PageWrapper>
     );
   }
 
-  // --- ACTIVE / PAUSED ---
+  // --- ACTIVE ---
   if (status === 'active' || status === 'paused') {
     return (
-      <div className="flex flex-col gap-6">
-        {header}
+      <PageWrapper>
+        <div className="flex flex-col gap-2">
+          <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
+          <TacBadge status={status} />
+        </div>
         <CampaignLiveView
           campaignId={campaignId}
           initialStatus={status}
           initialPhases={campaign.phases}
           battlefieldId={id}
         />
-        <CampaignControls
-          campaignId={campaignId}
-          battlefieldId={id}
-          status={status}
-          isTemplate={isTemplate}
-        />
-      </div>
+        {controls}
+      </PageWrapper>
     );
   }
 
-  // --- ACCOMPLISHED / COMPROMISED ---
+  // --- COMPROMISED ---
+  if (status === 'compromised') {
+    return (
+      <PageWrapper>
+        <div className="flex flex-col gap-2">
+          <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
+          <TacBadge status={status} />
+        </div>
+        <CampaignLiveView
+          campaignId={campaignId}
+          initialStatus={status}
+          initialPhases={campaign.phases}
+          battlefieldId={id}
+        />
+        {controls}
+      </PageWrapper>
+    );
+  }
+
+  // --- ACCOMPLISHED ---
+  if (status === 'accomplished') {
+    const resultMissions = db.select({
+      id: missions.id,
+      title: missions.title,
+      status: missions.status,
+      assetCodename: assets.codename,
+      costInput: missions.costInput,
+      costOutput: missions.costOutput,
+      costCacheHit: missions.costCacheHit,
+      durationMs: missions.durationMs,
+      debrief: missions.debrief,
+      phaseName: phases.name,
+      phaseNumber: phases.phaseNumber,
+    }).from(missions)
+      .innerJoin(phases, eq(missions.phaseId, phases.id))
+      .leftJoin(assets, eq(missions.assetId, assets.id))
+      .where(eq(missions.campaignId, campaignId))
+      .orderBy(phases.phaseNumber, missions.createdAt)
+      .all();
+
+    return (
+      <PageWrapper>
+        <div className="flex flex-col gap-2">
+          <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
+          <TacBadge status={status} />
+        </div>
+        <CampaignResults campaignName={campaign.name} missions={resultMissions} />
+        {controls}
+      </PageWrapper>
+    );
+  }
+
+  // --- ABANDONED (and any other status) ---
   return (
-    <div className="flex flex-col gap-6">
-      {header}
+    <PageWrapper>
+      <div className="flex flex-col gap-2">
+        <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
+        <TacBadge status={status} />
+      </div>
       <PhaseTimeline phases={campaign.phases} />
-      <CampaignControls
-        campaignId={campaignId}
-        battlefieldId={id}
-        status={status}
-        isTemplate={isTemplate}
-      />
-    </div>
+      {controls}
+    </PageWrapper>
   );
 }
