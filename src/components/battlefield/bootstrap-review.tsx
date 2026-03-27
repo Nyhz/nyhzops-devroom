@@ -114,7 +114,7 @@ export function BootstrapReview({
     try {
       await abandonBootstrap(battlefieldId);
       toast.success('Bootstrap abandoned');
-      router.push("/battlefields");
+      router.push("/");
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to abandon bootstrap";

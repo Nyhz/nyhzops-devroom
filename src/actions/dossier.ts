@@ -75,7 +75,7 @@ export async function createDossier(data: {
     })
     .run();
 
-  revalidatePath('/battlefields');
+  revalidatePath('/');
   return id;
 }
 
@@ -150,7 +150,7 @@ export async function updateDossier(
 
   db.update(dossiers).set(updates).where(eq(dossiers.id, id)).run();
 
-  revalidatePath('/battlefields');
+  revalidatePath('/');
 }
 
 // ---------------------------------------------------------------------------
@@ -166,7 +166,7 @@ export async function deleteDossier(id: string): Promise<void> {
 
   db.delete(dossiers).where(eq(dossiers.id, id)).run();
 
-  revalidatePath('/battlefields');
+  revalidatePath('/');
 }
 
 // ---------------------------------------------------------------------------

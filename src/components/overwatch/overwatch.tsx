@@ -316,7 +316,7 @@ function OverwatchDashboard({
             {dateStr} {timeStr}
           </span>
           <Link
-            href="/battlefields"
+            href="/"
             className="text-dr-amber font-tactical text-sm tracking-wider hover:text-dr-green transition-colors"
           >
             ENTER HQ &rarr;

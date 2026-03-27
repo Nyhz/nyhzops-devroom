@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const GLOBAL_LINKS = [
-  { href: '/battlefields', icon: '◉', label: 'HQ', exact: false },
+  { href: '/', icon: '◉', label: 'HQ', exact: true },
   { href: '/overwatch', icon: '◎', label: 'OVERWATCH', exact: true },
 ] as const;
 

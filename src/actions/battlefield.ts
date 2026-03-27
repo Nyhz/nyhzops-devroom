@@ -173,7 +173,7 @@ export async function createBattlefield(
     }
   }
 
-  revalidatePath('/battlefields');
+  revalidatePath('/');
   revalidatePath(`/battlefields/${id}`);
 
   return { ...record, bootstrapMissionId };
@@ -273,7 +273,7 @@ export async function updateBattlefield(
     throw new Error(`updateBattlefield: battlefield ${id} not found`);
   }
 
-  revalidatePath('/battlefields');
+  revalidatePath('/');
   revalidatePath(`/battlefields/${id}`);
 
   return record;
@@ -335,7 +335,7 @@ export async function deleteBattlefield(id: string): Promise<void> {
     tx.delete(battlefields).where(eq(battlefields.id, id)).run();
   });
 
-  revalidatePath('/battlefields');
+  revalidatePath('/');
 }
 
 // ---------------------------------------------------------------------------
@@ -369,7 +369,7 @@ export async function approveBootstrap(battlefieldId: string): Promise<void> {
     .run();
 
   revalidatePath(`/battlefields/${battlefieldId}`);
-  revalidatePath('/battlefields');
+  revalidatePath('/');
 }
 
 // ---------------------------------------------------------------------------
@@ -434,7 +434,7 @@ export async function regenerateBootstrap(
   globalThis.orchestrator?.onMissionQueued(newMissionId);
 
   revalidatePath(`/battlefields/${battlefieldId}`);
-  revalidatePath('/battlefields');
+  revalidatePath('/');
 }
 
 // ---------------------------------------------------------------------------
@@ -460,7 +460,7 @@ export async function abandonBootstrap(battlefieldId: string): Promise<void> {
   // Cascade delete the battlefield
   await deleteBattlefield(battlefieldId);
 
-  revalidatePath('/battlefields');
+  revalidatePath('/');
 }
 
 // ---------------------------------------------------------------------------

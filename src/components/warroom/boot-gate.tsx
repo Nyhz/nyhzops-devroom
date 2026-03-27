@@ -10,38 +10,38 @@ interface BootGateProps {
 }
 
 /**
- * Shows the boot animation on first visit to the app.
+ * Shows the boot animation as a full-screen overlay on first visit.
  * Uses sessionStorage so it only plays once per browser session.
- * Works on any page — just wrap the content.
+ * The children render underneath (no flash) — the overlay covers them.
  */
 export function BootGate({ children, battlefieldCount, inCombatCount }: BootGateProps) {
-  const [booted, setBooted] = useState(false);
-  const [checked, setChecked] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(true);
+  const [alreadyBooted, setAlreadyBooted] = useState(false);
 
   useEffect(() => {
     if (sessionStorage.getItem('devroom-booted') === 'true') {
-      setBooted(true);
+      setAlreadyBooted(true);
+      setShowOverlay(false);
     }
-    setChecked(true);
   }, []);
 
   const handleBootComplete = useCallback(() => {
-    setBooted(true);
     sessionStorage.setItem('devroom-booted', 'true');
+    setShowOverlay(false);
   }, []);
 
-  // Don't render until we've checked sessionStorage (avoids hydration flash)
-  if (!checked) return null;
-
-  if (!booted) {
-    return (
-      <BootSequence
-        battlefieldCount={battlefieldCount}
-        inCombatCount={inCombatCount}
-        onComplete={handleBootComplete}
-      />
-    );
-  }
-
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      {showOverlay && !alreadyBooted && (
+        <div className="fixed inset-0 z-[9999]">
+          <BootSequence
+            battlefieldCount={battlefieldCount}
+            inCombatCount={inCombatCount}
+            onComplete={handleBootComplete}
+          />
+        </div>
+      )}
+    </>
+  );
 }

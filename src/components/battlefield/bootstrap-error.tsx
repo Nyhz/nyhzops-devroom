@@ -41,7 +41,7 @@ export function BootstrapError({
     setIsPending(true);
     try {
       await abandonBootstrap(battlefieldId);
-      router.push('/battlefields');
+      router.push('/');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to abandon bootstrap';
       alert(message);
