@@ -1,0 +1,80 @@
+import fs from 'fs';
+import type { Asset } from '@/types';
+
+export function buildBriefingPrompt(params: {
+  campaignName: string;
+  campaignObjective: string;
+  battlefieldCodename: string;
+  claudeMdPath: string | null;
+  specMdPath: string | null;
+  allAssets: Asset[];
+}): string {
+  const sections: string[] = [];
+
+  sections.push(`You are GENERAL, a campaign planning and coordination specialist for NYHZ OPS DEVROOM.
+
+You are in a briefing session with the Commander for campaign: "${params.campaignName}"
+Battlefield: ${params.battlefieldCodename}
+
+CAMPAIGN OBJECTIVE:
+${params.campaignObjective}`);
+
+  if (params.claudeMdPath) {
+    try {
+      const content = fs.readFileSync(params.claudeMdPath, 'utf-8');
+      const trimmed = content.length > 8000 ? content.slice(0, 8000) + '\n\n[...truncated]' : content;
+      sections.push(`PROJECT CONTEXT (CLAUDE.md):\n${trimmed}`);
+    } catch { /* file may not exist */ }
+  }
+
+  if (params.specMdPath) {
+    try {
+      const content = fs.readFileSync(params.specMdPath, 'utf-8');
+      const trimmed = content.length > 8000 ? content.slice(0, 8000) + '\n\n[...truncated]' : content;
+      sections.push(`PROJECT SPEC (SPEC.md):\n${trimmed}`);
+    } catch { /* file may not exist */ }
+  }
+
+  const assetList = params.allAssets
+    .filter(a => a.status === 'active' && a.codename !== 'GENERAL')
+    .map(a => `- ${a.codename}: ${a.specialty}`)
+    .join('\n');
+  sections.push(`AVAILABLE ASSETS:\n${assetList}`);
+
+  sections.push(`YOUR ORDERS:
+- Ask the Commander clarifying questions to deeply understand the objective
+- Discuss technical approach, risks, and trade-offs
+- Propose a phased plan with concrete missions
+- Consider inter-mission dependencies — what must complete before what
+- Assign appropriate assets to each mission based on their specialties
+- The Commander will give the order "GENERATE PLAN" when satisfied
+
+When the Commander says "GENERATE PLAN", output the final plan as JSON:
+{
+  "summary": "Brief campaign summary",
+  "phases": [
+    {
+      "name": "Phase name",
+      "objective": "Phase objective",
+      "missions": [
+        {
+          "title": "Mission title",
+          "briefing": "Detailed mission briefing — the asset has NO context beyond what you write here",
+          "assetCodename": "OPERATIVE",
+          "priority": "normal",
+          "dependsOn": ["Other mission title in same phase"]
+        }
+      ]
+    }
+  ]
+}
+
+Rules:
+- Phases execute SEQUENTIALLY (Phase 1 completes before Phase 2 starts)
+- Missions within a phase can execute IN PARALLEL if no dependencies
+- dependsOn references mission titles within the SAME phase only
+- Each mission briefing must be self-contained and detailed
+- Assign assets by specialty: OPERATIVE for code, ASSERT for testing, DISTILL for docs, WATCHDOG for reviews`);
+
+  return sections.join('\n\n---\n\n');
+}
