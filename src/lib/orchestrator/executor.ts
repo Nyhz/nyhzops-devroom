@@ -16,6 +16,8 @@ import { askCaptain } from '@/lib/captain/captain';
 import { storeCaptainLog, getRecentCaptainLogs } from '@/lib/captain/captain-db';
 import { escalate } from '@/lib/captain/escalation';
 import { reviewDebrief } from '@/lib/captain/debrief-reviewer';
+import { runCaptainReview } from '@/lib/captain/review-handler';
+import { getCaptainLogs } from '@/actions/captain';
 import type { Mission, StreamResult } from '@/types';
 
 export class RateLimitError extends Error {
@@ -137,7 +139,20 @@ export async function executeMission(
       }
     }
 
-    const fullPrompt = buildPrompt(mission, battlefield, asset);
+    let fullPrompt = buildPrompt(mission, battlefield, asset);
+
+    // Check for captain retry feedback
+    const retryAttempts = mission.reviewAttempts ?? 0;
+    if (retryAttempts > 0) {
+      const captainLogs = await getCaptainLogs({ missionId: mission.id });
+      const retryFeedback = captainLogs
+        .filter(log => log.question.startsWith('[RETRY_FEEDBACK]'))
+        .pop();
+
+      if (retryFeedback) {
+        fullPrompt += `\n\n---\n\nCAPTAIN REVIEW FEEDBACK (Retry ${retryAttempts})\n========================================\nThe Captain reviewed your previous work and found these concerns:\n${retryFeedback.answer}\n\nCaptain's reasoning: ${retryFeedback.reasoning}\n\nPlease address these concerns. Your previous session context is preserved.\nYou have access to all changes you made previously.\n\nOriginal briefing:\n${mission.briefing}`;
+      }
+    }
 
     // Read CLAUDE.md content for Captain context
     let claudeMdContent: string | null = null;
@@ -163,7 +178,7 @@ export async function executeMission(
       '--dangerously-skip-permissions',
       '--max-turns', '50',
       ...(mission.sessionId ? ['--session-id', mission.sessionId] : []),
-      '--prompt', fullPrompt,
+      fullPrompt,
     ];
 
     const proc = spawn(config.claudePath, args, {
@@ -401,7 +416,7 @@ export async function executeMission(
     // Step 6: Process complete
     if (streamResult) {
       const r = streamResult as StreamResult;
-      const finalStatus = r.isError ? 'compromised' : 'accomplished';
+      const finalStatus = r.isError ? 'compromised' : 'reviewing';
 
       db.update(missions).set({
         sessionId: r.sessionId,
@@ -411,7 +426,7 @@ export async function executeMission(
         costCacheHit: r.usage.cacheReadTokens,
         durationMs: r.durationMs,
         status: finalStatus,
-        completedAt: Date.now(),
+        completedAt: r.isError ? Date.now() : null,
         updatedAt: Date.now(),
       }).where(eq(missions.id, mission.id)).run();
 
@@ -431,8 +446,8 @@ export async function executeMission(
       });
       emitActivity(`mission:${finalStatus}`, `Mission ${finalStatus}: ${mission.title}`);
 
-      // Update asset missions completed count
-      if (mission.assetId && finalStatus === 'accomplished') {
+      // Update asset missions completed count (reviewing = work done, pending captain approval)
+      if (mission.assetId && finalStatus === 'reviewing') {
         const currentAsset = db.select().from(assets)
           .where(eq(assets.id, mission.assetId)).get();
         if (currentAsset) {
@@ -442,58 +457,13 @@ export async function executeMission(
         }
       }
 
-      // Captain auto-review of debrief (fire-and-forget)
-      if (finalStatus === 'accomplished') {
-        reviewDebrief({
-          missionBriefing: mission.briefing,
-          missionDebrief: r.result,
-          claudeMd: claudeMdContent,
-          missionId: mission.id,
-          battlefieldId: mission.battlefieldId,
-        }).then(async (review) => {
-          // Log the review
-          storeCaptainLog({
-            missionId: mission.id,
-            battlefieldId: mission.battlefieldId,
-            campaignId: mission.campaignId,
-            question: `[DEBRIEF_REVIEW] Mission: ${mission.title}`,
-            answer: review.satisfactory ? 'Satisfactory' : `Concerns: ${review.concerns.join(', ')}`,
-            reasoning: review.reasoning,
-            confidence: review.satisfactory ? 'high' : 'medium',
-            escalated: review.recommendation === 'escalate' ? 1 : 0,
-          });
-
-          if (review.recommendation === 'retry') {
-            // Auto-redeploy with concerns noted in briefing
-            const { redeployMission } = await import('@/actions/mission');
-            await redeployMission(mission.id);
-          } else if (review.recommendation === 'escalate') {
-            await escalate({
-              level: 'warning',
-              title: `Debrief Review: ${mission.title}`,
-              detail: `Concerns: ${review.concerns.join('. ')}. Reasoning: ${review.reasoning}`,
-              entityType: 'mission',
-              entityId: mission.id,
-              battlefieldId: mission.battlefieldId,
-            });
-          } else if (review.concerns.length > 0) {
-            // Satisfactory but with concerns — info notification
-            await escalate({
-              level: 'info',
-              title: `Debrief Note: ${mission.title}`,
-              detail: review.concerns.join('. '),
-              entityType: 'mission',
-              entityId: mission.id,
-              battlefieldId: mission.battlefieldId,
-            });
-          }
-        }).catch(err => {
-          console.error('[Captain] Debrief review failed:', err);
-        });
-      }
+      // Captain review — async, non-blocking
+      runCaptainReview(mission.id).catch(err => {
+        console.error('[Captain] Review handler failed:', err);
+      });
 
       // Merge worktree branch back to default branch
-      if (worktreeBranch && worktreePath && finalStatus === 'accomplished') {
+      if (worktreeBranch && worktreePath && finalStatus === 'reviewing') {
         storeLog('status', `Merging ${worktreeBranch} into ${battlefield.defaultBranch || 'main'}...`);
         io.to(room).emit('mission:log', {
           missionId: mission.id,
