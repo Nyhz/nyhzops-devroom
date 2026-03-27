@@ -25,12 +25,6 @@ const INTEL_QUOTES = [
   "We sleep safely at night because rough men stand ready to visit violence on those who would harm us. — attributed to Orwell",
 ];
 
-interface RateLimitData {
-  status: string;
-  resetsAt: number;
-  rateLimitType: string;
-  lastUpdated: number;
-}
 
 function levelIcon(level: string): string {
   switch (level) {
@@ -67,7 +61,6 @@ function entityLink(n: Notification): string | null {
 export function IntelBar() {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
-  const [rateLimit, setRateLimit] = useState<RateLimitData | null | undefined>(undefined);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -93,22 +86,8 @@ export function IntelBar() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch rate limit status on mount and periodically
-  useEffect(() => {
-    const fetchRateLimit = async () => {
-      try {
-        const res = await fetch('/api/logistics/rate-limit');
-        const data = await res.json();
-        setRateLimit(data);
-      } catch {
-        // Silently fail — not critical
-      }
-    };
-
-    fetchRateLimit();
-    const interval = setInterval(fetchRateLimit, 30_000);
-    return () => clearInterval(interval);
-  }, []);
+  // Rate limit info is updated via Socket.IO when missions complete
+  // No polling needed
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -124,16 +103,7 @@ export function IntelBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [dropdownOpen]);
 
-  const rateLimitLabel = (() => {
-    if (rateLimit === undefined) return null; // Still loading
-    if (rateLimit === null) {
-      return { dot: 'text-dr-dim', text: '\u2014', textColor: 'text-dr-dim' };
-    }
-    if (rateLimit.status === 'allowed') {
-      return { dot: 'text-dr-green', text: 'OK', textColor: 'text-dr-green' };
-    }
-    return { dot: 'text-dr-red', text: 'LIMITED', textColor: 'text-dr-red' };
-  })();
+  // No rate limit label computation needed — just a link to LOGISTICS
 
   const handleNotificationClick = async (n: Notification) => {
     if (!n.read) {
@@ -243,16 +213,13 @@ export function IntelBar() {
         )}
       </div>
 
-      {rateLimitLabel && (
-        <Link
-          href="/logistics"
-          className="flex items-center gap-1.5 text-xs whitespace-nowrap hover:opacity-80 transition-opacity"
-        >
-          <span className="text-dr-dim">LOGISTICS:</span>
-          <span className={`text-[8px] ${rateLimitLabel.dot}`}>{'\u25CF'}</span>
-          <span className={rateLimitLabel.textColor}>{rateLimitLabel.text}</span>
-        </Link>
-      )}
+      <Link
+        href="/logistics"
+        className="flex items-center gap-1.5 text-xs whitespace-nowrap hover:opacity-80 transition-opacity"
+      >
+        <span className="text-dr-dim">LOGISTICS</span>
+        <span className="text-[8px] text-dr-green">{'\u25CF'}</span>
+      </Link>
     </header>
   );
 }
