@@ -18,7 +18,7 @@ export default function ProjectsPage() {
 
   // Global stats
   const totalInCombatResult = db.select({ value: count() }).from(missions)
-    .where(inArray(missions.status, ['in_combat', 'deploying'])).all();
+    .where(inArray(missions.status, ['in_combat', 'deploying', 'reviewing'])).all();
   const totalAccomplishedResult = db.select({ value: count() }).from(missions)
     .where(eq(missions.status, 'accomplished')).all();
   const totalCompromisedResult = db.select({ value: count() }).from(missions)
@@ -43,8 +43,9 @@ export default function ProjectsPage() {
     totalCacheHit += row.totalCacheHit ?? 0;
     totalInput += row.totalInput ?? 0;
   }
-  const cacheHitPercent = totalInput > 0
-    ? `${Math.round((totalCacheHit / totalInput) * 100)}%`
+  const totalInputContext = totalInput + totalCacheHit;
+  const cacheHitPercent = totalInputContext > 0
+    ? `${Math.round((totalCacheHit / totalInputContext) * 100)}%`
     : '—';
 
   // Recent missions

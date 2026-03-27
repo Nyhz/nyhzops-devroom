@@ -152,15 +152,16 @@ export default async function BattlefieldOverviewPage({
     .all();
 
   // Stats computation
-  const inCombatCount = missionRows.filter(m => m.status === 'in_combat' || m.status === 'deploying').length;
+  const inCombatCount = missionRows.filter(m => m.status === 'in_combat' || m.status === 'deploying' || m.status === 'reviewing').length;
   const accomplishedCount = missionRows.filter(m => m.status === 'accomplished').length;
   const compromisedCount = missionRows.filter(m => m.status === 'compromised').length;
   const standbyCount = missionRows.filter(m => m.status === 'standby' || m.status === 'queued').length;
 
-  // Cache hit calculation
+  // Cache hit calculation: cache / (cache + uncached input) = % of input context served from cache
   const totalInput = missionRows.reduce((sum, m) => sum + (m.costInput || 0), 0);
   const totalCacheHit = missionRows.reduce((sum, m) => sum + (m.costCacheHit || 0), 0);
-  const cacheHitPercent = totalInput > 0 ? `${Math.round((totalCacheHit / totalInput) * 100)}%` : '—';
+  const totalInputContext = totalInput + totalCacheHit;
+  const cacheHitPercent = totalInputContext > 0 ? `${Math.round((totalCacheHit / totalInputContext) * 100)}%` : '—';
 
   // Cost summary for battlefield
   const totalOutput = missionRows.reduce((sum, m) => sum + (m.costOutput || 0), 0);
