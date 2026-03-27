@@ -46,6 +46,7 @@ export const missions = sqliteTable('missions', {
   costInput: integer('cost_input').default(0),
   costOutput: integer('cost_output').default(0),
   costCacheHit: integer('cost_cache_hit').default(0),
+  reviewAttempts: integer('review_attempts').default(0),
   durationMs: integer('duration_ms').default(0),
   startedAt: integer('started_at'),
   completedAt: integer('completed_at'),

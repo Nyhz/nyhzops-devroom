@@ -1,0 +1,1 @@
+ALTER TABLE `missions` ADD `review_attempts` integer DEFAULT 0;

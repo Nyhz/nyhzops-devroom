@@ -199,6 +199,7 @@ export async function getCampaign(
         costInput: missions.costInput,
         costOutput: missions.costOutput,
         costCacheHit: missions.costCacheHit,
+        reviewAttempts: missions.reviewAttempts,
         durationMs: missions.durationMs,
         startedAt: missions.startedAt,
         completedAt: missions.completedAt,
