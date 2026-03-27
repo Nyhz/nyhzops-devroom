@@ -92,15 +92,24 @@ function activityColor(type: string): string {
 export function WarRoom(props: WarRoomProps) {
   // Boot animation only plays on fresh page load (typed URL, new tab)
   // Not on client-side navigation (Link click, back button)
-  const [booted, setBooted] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem('devroom-booted') === 'true';
-  });
+  // Initialize as false (matches server) — check sessionStorage after hydration
+  const [booted, setBooted] = useState(false);
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem('devroom-booted') === 'true') {
+      setBooted(true);
+    }
+    setChecked(true);
+  }, []);
 
   const handleBootComplete = useCallback(() => {
     setBooted(true);
     sessionStorage.setItem('devroom-booted', 'true');
   }, []);
+
+  // Don't render anything until we've checked sessionStorage (avoids flash)
+  if (!checked) return null;
 
   if (!booted) {
     return (
