@@ -83,7 +83,8 @@ devroom/
 │   │   │           │   ├── page.tsx       # Campaigns list
 │   │   │           │   ├── loading.tsx
 │   │   │           │   ├── new/
-│   │   │           │   │   └── page.tsx   # Create new campaign
+│   │   │           │   │   ├── page.tsx   # Create new campaign
+│   │   │           │   │   └── form.tsx   # Campaign creation form (client)
 │   │   │           │   └── [campaignId]/
 │   │   │           │       ├── page.tsx   # Campaign detail + phase view
 │   │   │           │       └── loading.tsx
@@ -529,11 +530,14 @@ In-app and Telegram alerts for mission events, failures, and escalations.
 
 ```typescript
 const proc = spawn(config.claudePath, [
-  '--dangerously-skip-permissions',
+  '--print',
+  '--verbose',
   '--output-format', 'stream-json',
+  '--include-partial-messages',
+  '--dangerously-skip-permissions',
   '--max-turns', '50',
   ...(sessionId ? ['--session-id', sessionId] : []),
-  '--prompt', fullPrompt,
+  fullPrompt,   // prompt as positional argument
 ], {
   cwd: workingDirectory,
   signal: abortController.signal,
@@ -557,8 +561,8 @@ Target 90%+ cache hit rate.
 
 - Attached to custom `server.ts`.
 - Rooms: `mission:{id}` per mission, `campaign:{id}` per campaign, `hq:activity` for global, `devserver:{battlefieldId}` for dev server logs, `console:{battlefieldId}` for command output.
-- Server → Client: `mission:log`, `mission:status`, `mission:debrief`, `mission:tokens`, `campaign:status`, `campaign:phase`, `activity:event`, `devserver:log`, `devserver:status`, `console:output`, `notification`.
-- Client → Server: `mission:subscribe`, `mission:unsubscribe`, `campaign:subscribe`, `campaign:unsubscribe`, `hq:subscribe`, `devserver:subscribe`, `console:subscribe`.
+- Server → Client: `mission:log`, `mission:status`, `mission:debrief`, `mission:tokens`, `campaign:status`, `campaign:phase`, `activity:event`, `devserver:log`, `devserver:status`, `console:output`, `console:exit`, `notification`.
+- Client → Server: `mission:subscribe`, `mission:unsubscribe`, `campaign:subscribe`, `campaign:unsubscribe`, `hq:subscribe`, `hq:unsubscribe`, `devserver:subscribe`, `devserver:unsubscribe`, `console:subscribe`, `console:unsubscribe`.
 
 ---
 
@@ -803,6 +807,7 @@ asset. Awaiting Commander's orders.
   "build": "next build",
   "start": "NODE_ENV=production tsx server.ts",
   "test": "vitest",
+  "lint": "eslint",
   "db:generate": "drizzle-kit generate",
   "db:migrate": "drizzle-kit migrate",
   "db:studio": "drizzle-kit studio",
@@ -826,6 +831,9 @@ asset. Awaiting Commander's orders.
 | `DEVROOM_MAX_AGENTS`        | `5`          | Max concurrent Claude Code processes     |
 | `DEVROOM_CLAUDE_PATH`       | `claude`     | Path to Claude Code binary               |
 | `DEVROOM_LOG_RETENTION_DAYS`| `30`         | Days to keep mission logs                |
+| `DEVROOM_TELEGRAM_BOT_TOKEN`| `''`         | Telegram bot token for notifications     |
+| `DEVROOM_TELEGRAM_CHAT_ID` | `''`         | Telegram chat ID for notifications       |
+| `DEVROOM_TELEGRAM_ENABLED` | `false`      | Enable Telegram integration (`'true'`)   |
 
 ---
 
