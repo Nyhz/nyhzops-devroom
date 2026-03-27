@@ -77,9 +77,9 @@ export function CampaignLiveView({
           ACTIVE{activePhase ? ` — Phase ${activePhase.phaseNumber} in progress` : ''}
         </div>
       )}
-      {status === 'paused' && (
+      {status === 'compromised' && (
         <div className="bg-dr-surface border border-dr-red/30 px-4 py-2 font-tactical text-sm text-dr-red">
-          PAUSED — Awaiting Commander orders
+          COMPROMISED — Awaiting Commander orders
         </div>
       )}
 

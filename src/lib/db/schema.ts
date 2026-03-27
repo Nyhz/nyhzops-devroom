@@ -88,6 +88,27 @@ export const phases = sqliteTable('phases', {
 });
 
 // ---------------------------------------------------------------------------
+// Briefing Sessions (GENERAL 1-on-1 chat for campaign planning)
+// ---------------------------------------------------------------------------
+export const briefingSessions = sqliteTable('briefing_sessions', {
+  id: text('id').primaryKey(),
+  campaignId: text('campaign_id').notNull().references(() => campaigns.id),
+  sessionId: text('session_id'),
+  assetId: text('asset_id').references(() => assets.id),
+  status: text('status').default('open'),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
+export const briefingMessages = sqliteTable('briefing_messages', {
+  id: text('id').primaryKey(),
+  briefingId: text('briefing_id').notNull().references(() => briefingSessions.id),
+  role: text('role').notNull(),
+  content: text('content').notNull(),
+  timestamp: integer('timestamp').notNull(),
+});
+
+// ---------------------------------------------------------------------------
 // Assets (Agent profiles)
 // ---------------------------------------------------------------------------
 export const assets = sqliteTable('assets', {

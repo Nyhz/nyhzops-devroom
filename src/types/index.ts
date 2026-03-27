@@ -11,6 +11,8 @@ import type {
   dossiers,
   captainLogs,
   notifications,
+  briefingSessions,
+  briefingMessages,
 } from '../lib/db/schema';
 
 // ---------------------------------------------------------------------------
@@ -18,7 +20,7 @@ import type {
 // ---------------------------------------------------------------------------
 export type BattlefieldStatus = 'initializing' | 'active' | 'archived';
 export type MissionStatus = 'standby' | 'queued' | 'deploying' | 'in_combat' | 'reviewing' | 'accomplished' | 'compromised' | 'abandoned';
-export type CampaignStatus = 'draft' | 'planning' | 'active' | 'paused' | 'accomplished' | 'compromised';
+export type CampaignStatus = 'draft' | 'planning' | 'active' | 'accomplished' | 'compromised' | 'abandoned';
 export type PhaseStatus = 'standby' | 'active' | 'secured' | 'compromised';
 export type AssetStatus = 'active' | 'offline';
 export type MissionType = 'standard' | 'bootstrap' | 'conflict_resolution' | 'phase_debrief';
@@ -41,6 +43,8 @@ export type CommandLog = InferSelectModel<typeof commandLogs>;
 export type Dossier = InferSelectModel<typeof dossiers>;
 export type CaptainLog = InferSelectModel<typeof captainLogs>;
 export type Notification = InferSelectModel<typeof notifications>;
+export type BriefingSession = InferSelectModel<typeof briefingSessions>;
+export type BriefingMessage = InferSelectModel<typeof briefingMessages>;
 export type NotificationLevel = 'info' | 'warning' | 'critical';
 export type NotificationEntityType = 'mission' | 'campaign' | 'phase';
 export type CaptainConfidence = 'high' | 'medium' | 'low';
