@@ -41,7 +41,7 @@ export default async function LogisticsPage() {
   );
 
   return (
-    <div className="p-6 space-y-6 max-w-[1400px]">
+    <div className="p-8 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-dr-amber font-tactical text-xl tracking-widest uppercase">
@@ -54,23 +54,23 @@ export default async function LogisticsPage() {
 
       {/* Totals Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-dr-surface border border-dr-border p-3">
+        <div className="bg-dr-surface border border-dr-border p-5">
           <div className="text-dr-dim text-[10px] tracking-widest uppercase">Total Missions</div>
           <div className="text-dr-text text-lg font-tactical mt-1">{stats.totalMissions}</div>
         </div>
-        <div className="bg-dr-surface border border-dr-border p-3">
+        <div className="bg-dr-surface border border-dr-border p-5">
           <div className="text-dr-dim text-[10px] tracking-widest uppercase">Total Tokens</div>
           <div className="text-dr-text text-lg font-tactical mt-1">
             {formatTokens(stats.totalInputTokens + stats.totalOutputTokens + stats.totalCacheTokens)}
           </div>
         </div>
-        <div className="bg-dr-surface border border-dr-border p-3">
+        <div className="bg-dr-surface border border-dr-border p-5">
           <div className="text-dr-dim text-[10px] tracking-widest uppercase">Total Cost</div>
           <div className="text-dr-amber text-lg font-tactical mt-1">
             {formatCost(stats.totalCostUsd)}
           </div>
         </div>
-        <div className="bg-dr-surface border border-dr-border p-3">
+        <div className="bg-dr-surface border border-dr-border p-5">
           <div className="text-dr-dim text-[10px] tracking-widest uppercase">Cache Hit Rate</div>
           <div className="text-dr-green text-lg font-tactical mt-1">
             {stats.cacheHitPercent}%
