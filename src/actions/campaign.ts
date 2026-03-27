@@ -5,7 +5,6 @@ import { eq, desc, and, inArray } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { campaigns, phases, missions, missionLogs, assets, battlefields } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
-import { generatePlan } from '@/lib/orchestrator/plan-generator';
 import type { Campaign, CampaignWithPlan, PlanJSON, Phase, Mission } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -306,43 +305,21 @@ export async function deleteCampaign(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// 6. generateBattlePlan (placeholder — wired in Task 3)
+// 6. backToDraft
 // ---------------------------------------------------------------------------
 
-export async function generateBattlePlan(
-  campaignId: string,
-): Promise<void> {
+export async function backToDraft(campaignId: string): Promise<void> {
   const db = getDatabase();
-
   const campaign = db.select().from(campaigns).where(eq(campaigns.id, campaignId)).get();
-  if (!campaign) throw new Error(`generateBattlePlan: campaign ${campaignId} not found`);
-  if (campaign.status !== 'draft' && campaign.status !== 'planning') {
-    throw new Error(
-      `generateBattlePlan: can only generate plan for draft or planning campaigns (current: ${campaign.status})`,
-    );
-  }
+  if (!campaign) throw new Error('Campaign not found');
+  if (campaign.status !== 'planning') throw new Error('Can only go back to draft from planning');
 
-  const battlefield = db.select().from(battlefields).where(eq(battlefields.id, campaign.battlefieldId)).get();
-  if (!battlefield) throw new Error(`generateBattlePlan: battlefield ${campaign.battlefieldId} not found`);
-
-  const availableAssets = db.select().from(assets).where(eq(assets.status, 'active')).all();
-
-  // Generate plan via Claude Code
-  const plan = await generatePlan(campaign, battlefield, availableAssets);
-
-  // Clear existing plan if regenerating
-  deletePlanData(campaignId);
-
-  // Insert new phases and missions from generated plan
-  insertPlanFromJSON(campaignId, campaign.battlefieldId, plan);
-
-  // Update campaign status to 'planning'
   db.update(campaigns).set({
-    status: 'planning',
+    status: 'draft',
     updatedAt: Date.now(),
   }).where(eq(campaigns.id, campaignId)).run();
 
-  revalidateCampaignPaths(campaign.battlefieldId, campaignId);
+  revalidatePath(`/battlefields/${campaign.battlefieldId}/campaigns/${campaignId}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -453,6 +430,10 @@ export async function launchCampaign(
     .where(eq(campaigns.id, campaignId))
     .run();
 
+  // Delete briefing data — no longer needed once campaign is live
+  const { deleteBriefingData } = await import('@/lib/briefing/briefing-engine');
+  deleteBriefingData(campaignId);
+
   // Trigger orchestrator to begin campaign execution
   globalThis.orchestrator?.startCampaign(campaignId);
 
@@ -538,7 +519,7 @@ export async function abandonCampaign(id: string): Promise<void> {
 
   db.update(campaigns)
     .set({
-      status: 'compromised',
+      status: 'abandoned',
       updatedAt: now,
     })
     .where(eq(campaigns.id, id))
@@ -848,4 +829,109 @@ export async function skipAndContinueCampaign(
   globalThis.orchestrator?.skipAndContinueCampaign(campaignId);
 
   revalidateCampaignPaths(campaign.battlefieldId, campaignId);
+}
+
+// ---------------------------------------------------------------------------
+// 17. tacticalOverride
+// ---------------------------------------------------------------------------
+
+export async function tacticalOverride(
+  missionId: string,
+  newBriefing: string,
+): Promise<void> {
+  const db = getDatabase();
+  const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
+  if (!mission) throw new Error('Mission not found');
+  if (mission.status !== 'compromised') throw new Error('Can only override compromised missions');
+
+  const now = Date.now();
+
+  db.update(missions).set({
+    briefing: newBriefing,
+    status: 'queued',
+    debrief: null,
+    reviewAttempts: 0,
+    completedAt: null,
+    startedAt: null,
+    updatedAt: now,
+  }).where(eq(missions.id, missionId)).run();
+
+  // If campaign is compromised, move back to active
+  if (mission.campaignId) {
+    const campaign = db.select().from(campaigns).where(eq(campaigns.id, mission.campaignId)).get();
+    if (campaign && campaign.status === 'compromised') {
+      db.update(campaigns).set({
+        status: 'active',
+        updatedAt: now,
+      }).where(eq(campaigns.id, mission.campaignId)).run();
+    }
+  }
+
+  revalidatePath(`/battlefields/${mission.battlefieldId}`);
+  globalThis.orchestrator?.onMissionQueued(missionId);
+}
+
+// ---------------------------------------------------------------------------
+// 18. skipMission
+// ---------------------------------------------------------------------------
+
+export async function skipMission(missionId: string): Promise<void> {
+  const db = getDatabase();
+  const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
+  if (!mission) throw new Error('Mission not found');
+  if (mission.status !== 'compromised') throw new Error('Can only skip compromised missions');
+
+  const now = Date.now();
+
+  db.update(missions).set({
+    status: 'abandoned',
+    completedAt: now,
+    updatedAt: now,
+  }).where(eq(missions.id, missionId)).run();
+
+  // Cascade-abandon dependent missions in same phase
+  if (mission.phaseId) {
+    const phaseMissions = db.select().from(missions)
+      .where(eq(missions.phaseId, mission.phaseId)).all();
+
+    const abandonedTitles = new Set<string>([mission.title]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const m of phaseMissions) {
+        if (m.status === 'standby' && m.dependsOn) {
+          const deps = JSON.parse(m.dependsOn) as string[];
+          if (deps.some(d => abandonedTitles.has(d))) {
+            db.update(missions).set({
+              status: 'abandoned',
+              completedAt: now,
+              updatedAt: now,
+            }).where(eq(missions.id, m.id)).run();
+            abandonedTitles.add(m.title);
+            m.status = 'abandoned';
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+
+  // If campaign is compromised, move back to active
+  if (mission.campaignId) {
+    const campaign = db.select().from(campaigns).where(eq(campaigns.id, mission.campaignId)).get();
+    if (campaign && campaign.status === 'compromised') {
+      db.update(campaigns).set({
+        status: 'active',
+        updatedAt: now,
+      }).where(eq(campaigns.id, mission.campaignId)).run();
+
+      // Notify campaign executor to check phase completion
+      const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
+      if (executor && mission.phaseId) {
+        executor.onCampaignMissionComplete(missionId).catch(console.error);
+      }
+    }
+  }
+
+  revalidatePath(`/battlefields/${mission.battlefieldId}`);
 }
