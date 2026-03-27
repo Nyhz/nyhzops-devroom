@@ -162,6 +162,23 @@ export const captainLogs = sqliteTable('captain_logs', {
 });
 
 // ---------------------------------------------------------------------------
+// Notifications (Escalation + In-App)
+// ---------------------------------------------------------------------------
+export const notifications = sqliteTable('notifications', {
+  id: text('id').primaryKey(),
+  level: text('level').notNull(),           // 'info' | 'warning' | 'critical'
+  title: text('title').notNull(),
+  detail: text('detail').notNull(),
+  entityType: text('entity_type'),          // 'mission' | 'campaign' | 'phase'
+  entityId: text('entity_id'),
+  battlefieldId: text('battlefield_id'),
+  read: integer('read').default(0),
+  telegramSent: integer('telegram_sent').default(0),
+  telegramMsgId: integer('telegram_msg_id'),
+  createdAt: integer('created_at').notNull(),
+});
+
+// ---------------------------------------------------------------------------
 // Command Logs
 // ---------------------------------------------------------------------------
 export const commandLogs = sqliteTable('command_logs', {

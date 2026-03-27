@@ -14,6 +14,7 @@ import { createWorktree, removeWorktree } from './worktree';
 import { mergeBranch } from './merger';
 import { askCaptain } from '@/lib/captain/captain';
 import { storeCaptainLog, getRecentCaptainLogs } from '@/lib/captain/captain-db';
+import { escalate } from '@/lib/captain/escalation';
 import type { Mission, StreamResult } from '@/types';
 
 export class RateLimitError extends Error {
@@ -343,6 +344,23 @@ export async function executeMission(
               missionTitle: mission.title,
               timestamp: Date.now(),
               detail: `Captain escalation: ${decision.reasoning}`,
+            });
+
+            // Send Telegram escalation notification
+            escalate({
+              level: decision.confidence === 'low' ? 'warning' : 'info',
+              title: `Captain Escalation: ${mission.title}`,
+              detail: `Q: ${lastAssistantContent.slice(0, 200)}\nA: ${decision.answer}\nReasoning: ${decision.reasoning}`,
+              entityType: 'mission',
+              entityId: mission.id,
+              battlefieldId: mission.battlefieldId,
+              actions: [
+                { label: 'APPROVE', handler: 'approve' },
+                { label: 'RETRY', handler: 'retry' },
+                { label: 'ABORT', handler: 'abort' },
+              ],
+            }).catch((err) => {
+              console.error('[Executor] Escalation failed:', err);
             });
           }
         } finally {

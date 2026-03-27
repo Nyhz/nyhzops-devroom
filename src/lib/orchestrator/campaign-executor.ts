@@ -7,6 +7,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
 import { campaigns, phases, missions, battlefields } from '@/lib/db/schema';
 import { config } from '@/lib/config';
+import { escalate } from '@/lib/captain/escalation';
 import type { Mission } from '@/types';
 
 // Terminal statuses — a mission in one of these won't change further
@@ -391,6 +392,30 @@ export class CampaignExecutor {
       this.emitCampaignStatus('paused');
 
       console.log(`[Campaign] ${this.campaignId} — Phase ${phase.phaseNumber} compromised. Campaign paused. Awaiting Commander orders.`);
+
+      // Get campaign + battlefield for escalation context
+      const campaign = db.select().from(campaigns)
+        .where(eq(campaigns.id, this.campaignId)).get();
+      const compromisedCount = phaseMissions.filter(m => m.status === 'compromised').length;
+
+      if (campaign) {
+        escalate({
+          level: 'critical',
+          title: `Campaign Paused: ${campaign.name}`,
+          detail: `Phase ${phase.name} compromised. ${compromisedCount} mission(s) failed.`,
+          entityType: 'campaign',
+          entityId: this.campaignId,
+          battlefieldId: campaign.battlefieldId,
+          actions: [
+            { label: 'RESUME', handler: 'resume' },
+            { label: 'SKIP & CONTINUE', handler: 'skip' },
+            { label: 'ABANDON', handler: 'abort' },
+          ],
+        }).catch((err) => {
+          console.error('[Campaign] Escalation failed:', err);
+        });
+      }
+
       return;
     }
 

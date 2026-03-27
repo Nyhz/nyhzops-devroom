@@ -7,6 +7,9 @@ export interface DevRoomConfig {
   maxAgents: number;
   claudePath: string;
   logRetentionDays: number;
+  telegramBotToken: string;
+  telegramChatId: string;
+  telegramEnabled: boolean;
 }
 
 function loadConfig(): DevRoomConfig {
@@ -19,6 +22,9 @@ function loadConfig(): DevRoomConfig {
     maxAgents: parseInt(process.env.DEVROOM_MAX_AGENTS || '5', 10),
     claudePath: process.env.DEVROOM_CLAUDE_PATH || 'claude',
     logRetentionDays: parseInt(process.env.DEVROOM_LOG_RETENTION_DAYS || '30', 10),
+    telegramBotToken: process.env.DEVROOM_TELEGRAM_BOT_TOKEN || '',
+    telegramChatId: process.env.DEVROOM_TELEGRAM_CHAT_ID || '',
+    telegramEnabled: process.env.DEVROOM_TELEGRAM_ENABLED === 'true',
   };
 }
 

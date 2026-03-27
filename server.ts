@@ -15,6 +15,8 @@ import { config } from './src/lib/config';
 import { Orchestrator } from './src/lib/orchestrator/orchestrator';
 import { DevServerManager } from './src/lib/process/dev-server';
 import { Scheduler } from './src/lib/scheduler/scheduler';
+import { isEnabled as telegramIsEnabled, startPolling as startTelegramPolling, stopPolling as stopTelegramPolling } from './src/lib/telegram/telegram';
+import { handleTelegramCallback } from './src/lib/captain/escalation';
 
 // Typed globalThis for Socket.IO access
 declare global {
@@ -119,6 +121,16 @@ async function start() {
     }
   }
 
+  // 5h. Telegram polling
+  if (telegramIsEnabled()) {
+    startTelegramPolling((callbackData, messageId) => {
+      handleTelegramCallback(callbackData, messageId).catch((err) => {
+        console.error('[DEVROOM] Telegram callback error:', err);
+      });
+    });
+    console.log('[DEVROOM] Telegram bot polling active');
+  }
+
   // 6. Detect local IP
   const localIP = getLocalIP();
 
@@ -138,6 +150,7 @@ async function start() {
   // 8. Graceful shutdown
   const shutdown = async () => {
     console.log('\n[DEVROOM] STANDING DOWN...');
+    stopTelegramPolling();
     scheduler.stop();
     devServerManager.stopAll();
     await orchestrator.shutdown();
