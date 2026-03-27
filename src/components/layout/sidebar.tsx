@@ -5,6 +5,7 @@ import { count, eq } from "drizzle-orm";
 import { config } from "@/lib/config";
 import { BattlefieldSelector } from "./battlefield-selector";
 import { SidebarNav } from "./sidebar-nav";
+import { GlobalNavTop, GlobalNavBottom } from "./global-nav";
 import type { Battlefield } from "@/types";
 
 export function Sidebar() {
@@ -61,23 +62,8 @@ export function Sidebar() {
       {/* Separator */}
       <div className="border-t border-dr-border" />
 
-      {/* Global nav — always visible */}
-      <div className="px-3 py-2 space-y-0.5">
-        <Link
-          href="/"
-          className="flex items-center gap-3 px-3 py-2.5 text-sm text-dr-muted hover:text-dr-text hover:bg-dr-elevated transition-colors"
-        >
-          <span className="w-5 text-center text-xs">⌘</span>
-          <span className="flex-1">WAR ROOM</span>
-        </Link>
-        <Link
-          href="/battlefields"
-          className="flex items-center gap-3 px-3 py-2.5 text-sm text-dr-muted hover:text-dr-text hover:bg-dr-elevated transition-colors"
-        >
-          <span className="w-5 text-center text-xs">◉</span>
-          <span className="flex-1">HQ</span>
-        </Link>
-      </div>
+      {/* Global nav — always visible, highlights active route */}
+      <GlobalNavTop />
 
       {/* Separator */}
       <div className="border-t border-dr-border" />
@@ -97,23 +83,8 @@ export function Sidebar() {
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Global links */}
-      <div className="px-3 mb-1 space-y-0.5">
-        <Link
-          href="/captain-log"
-          className="flex items-center gap-3 px-3 py-3 text-sm text-dr-muted hover:text-dr-text transition-colors"
-        >
-          <span className="w-5 text-center text-xs">⚓</span>
-          <span className="flex-1">CAPTAIN&apos;S LOG</span>
-        </Link>
-        <Link
-          href="/logistics"
-          className="flex items-center gap-3 px-3 py-3 text-sm text-dr-muted hover:text-dr-text transition-colors"
-        >
-          <span className="w-5 text-center text-xs">◈</span>
-          <span className="flex-1">LOGISTICS</span>
-        </Link>
-      </div>
+      {/* Global links — highlights active route */}
+      <GlobalNavBottom />
 
       {/* Intel Briefing */}
       <div className="border-t border-dr-border px-5 py-4">
