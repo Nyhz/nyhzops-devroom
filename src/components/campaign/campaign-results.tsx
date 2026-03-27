@@ -1,0 +1,117 @@
+import { formatDuration } from '@/lib/utils';
+
+interface ResultMission {
+  id: string;
+  title: string;
+  status: string | null;
+  assetCodename: string | null;
+  costInput: number | null;
+  costOutput: number | null;
+  costCacheHit: number | null;
+  durationMs: number | null;
+  debrief: string | null;
+  phaseName: string;
+  phaseNumber: number;
+}
+
+interface CampaignResultsProps {
+  campaignName: string;
+  missions: ResultMission[];
+}
+
+export function CampaignResults({ campaignName, missions }: CampaignResultsProps) {
+  const totalDuration = missions.reduce((sum, m) => sum + (m.durationMs || 0), 0);
+  const totalInput = missions.reduce((sum, m) => sum + (m.costInput || 0), 0);
+  const totalOutput = missions.reduce((sum, m) => sum + (m.costOutput || 0), 0);
+  const totalCache = missions.reduce((sum, m) => sum + (m.costCacheHit || 0), 0);
+  const totalTokens = totalInput + totalOutput + totalCache;
+  const totalCostUsd = (totalInput * 3 + totalOutput * 15 + totalCache * 0.3) / 1_000_000;
+  const totalInputContext = totalInput + totalCache;
+  const cacheHitPercent = totalInputContext > 0 ? Math.round((totalCache / totalInputContext) * 100) : 0;
+
+  const accomplished = missions.filter(m => m.status === 'accomplished').length;
+  const compromised = missions.filter(m => m.status === 'compromised').length;
+
+  // Group by phase
+  const phaseMap = new Map<number, { name: string; missions: ResultMission[] }>();
+  for (const m of missions) {
+    if (!phaseMap.has(m.phaseNumber)) {
+      phaseMap.set(m.phaseNumber, { name: m.phaseName, missions: [] });
+    }
+    phaseMap.get(m.phaseNumber)!.missions.push(m);
+  }
+  const phaseList = Array.from(phaseMap.entries()).sort((a, b) => a[0] - b[0]);
+
+  function formatTokens(n: number): string {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return String(n);
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Summary stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <StatCard label="MISSIONS" value={String(missions.length)} />
+        <StatCard label="ACCOMPLISHED" value={String(accomplished)} color="text-dr-green" />
+        <StatCard label="COMPROMISED" value={String(compromised)} color="text-dr-red" />
+        <StatCard label="DURATION" value={formatDuration(totalDuration)} />
+        <StatCard label="TOKENS" value={formatTokens(totalTokens)} />
+        <StatCard label="COST" value={`$${totalCostUsd.toFixed(2)}`} color="text-dr-amber" />
+      </div>
+
+      {/* Cache hit bar */}
+      <div className="bg-dr-surface border border-dr-border p-3 flex items-center gap-4 text-xs font-tactical">
+        <span className="text-dr-dim">CACHE HIT</span>
+        <span className="text-dr-green">{cacheHitPercent}%</span>
+        <div className="flex-1 h-1.5 bg-dr-bg overflow-hidden">
+          <div className="h-full bg-dr-green" style={{ width: `${cacheHitPercent}%` }} />
+        </div>
+      </div>
+
+      {/* Phase-by-phase breakdown */}
+      {phaseList.map(([phaseNum, phase]) => (
+        <div key={phaseNum} className="border border-dr-border border-l-2 border-l-dr-green">
+          <div className="bg-dr-elevated px-4 py-2 border-b border-dr-border">
+            <span className="text-dr-dim font-tactical text-[10px] tracking-wider mr-2">
+              PHASE {phaseNum}
+            </span>
+            <span className="text-dr-amber font-tactical text-sm">{phase.name}</span>
+          </div>
+
+          <div className="divide-y divide-dr-border/50">
+            {phase.missions.map((m) => (
+              <div key={m.id} className="px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs ${m.status === 'accomplished' ? 'text-dr-green' : 'text-dr-red'}`}>●</span>
+                    <span className="text-dr-text font-tactical text-sm">{m.title}</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs font-tactical text-dr-dim">
+                    <span>{m.assetCodename ?? 'UNASSIGNED'}</span>
+                    <span>{m.durationMs ? formatDuration(m.durationMs) : '—'}</span>
+                    <span>{formatTokens((m.costInput || 0) + (m.costOutput || 0) + (m.costCacheHit || 0))} tok</span>
+                  </div>
+                </div>
+                {m.debrief && (
+                  <div className="text-dr-muted font-data text-xs pl-6 line-clamp-3">
+                    {m.debrief.split('\n')[0]}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StatCard({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="bg-dr-surface border border-dr-border p-3 text-center">
+      <div className={`text-lg font-tactical ${color ?? 'text-dr-text'}`}>{value}</div>
+      <div className="text-dr-dim font-tactical text-[10px] tracking-wider mt-1">{label}</div>
+    </div>
+  );
+}
