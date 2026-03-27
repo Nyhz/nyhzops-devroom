@@ -286,7 +286,7 @@ export async function executeMission(
       const silenceMs = Date.now() - lastActivityTime;
 
       if (
-        silenceMs > 15_000 &&          // 15 seconds of silence
+        silenceMs > 120_000 &&         // 2 minutes of silence — avoids false positives on long thinking
         lastAssistantContent &&         // There was an assistant message
         !lastMessageHadToolUse &&       // It didn't call a tool
         !streamResult                   // No result yet (process still running)
