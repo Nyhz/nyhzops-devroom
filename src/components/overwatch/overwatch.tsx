@@ -94,7 +94,7 @@ export function Overwatch(props: OverwatchProps) {
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (sessionStorage.getItem('devroom-overwatch-booted') === 'true') {
+    if (sessionStorage.getItem('devroom-booted') === 'true') {
       setBooted(true);
     }
     setChecked(true);
@@ -102,7 +102,7 @@ export function Overwatch(props: OverwatchProps) {
 
   const handleBootComplete = useCallback(() => {
     setBooted(true);
-    sessionStorage.setItem('devroom-overwatch-booted', 'true');
+    sessionStorage.setItem('devroom-booted', 'true');
   }, []);
 
   if (!checked) return null;

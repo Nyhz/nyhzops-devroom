@@ -9,6 +9,7 @@ import { StatsBar } from '@/components/dashboard/stats-bar';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { formatRelativeTime } from '@/lib/utils';
 import { PageWrapper } from '@/components/layout/page-wrapper';
+import { BootGate } from '@/components/warroom/boot-gate';
 import type { Battlefield } from '@/types';
 
 export default function ProjectsPage() {
@@ -63,23 +64,26 @@ export default function ProjectsPage() {
 
   if (allBattlefields.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="text-dr-amber font-tactical text-sm tracking-wider mb-2">
-            NO BATTLEFIELDS DEPLOYED
+      <BootGate battlefieldCount={0} inCombatCount={0}>
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="text-dr-amber font-tactical text-sm tracking-wider mb-2">
+              NO BATTLEFIELDS DEPLOYED
+            </div>
+            <div className="text-dr-dim font-tactical text-xs mb-4">
+              Create one to begin operations.
+            </div>
+            <Link href="/battlefields/new">
+              <TacButton size="sm">+ NEW BATTLEFIELD</TacButton>
+            </Link>
           </div>
-          <div className="text-dr-dim font-tactical text-xs mb-4">
-            Create one to begin operations.
-          </div>
-          <Link href="/battlefields/new">
-            <TacButton size="sm">+ NEW BATTLEFIELD</TacButton>
-          </Link>
         </div>
-      </div>
+      </BootGate>
     );
   }
 
   return (
+    <BootGate battlefieldCount={allBattlefields.length} inCombatCount={totalInCombat}>
     <PageWrapper className="space-y-8">
       {/* Global Stats */}
       <div>
@@ -194,5 +198,6 @@ export default function ProjectsPage() {
         </div>
       </div>
     </PageWrapper>
+    </BootGate>
   );
 }
