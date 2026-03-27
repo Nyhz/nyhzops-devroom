@@ -22,7 +22,7 @@ This document specifies every feature, screen, and workflow. Use alongside `CLAU
 10. Pause any campaigns left `active` from previous run.
 11. Auto-start dev servers for flagged battlefields (`autoStartDevServer = true`).
 12. Start Scheduler (cron engine + seed WORKTREE SWEEP daily task at 03:00).
-13. Start Telegram bot polling (if `TELEGRAM_BOT_TOKEN` configured).
+13. Start Telegram bot polling (if `DEVROOM_TELEGRAM_BOT_TOKEN` configured).
 14. Detect local IP via `os.networkInterfaces()`.
 15. Run log retention cleanup (delete logs older than `DEVROOM_LOG_RETENTION_DAYS`).
 16. Register graceful shutdown handler (SIGINT/SIGTERM).
@@ -752,18 +752,33 @@ export function setupSocketIO(io: SocketIOServer) {
   io.on('connection', (socket) => {
     socket.on('mission:subscribe', (id) => socket.join(`mission:${id}`));
     socket.on('mission:unsubscribe', (id) => socket.leave(`mission:${id}`));
+    socket.on('campaign:subscribe', (id) => socket.join(`campaign:${id}`));
+    socket.on('campaign:unsubscribe', (id) => socket.leave(`campaign:${id}`));
     socket.on('hq:subscribe', () => socket.join('hq:activity'));
+    socket.on('hq:unsubscribe', () => socket.leave('hq:activity'));
+    socket.on('devserver:subscribe', (id) => socket.join(`devserver:${id}`));
+    socket.on('devserver:unsubscribe', (id) => socket.leave(`devserver:${id}`));
+    socket.on('console:subscribe', (id) => socket.join(`console:${id}`));
+    socket.on('console:unsubscribe', (id) => socket.leave(`console:${id}`));
   });
 }
 ```
 
 ### 12.2 Events
 
+**Server → Client:**
 - `mission:log` — `{ missionId, timestamp, type, content }`
 - `mission:status` — `{ missionId, status, timestamp }`
 - `mission:debrief` — `{ missionId, debrief }`
-- `mission:tokens` — `{ missionId, input, output, cacheHit }`
+- `mission:tokens` — `{ missionId, input, output, cacheHit, cacheCreation, costUsd }`
+- `campaign:status` — campaign status updates
+- `campaign:phase` — campaign phase transitions
 - `activity:event` — `{ type, battlefieldCodename, missionTitle, timestamp, detail }`
+- `devserver:log` — `{ battlefieldId, content, timestamp }`
+- `devserver:status` — `{ battlefieldId, status, port, pid }`
+- `console:output` — `{ battlefieldId, commandId, content, timestamp }`
+- `console:exit` — `{ battlefieldId, commandId, exitCode, durationMs }`
+- `notification` — in-app notification delivery
 
 ### 12.3 Client Hook
 
@@ -1096,6 +1111,7 @@ Implementation: `src/lib/captain/`
 | `debrief-reviewer.ts`     | Reviews mission debriefs for quality and completeness |
 | `escalation.ts`           | Routes critical decisions to Commander via Telegram   |
 | `phase-failure-handler.ts`| Handles phase failures — retry, skip, or escalate    |
+| `review-handler.ts`       | Post-completion captain review with retry/escalation  |
 
 ### 19.3 Decision Confidence
 
@@ -1153,7 +1169,7 @@ Notifications are accessible via a bell icon or notification panel. Unread count
 
 ### 21.4 Telegram Integration
 
-When `TELEGRAM_BOT_TOKEN` is set:
+When `DEVROOM_TELEGRAM_BOT_TOKEN` is set:
 - Bot polls for incoming messages (no webhooks — LAN-only).
 - Critical notifications are sent to the configured Telegram chat.
 - Commander can respond to escalations directly in Telegram.
