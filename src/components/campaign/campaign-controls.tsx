@@ -11,8 +11,7 @@ import {
   completeCampaign,
   redeployCampaign,
   deleteCampaign,
-  resumeCampaign,
-  skipAndContinueCampaign,
+  backToDraft,
   saveAsTemplate,
   runTemplate,
 } from '@/actions/campaign';
@@ -53,14 +52,18 @@ export function CampaignControls({
     }
   }
 
-  async function handleLaunch() {
+  async function handleGreenLight() {
     const result = await confirm({
-      title: 'LAUNCH CAMPAIGN',
+      title: 'GREEN LIGHT CAMPAIGN',
       description: 'All Phase 1 missions will be deployed immediately.',
-      actions: [{ label: 'LAUNCH', variant: 'primary' }],
+      actions: [{ label: 'GREEN LIGHT', variant: 'primary' }],
     });
     if (result !== 0) return;
     await run('launch', () => launchCampaign(campaignId), 'Campaign launched — Phase 1 active');
+  }
+
+  async function handleBackToDraft() {
+    await run('backToDraft', () => backToDraft(campaignId), 'Campaign returned to draft');
   }
 
   async function handleAbandon() {
@@ -115,21 +118,6 @@ export function CampaignControls({
     }
   }
 
-  async function handleResume() {
-    await run('resume', () => resumeCampaign(campaignId), 'Campaign resumed');
-  }
-
-  async function handleSkip() {
-    const result = await confirm({
-      title: 'SKIP PHASE',
-      description: 'Skip the current phase and advance to the next one.',
-      body: <p>Any remaining missions in this phase will not be executed.</p>,
-      actions: [{ label: 'SKIP & CONTINUE', variant: 'primary' }],
-    });
-    if (result !== 0) return;
-    await run('skip', () => skipAndContinueCampaign(campaignId), 'Phase skipped — continuing');
-  }
-
   async function handleSaveAsTemplate() {
     await run('saveTemplate', () => saveAsTemplate(campaignId), 'Saved as template');
   }
@@ -165,14 +153,33 @@ export function CampaignControls({
           </TacButton>
         )}
 
+        {/* DRAFT: DELETE only */}
+        {!isTemplate && status === 'draft' && (
+          <TacButton
+            onClick={handleDelete}
+            disabled={disabled}
+            variant="danger"
+          >
+            {loading === 'delete' ? 'DELETING...' : 'DELETE'}
+          </TacButton>
+        )}
+
+        {/* PLANNING: GREEN LIGHT, BACK TO BRIEFING, DELETE */}
         {!isTemplate && status === 'planning' && (
           <>
             <TacButton
-              onClick={handleLaunch}
+              onClick={handleGreenLight}
               disabled={disabled}
               variant="primary"
             >
-              {loading === 'launch' ? 'LAUNCHING...' : 'LAUNCH OPERATION'}
+              {loading === 'launch' ? 'LAUNCHING...' : 'GREEN LIGHT'}
+            </TacButton>
+            <TacButton
+              onClick={handleBackToDraft}
+              disabled={disabled}
+              variant="ghost"
+            >
+              {loading === 'backToDraft' ? 'REVERTING...' : 'BACK TO BRIEFING'}
             </TacButton>
             <TacButton
               onClick={handleDelete}
@@ -184,6 +191,7 @@ export function CampaignControls({
           </>
         )}
 
+        {/* ACTIVE: MISSION ACCOMPLISHED, ABANDON */}
         {!isTemplate && status === 'active' && (
           <>
             <TacButton
@@ -203,22 +211,9 @@ export function CampaignControls({
           </>
         )}
 
-        {!isTemplate && status === 'paused' && (
+        {/* COMPROMISED: ABANDON + guidance message */}
+        {!isTemplate && status === 'compromised' && (
           <>
-            <TacButton
-              onClick={handleResume}
-              disabled={disabled}
-              variant="primary"
-            >
-              {loading === 'resume' ? 'RESUMING...' : 'RESUME'}
-            </TacButton>
-            <TacButton
-              onClick={handleSkip}
-              disabled={disabled}
-              variant="ghost"
-            >
-              {loading === 'skip' ? 'SKIPPING...' : 'SKIP & CONTINUE'}
-            </TacButton>
             <TacButton
               onClick={handleAbandon}
               disabled={disabled}
@@ -229,7 +224,28 @@ export function CampaignControls({
           </>
         )}
 
-        {!isTemplate && (status === 'accomplished' || status === 'compromised') && (
+        {/* ACCOMPLISHED: REDEPLOY, SAVE AS TEMPLATE */}
+        {!isTemplate && status === 'accomplished' && (
+          <>
+            <TacButton
+              onClick={handleRedeploy}
+              disabled={disabled}
+              variant="ghost"
+            >
+              {loading === 'redeploy' ? 'REDEPLOYING...' : 'REDEPLOY'}
+            </TacButton>
+            <TacButton
+              onClick={handleSaveAsTemplate}
+              disabled={disabled}
+              variant="ghost"
+            >
+              {loading === 'saveTemplate' ? 'SAVING...' : 'SAVE AS TEMPLATE'}
+            </TacButton>
+          </>
+        )}
+
+        {/* ABANDONED: REDEPLOY */}
+        {!isTemplate && status === 'abandoned' && (
           <TacButton
             onClick={handleRedeploy}
             disabled={disabled}
@@ -238,28 +254,14 @@ export function CampaignControls({
             {loading === 'redeploy' ? 'REDEPLOYING...' : 'REDEPLOY'}
           </TacButton>
         )}
-
-        {!isTemplate && status === 'draft' && (
-          <TacButton
-            onClick={handleDelete}
-            disabled={disabled}
-            variant="danger"
-          >
-            {loading === 'delete' ? 'DELETING...' : 'DELETE'}
-          </TacButton>
-        )}
-
-        {/* SAVE AS TEMPLATE — available for accomplished or planning campaigns (non-template) */}
-        {!isTemplate && (status === 'accomplished' || status === 'planning') && (
-          <TacButton
-            onClick={handleSaveAsTemplate}
-            disabled={disabled}
-            variant="ghost"
-          >
-            {loading === 'saveTemplate' ? 'SAVING...' : 'SAVE AS TEMPLATE'}
-          </TacButton>
-        )}
       </div>
+
+      {/* COMPROMISED guidance — direct Commander to the failed mission */}
+      {!isTemplate && status === 'compromised' && (
+        <div className="mt-3 font-tactical text-xs text-dr-amber">
+          Commander, review the compromised mission below. Use TACTICAL OVERRIDE or SKIP on the failed mission to proceed.
+        </div>
+      )}
 
       {error && (
         <div className="mt-2 font-tactical text-xs text-dr-red">
