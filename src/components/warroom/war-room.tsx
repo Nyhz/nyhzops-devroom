@@ -90,8 +90,17 @@ function activityColor(type: string): string {
 // War Room Component
 // ---------------------------------------------------------------------------
 export function WarRoom(props: WarRoomProps) {
-  const [booted, setBooted] = useState(false);
-  const handleBootComplete = useCallback(() => setBooted(true), []);
+  // Boot animation only plays on fresh page load (typed URL, new tab)
+  // Not on client-side navigation (Link click, back button)
+  const [booted, setBooted] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('devroom-booted') === 'true';
+  });
+
+  const handleBootComplete = useCallback(() => {
+    setBooted(true);
+    sessionStorage.setItem('devroom-booted', 'true');
+  }, []);
 
   if (!booted) {
     return (
