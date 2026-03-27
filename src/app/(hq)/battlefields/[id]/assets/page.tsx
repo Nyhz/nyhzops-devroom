@@ -13,7 +13,7 @@ export default async function AssetsPage({
   const allAssets = db.select().from(assets).all() as Asset[];
 
   return (
-    <div className="p-6">
+    <div className="p-8">
       <AssetList assets={allAssets} />
     </div>
   );

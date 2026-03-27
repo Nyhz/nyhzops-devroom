@@ -14,7 +14,7 @@ export default async function CaptainLogPage() {
     : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="p-8 space-y-6">
       {/* Header */}
       <div className="space-y-3">
         <h1 className="text-xl font-tactical text-dr-amber tracking-wider">

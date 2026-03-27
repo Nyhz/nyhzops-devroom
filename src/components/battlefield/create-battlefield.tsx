@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { TacInput, TacTextarea } from '@/components/ui/tac-input';
 import { TacButton } from '@/components/ui/tac-button';
 import { createBattlefield } from '@/actions/battlefield';
@@ -89,9 +90,12 @@ export function CreateBattlefield({ devBasePath }: CreateBattlefieldProps) {
           });
         }
 
+        toast.success('Battlefield created');
         router.push(`/battlefields/${battlefield.id}`);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to create battlefield.');
+        const message = err instanceof Error ? err.message : 'Failed to create battlefield.';
+        setError(message);
+        toast.error(message);
         setSubmitting(false);
       }
     },

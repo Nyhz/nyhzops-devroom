@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { toast } from 'sonner';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacCard } from '@/components/ui/tac-card';
 import { TacBadge } from '@/components/ui/tac-badge';
@@ -29,14 +30,24 @@ export function ScheduleList({
 
   function handleToggle(task: ScheduledTask) {
     startTransition(async () => {
-      await toggleScheduledTask(task.id, !task.enabled);
+      try {
+        await toggleScheduledTask(task.id, !task.enabled);
+        toast.success(task.enabled ? 'Task disabled' : 'Task enabled');
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to toggle task');
+      }
     });
   }
 
   function handleDelete(task: ScheduledTask) {
     if (!confirm(`Delete scheduled task "${task.name}"?`)) return;
     startTransition(async () => {
-      await deleteScheduledTask(task.id);
+      try {
+        await deleteScheduledTask(task.id);
+        toast.success('Task deleted');
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to delete task');
+      }
     });
   }
 

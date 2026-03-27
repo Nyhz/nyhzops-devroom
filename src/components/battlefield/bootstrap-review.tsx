@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { TacButton } from "@/components/ui/tac-button";
 import { TacTextarea } from "@/components/ui/tac-input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -57,10 +58,11 @@ export function BootstrapReview({
         setSpecMd(editContent);
       }
       setEditingFile(null);
+      toast.success(`${editingFile} saved`);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to save file";
-      alert(message);
+      toast.error(message);
     } finally {
       setIsPending(false);
     }
@@ -75,24 +77,26 @@ export function BootstrapReview({
     setIsPending(true);
     try {
       await approveBootstrap(battlefieldId);
+      toast.success('Bootstrap approved — Battlefield active');
       router.push(`/battlefields/${battlefieldId}`);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to approve bootstrap";
-      alert(message);
+      toast.error(message);
       setIsPending(false);
     }
   }
 
   async function handleRegenerate() {
     setIsPending(true);
+    toast('Regenerating bootstrap...');
     try {
       await regenerateBootstrap(battlefieldId, regenerateBriefing);
       router.refresh();
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to regenerate bootstrap";
-      alert(message);
+      toast.error(message);
     } finally {
       setIsPending(false);
     }
@@ -109,11 +113,12 @@ export function BootstrapReview({
     setIsPending(true);
     try {
       await abandonBootstrap(battlefieldId);
+      toast.success('Bootstrap abandoned');
       router.push("/battlefields");
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to abandon bootstrap";
-      alert(message);
+      toast.error(message);
       setIsPending(false);
     }
   }

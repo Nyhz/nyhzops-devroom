@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
+import { toast } from 'sonner';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacInput, TacTextarea } from '@/components/ui/tac-input';
 import { TacCard } from '@/components/ui/tac-card';
@@ -119,10 +120,12 @@ export function ScheduleForm({
             campaignId: type === 'campaign' ? campaignId : undefined,
           });
         }
+        toast.success(isEdit ? 'Task updated' : 'Task scheduled');
         onClose();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         setError(message);
+        toast.error(message);
       }
     });
   }

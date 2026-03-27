@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacTextarea } from '@/components/ui/tac-input';
 import { abandonMission, continueMission, redeployMission } from '@/actions/mission';
@@ -37,7 +38,10 @@ export function MissionActions({
     setIsPending(true);
     try {
       await abandonMission(missionId);
+      toast('Mission abandoned');
       router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to abandon mission');
     } finally {
       setIsPending(false);
     }
@@ -47,7 +51,10 @@ export function MissionActions({
     setIsPending(true);
     try {
       const newMission = await redeployMission(missionId);
+      toast.success('Mission redeployed');
       router.push(`/battlefields/${battlefieldId}/missions/${newMission.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to redeploy mission');
     } finally {
       setIsPending(false);
     }
@@ -58,7 +65,10 @@ export function MissionActions({
     setIsPending(true);
     try {
       const newMission = await continueMission(missionId, continueBriefing.trim());
+      toast.success('Continued mission deployed');
       router.push(`/battlefields/${battlefieldId}/missions/${newMission.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to continue mission');
     } finally {
       setIsPending(false);
     }

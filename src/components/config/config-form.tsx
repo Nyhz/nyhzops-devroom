@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { updateBattlefield, regenerateBootstrap, readBootstrapFile } from '@/actions/battlefield';
 import { TacInput, TacTextarea } from '@/components/ui/tac-input';
 import { TacButton } from '@/components/ui/tac-button';
@@ -79,10 +80,13 @@ export function ConfigForm({
         autoStartDevServer,
       });
       setSaved(true);
+      toast.success('Configuration saved');
       router.refresh();
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save configuration.');
+      const message = err instanceof Error ? err.message : 'Failed to save configuration.';
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -97,10 +101,13 @@ export function ConfigForm({
     setError('');
 
     try {
+      toast('Regenerating bootstrap...');
       await regenerateBootstrap(id, briefing.trim());
       router.push(`/battlefields/${id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to re-bootstrap.');
+      const message = err instanceof Error ? err.message : 'Failed to re-bootstrap.';
+      setError(message);
+      toast.error(message);
     }
   }, [id, briefing, router]);
 

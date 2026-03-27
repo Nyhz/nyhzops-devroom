@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { TacCard } from '@/components/ui/tac-card';
 import { TacBadge } from '@/components/ui/tac-badge';
 import { TacButton } from '@/components/ui/tac-button';
@@ -49,16 +50,26 @@ export function AssetList({ assets }: AssetListProps) {
 
   function handleToggle(id: string) {
     startTransition(async () => {
-      await toggleAssetStatus(id);
-      router.refresh();
+      try {
+        await toggleAssetStatus(id);
+        toast.success('Asset status changed');
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to toggle asset');
+      }
     });
   }
 
   function handleDelete(id: string) {
     startTransition(async () => {
-      await deleteAsset(id);
-      setConfirmDeleteId(null);
-      router.refresh();
+      try {
+        await deleteAsset(id);
+        setConfirmDeleteId(null);
+        toast.success('Asset removed');
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to delete asset');
+      }
     });
   }
 

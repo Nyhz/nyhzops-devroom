@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacInput, TacTextarea } from '@/components/ui/tac-input';
 import {
@@ -51,10 +52,13 @@ export function AssetForm({ editAsset, onClose }: AssetFormProps) {
         } else {
           await createAsset(codename, specialty, systemPrompt, model);
         }
+        toast.success(editAsset ? 'Asset updated' : 'Asset recruited');
         router.refresh();
         onClose();
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Operation failed');
+        const message = err instanceof Error ? err.message : 'Operation failed';
+        setError(message);
+        toast.error(message);
       }
     });
   }

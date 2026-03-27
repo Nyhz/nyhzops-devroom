@@ -23,7 +23,7 @@ export default async function SchedulePage({
     .all() as Campaign[];
 
   return (
-    <div className="space-y-6">
+    <div className="p-8 space-y-6">
       <ScheduleList
         tasks={tasks}
         battlefieldId={battlefieldId}

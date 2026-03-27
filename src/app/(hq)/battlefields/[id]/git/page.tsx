@@ -18,7 +18,7 @@ export default async function GitPage({
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="p-8 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-dr-amber text-sm font-tactical tracking-wider">

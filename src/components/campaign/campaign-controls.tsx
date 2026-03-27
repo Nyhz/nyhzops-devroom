@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { TacButton } from '@/components/ui/tac-button';
 import {
   launchCampaign,
@@ -35,14 +36,17 @@ export function CampaignControls({
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function run(action: string, fn: () => Promise<void>) {
+  async function run(action: string, fn: () => Promise<void>, successMessage?: string) {
     setLoading(action);
     setError(null);
     try {
       await fn();
+      if (successMessage) toast.success(successMessage);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed: ${action}`);
+      const message = err instanceof Error ? err.message : `Failed: ${action}`;
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(null);
     }
@@ -50,16 +54,16 @@ export function CampaignControls({
 
   async function handleLaunch() {
     if (!window.confirm('Confirm: Launch this campaign? All Phase 1 missions will be deployed.')) return;
-    await run('launch', () => launchCampaign(campaignId));
+    await run('launch', () => launchCampaign(campaignId), 'Campaign launched — Phase 1 active');
   }
 
   async function handleAbandon() {
     if (!window.confirm('Confirm: Abandon this campaign? This action cannot be undone.')) return;
-    await run('abandon', () => abandonCampaign(campaignId));
+    await run('abandon', () => abandonCampaign(campaignId), 'Campaign abandoned');
   }
 
   async function handleComplete() {
-    await run('complete', () => completeCampaign(campaignId));
+    await run('complete', () => completeCampaign(campaignId), 'Campaign accomplished');
   }
 
   async function handleRedeploy() {
@@ -67,9 +71,12 @@ export function CampaignControls({
     setError(null);
     try {
       const newCampaign = await redeployCampaign(campaignId);
+      toast.success('Campaign redeployed');
       router.push(`/battlefields/${battlefieldId}/campaigns/${newCampaign.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to redeploy');
+      const message = err instanceof Error ? err.message : 'Failed to redeploy';
+      setError(message);
+      toast.error(message);
       setLoading(null);
     }
   }
@@ -80,28 +87,31 @@ export function CampaignControls({
     setError(null);
     try {
       await deleteCampaign(campaignId);
+      toast.success('Campaign deleted');
       router.push(`/battlefields/${battlefieldId}/campaigns`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete');
+      const message = err instanceof Error ? err.message : 'Failed to delete';
+      setError(message);
+      toast.error(message);
       setLoading(null);
     }
   }
 
   async function handleResume() {
-    await run('resume', () => resumeCampaign(campaignId));
+    await run('resume', () => resumeCampaign(campaignId), 'Campaign resumed');
   }
 
   async function handleSkip() {
     if (!window.confirm('Confirm: Skip the current phase and continue to the next?')) return;
-    await run('skip', () => skipAndContinueCampaign(campaignId));
+    await run('skip', () => skipAndContinueCampaign(campaignId), 'Phase skipped — continuing');
   }
 
   async function handleRegenerate() {
-    await run('regenerate', () => generateBattlePlan(campaignId));
+    await run('regenerate', () => generateBattlePlan(campaignId), 'Battle plan regenerated');
   }
 
   async function handleSaveAsTemplate() {
-    await run('saveTemplate', () => saveAsTemplate(campaignId));
+    await run('saveTemplate', () => saveAsTemplate(campaignId), 'Saved as template');
   }
 
   async function handleRunTemplate() {
@@ -109,9 +119,12 @@ export function CampaignControls({
     setError(null);
     try {
       const newCampaign = await runTemplate(campaignId);
+      toast.success('Template deployed');
       router.push(`/battlefields/${battlefieldId}/campaigns/${newCampaign.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to run template');
+      const message = err instanceof Error ? err.message : 'Failed to run template';
+      setError(message);
+      toast.error(message);
       setLoading(null);
     }
   }

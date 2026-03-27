@@ -8,7 +8,7 @@ export default async function NewCampaignPage({
   const { id } = await params;
 
   return (
-    <div className="flex flex-col gap-6 max-w-2xl">
+    <div className="p-8 flex flex-col gap-6 max-w-3xl">
       {/* Breadcrumb */}
       <div className="font-tactical text-xs text-dr-dim uppercase tracking-wider">
         CAMPAIGNS // NEW

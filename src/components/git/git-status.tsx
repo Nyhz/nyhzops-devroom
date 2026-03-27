@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacInput } from '@/components/ui/tac-input';
 import { GitDiff } from '@/components/git/git-diff';
@@ -57,9 +58,14 @@ export function GitStatus({ battlefieldId, initialStatus, className }: GitStatus
   function handleCommit() {
     if (!commitMessage.trim() || !hasStaged) return;
     startTransition(async () => {
-      await commitChanges(battlefieldId, commitMessage.trim());
-      setCommitMessage('');
-      router.refresh();
+      try {
+        await commitChanges(battlefieldId, commitMessage.trim());
+        setCommitMessage('');
+        toast.success('Changes committed');
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Commit failed');
+      }
     });
   }
 
