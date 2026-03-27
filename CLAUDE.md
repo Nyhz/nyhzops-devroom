@@ -403,7 +403,7 @@ devroom/
 - id              TEXT PRIMARY KEY (ULID)
 - battlefieldId   TEXT NOT NULL REFERENCES battlefields(id)
 - name            TEXT NOT NULL             -- e.g. "Nightly test suite"
-- type            TEXT NOT NULL             -- mission | campaign
+- type            TEXT NOT NULL             -- mission | campaign | maintenance
 - cron            TEXT NOT NULL             -- cron expression (e.g. "0 3 * * *")
 - enabled         INTEGER DEFAULT 1        -- boolean
 - missionTemplate TEXT                     -- JSON: { title, briefing, assetId, priority, useWorktree }
@@ -574,14 +574,13 @@ The `server.ts` entry point boots the full system. Startup sequence:
 2. Seed default assets if table is empty.
 3. Prepare Next.js app.
 4. Create HTTP server, attach Socket.IO at `/socket.io`.
-5. Start Orchestrator (queue poll loop).
-6. Start DevServerManager (per-battlefield dev server lifecycle).
-7. Pause any campaigns left `active` from previous run.
-8. Auto-start dev servers for flagged battlefields.
-9. Start Scheduler (cron engine + seed WORKTREE SWEEP daily task).
-10. Start Telegram bot polling (if configured).
-11. Detect local IP, log startup banner.
-12. Register graceful shutdown handler (SIGINT/SIGTERM → abort missions → close DB → exit).
+5. Create Orchestrator (queue poll loop) and DevServerManager.
+6. Pause any campaigns left `active` from previous run.
+7. Auto-start dev servers for flagged battlefields.
+8. Start Scheduler (cron engine + seed WORKTREE SWEEP daily task).
+9. Start Telegram bot polling (if configured).
+10. Detect local IP, log startup banner.
+11. Register graceful shutdown handler (SIGINT/SIGTERM → abort missions → close DB → exit).
 
 ```typescript
 // Simplified server.ts structure
@@ -594,8 +593,9 @@ app.prepare().then(() => {
   global.io = io;
 
   const orchestrator = new Orchestrator(io);
-  const devServerManager = new DevServerManager(io);
-  orchestrator.start();
+  globalThis.orchestrator = orchestrator;
+  const devServerManager = new DevServerManager();
+  globalThis.devServerManager = devServerManager;
   // ... scheduler, telegram, auto-start, etc.
 
   const port = parseInt(process.env.DEVROOM_PORT || '7777');

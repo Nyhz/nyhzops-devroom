@@ -17,16 +17,14 @@ This document specifies every feature, screen, and workflow. Use alongside `CLAU
 5. Seed default assets if assets table is empty.
 6. Prepare Next.js app.
 7. Create HTTP server, attach Socket.IO, wire Next.js handler.
-8. Start orchestrator engine (queue poll loop).
-9. Start DevServerManager (per-battlefield dev server lifecycle).
-10. Pause any campaigns left `active` from previous run.
-11. Auto-start dev servers for flagged battlefields (`autoStartDevServer = true`).
-12. Start Scheduler (cron engine + seed WORKTREE SWEEP daily task at 03:00).
-13. Start Telegram bot polling (if `DEVROOM_TELEGRAM_BOT_TOKEN` configured).
-14. Detect local IP via `os.networkInterfaces()`.
-15. Run log retention cleanup (delete logs older than `DEVROOM_LOG_RETENTION_DAYS`).
-16. Register graceful shutdown handler (SIGINT/SIGTERM).
-17. Log startup:
+8. Create Orchestrator (queue poll loop) and DevServerManager, assign to `globalThis`.
+9. Pause any campaigns left `active` from previous run.
+10. Auto-start dev servers for flagged battlefields (`autoStartDevServer = true`).
+11. Start Scheduler (cron engine + seed WORKTREE SWEEP daily task at 03:00).
+12. Start Telegram bot polling (if `DEVROOM_TELEGRAM_BOT_TOKEN` configured).
+13. Detect local IP via `os.networkInterfaces()`.
+14. Register graceful shutdown handler (SIGINT/SIGTERM).
+15. Log startup:
 ```
 ═══════════════════════════════════════════
   NYHZ OPS — DEVROOM
@@ -42,14 +40,13 @@ This document specifies every feature, screen, and workflow. Use alongside `CLAU
 On `SIGINT` / `SIGTERM`:
 
 1. Log: `DEVROOM — STANDING DOWN...`
-2. Stop accepting connections.
-3. Abort all running missions via AbortControllers.
+2. Stop Telegram polling.
+3. Stop Scheduler.
 4. Stop all dev servers gracefully.
-5. Stop Telegram polling.
-6. Wait up to 5s for processes to exit, then force-kill.
-7. Update interrupted missions: status → `abandoned`, debrief notes shutdown.
-8. Close Socket.IO, close DB.
-9. Exit.
+5. Abort all running missions via `orchestrator.shutdown()` (sets status → `abandoned`, notes shutdown in debrief).
+6. Start 5s force-exit timer (unref'd so it doesn't keep the process alive).
+7. Close Socket.IO, close HTTP server, close DB.
+8. Exit.
 
 ### 1.3 LAN Access
 
@@ -288,7 +285,7 @@ STANDBY → QUEUED → DEPLOYING → IN COMBAT → REVIEWING → ACCOMPLISHED
 
 ### 5.3 Load Dossier
 
-File picker filtered to `.md`/`.txt`. Contents populate the briefing textarea.
+The `<DossierSelector />` component lets the Commander pick a saved dossier template from the database. If the dossier has `{{variable}}` placeholders, a form appears to fill in values. The interpolated template populates the briefing textarea and the recommended asset is auto-selected. See §20 for full dossier details.
 
 ### 5.4 Execution Flow
 
@@ -649,7 +646,7 @@ Green dot = enabled, gray dot = disabled.
 
 Form fields:
 - **Name**: descriptive name.
-- **Type**: `Mission` or `Campaign`.
+- **Type**: `Mission`, `Campaign`, or `Maintenance` (internal tasks like WORKTREE SWEEP).
 - **Schedule**: cron expression with human-readable preview (e.g. "Every day at 03:00"). Common presets: hourly, daily, weekly, monthly.
 - **If Mission type**:
   - Briefing (markdown).
@@ -739,7 +736,7 @@ Conflict resolution: spawn Claude Code with diff + mission debriefs. Failure →
 
 ### 11.5 Cleanup
 
-Every 10 minutes: remove worktrees for missions terminal > 1 hour. Delete orphaned `devroom/` branches.
+A daily WORKTREE SWEEP maintenance task (seeded at startup, cron `0 3 * * *`) removes worktrees for terminal missions and deletes orphaned `devroom/` branches. Worktrees are also cleaned up immediately after successful merge on mission completion.
 
 ---
 
@@ -1074,7 +1071,7 @@ Schema in `lib/db/schema.ts`. Migrations via `npx drizzle-kit generate`. Applied
 
 ### 17.3 Log Retention
 
-Startup: delete logs older than `DEVROOM_LOG_RETENTION_DAYS`.
+`DEVROOM_LOG_RETENTION_DAYS` (default 30) is configured but log cleanup is not yet implemented. This is a backlog item — the config value is loaded and ready for use when retention logic is added.
 
 ---
 
@@ -1241,6 +1238,7 @@ The HQ root layout uses `<BootGate>` as an overlay — if the boot animation has
 - [ ] Mission dependencies (DAG within phases — `dependsOn` field exists but no UI).
 - [ ] Multi-repo campaigns.
 - [ ] Audit log.
+- [ ] Log retention cleanup (config exists, logic not yet wired).
 - [ ] Export/import state.
 - [ ] Voice debriefs (TTS).
 - [x] Dossier library (saved briefing templates — fully implemented).
