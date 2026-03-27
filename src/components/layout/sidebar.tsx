@@ -76,8 +76,15 @@ export function Sidebar() {
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Logistics link */}
-      <div className="px-2 mb-1">
+      {/* Global links */}
+      <div className="px-2 mb-1 space-y-0.5">
+        <Link
+          href="/captain-log"
+          className="flex items-center gap-2.5 px-2 py-1.5 text-xs text-dr-muted hover:text-dr-text transition-colors"
+        >
+          <span className="w-4 text-center text-[10px]">⚓</span>
+          <span className="flex-1">CAPTAIN&apos;S LOG</span>
+        </Link>
         <Link
           href="/logistics"
           className="flex items-center gap-2.5 px-2 py-1.5 text-xs text-dr-muted hover:text-dr-text transition-colors"

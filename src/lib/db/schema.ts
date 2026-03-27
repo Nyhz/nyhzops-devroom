@@ -146,6 +146,22 @@ export const dossiers = sqliteTable('dossiers', {
 });
 
 // ---------------------------------------------------------------------------
+// Captain Logs (AI decision layer)
+// ---------------------------------------------------------------------------
+export const captainLogs = sqliteTable('captain_logs', {
+  id: text('id').primaryKey(),
+  missionId: text('mission_id').notNull().references(() => missions.id),
+  campaignId: text('campaign_id').references(() => campaigns.id),
+  battlefieldId: text('battlefield_id').notNull().references(() => battlefields.id),
+  question: text('question').notNull(),
+  answer: text('answer').notNull(),
+  reasoning: text('reasoning').notNull(),
+  confidence: text('confidence').notNull(),  // 'high' | 'medium' | 'low'
+  escalated: integer('escalated').default(0),
+  timestamp: integer('timestamp').notNull(),
+});
+
+// ---------------------------------------------------------------------------
 // Command Logs
 // ---------------------------------------------------------------------------
 export const commandLogs = sqliteTable('command_logs', {

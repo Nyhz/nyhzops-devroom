@@ -9,6 +9,7 @@ import type {
   scheduledTasks,
   commandLogs,
   dossiers,
+  captainLogs,
 } from '../lib/db/schema';
 
 // ---------------------------------------------------------------------------
@@ -37,6 +38,8 @@ export type MissionLog = InferSelectModel<typeof missionLogs>;
 export type ScheduledTask = InferSelectModel<typeof scheduledTasks>;
 export type CommandLog = InferSelectModel<typeof commandLogs>;
 export type Dossier = InferSelectModel<typeof dossiers>;
+export type CaptainLog = InferSelectModel<typeof captainLogs>;
+export type CaptainConfidence = 'high' | 'medium' | 'low';
 
 export interface DossierVariable {
   key: string;

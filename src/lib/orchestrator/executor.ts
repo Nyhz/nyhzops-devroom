@@ -12,6 +12,8 @@ import { buildPrompt } from './prompt-builder';
 import { StreamParser } from './stream-parser';
 import { createWorktree, removeWorktree } from './worktree';
 import { mergeBranch } from './merger';
+import { askCaptain } from '@/lib/captain/captain';
+import { storeCaptainLog, getRecentCaptainLogs } from '@/lib/captain/captain-db';
 import type { Mission, StreamResult } from '@/types';
 
 export class RateLimitError extends Error {
@@ -72,7 +74,8 @@ export async function executeMission(
     });
   };
 
-  // Hoist worktree variables so they're accessible in catch block for cleanup
+  // Hoist variables so they're accessible in catch block for cleanup
+  let stallCheckInterval: NodeJS.Timeout | null = null;
   let workingDirectory: string | null = null;
   let worktreePath: string | null = null;
   let worktreeBranch: string | null = mission.worktreeBranch;
@@ -134,6 +137,21 @@ export async function executeMission(
 
     const fullPrompt = buildPrompt(mission, battlefield, asset);
 
+    // Read CLAUDE.md content for Captain context
+    let claudeMdContent: string | null = null;
+    if (battlefield.claudeMdPath) {
+      try {
+        claudeMdContent = fs.readFileSync(battlefield.claudeMdPath, 'utf-8');
+      } catch { /* skip */ }
+    }
+
+    // Build campaign context string for Captain
+    let campaignContextString: string | null = null;
+    if (mission.campaignId) {
+      // Extract campaign context from the prompt (it's already built in)
+      campaignContextString = `Campaign mission for battlefield ${battlefield.codename}. Mission: ${mission.title}`;
+    }
+
     // Step 3: Spawn Claude Code
     const args = [
       '--print',
@@ -164,7 +182,19 @@ export async function executeMission(
     // Step 5: Parse stream
     const parser = new StreamParser();
 
+    // Captain stall detection state
+    let lastAssistantContent = '';
+    let lastActivityTime = Date.now();
+    let waitingForInput = false;
+    let lastMessageHadToolUse = false;
+    let recentOutputBuffer = '';
+
     parser.onDelta((text) => {
+      lastActivityTime = Date.now();
+      recentOutputBuffer += text;
+      if (recentOutputBuffer.length > 3000) {
+        recentOutputBuffer = recentOutputBuffer.slice(-2000);
+      }
       io.to(room).emit('mission:log', {
         missionId: mission.id,
         timestamp: Date.now(),
@@ -174,10 +204,15 @@ export async function executeMission(
     });
 
     parser.onAssistantTurn((content) => {
+      lastActivityTime = Date.now();
+      lastAssistantContent = content;
+      lastMessageHadToolUse = false;
       storeLog('log', content);
     });
 
     parser.onToolUse((tool, _input) => {
+      lastActivityTime = Date.now();
+      lastMessageHadToolUse = true;
       const msg = `Tool: ${tool}`;
       storeLog('log', msg);
       io.to(room).emit('mission:log', {
@@ -189,12 +224,14 @@ export async function executeMission(
     });
 
     parser.onToolResult((_toolId, result, isError) => {
+      lastActivityTime = Date.now();
       if (isError) {
         storeLog('error', result);
       }
     });
 
     parser.onError((error) => {
+      lastActivityTime = Date.now();
       storeLog('error', error);
       io.to(room).emit('mission:log', {
         missionId: mission.id,
@@ -205,6 +242,7 @@ export async function executeMission(
     });
 
     parser.onTokens((usage) => {
+      lastActivityTime = Date.now();
       io.to(room).emit('mission:tokens', {
         missionId: mission.id,
         input: usage.inputTokens,
@@ -216,6 +254,7 @@ export async function executeMission(
     });
 
     parser.onRateLimit((info) => {
+      lastActivityTime = Date.now();
       // Store latest rate limit info on orchestrator
       if (globalThis.orchestrator) {
         globalThis.orchestrator.latestRateLimit = {
@@ -233,13 +272,95 @@ export async function executeMission(
     });
 
     parser.onResult((result) => {
+      lastActivityTime = Date.now();
+      waitingForInput = false;
       streamResult = result;
     });
+
+    // Captain stall detection interval — check every 5 seconds for 15-second silence
+    stallCheckInterval = setInterval(async () => {
+      if (waitingForInput) return; // Already handling a stall
+
+      const silenceMs = Date.now() - lastActivityTime;
+
+      if (
+        silenceMs > 15_000 &&          // 15 seconds of silence
+        lastAssistantContent &&         // There was an assistant message
+        !lastMessageHadToolUse &&       // It didn't call a tool
+        !streamResult                   // No result yet (process still running)
+      ) {
+        waitingForInput = true;
+
+        try {
+          // Get Captain's decision
+          const decision = await askCaptain({
+            question: lastAssistantContent,
+            missionBriefing: mission.briefing,
+            claudeMd: claudeMdContent,
+            recentOutput: recentOutputBuffer.slice(-2000),
+            captainHistory: getRecentCaptainLogs(mission.id, 5),
+            campaignContext: campaignContextString || undefined,
+          });
+
+          // Store in captain log
+          storeCaptainLog({
+            missionId: mission.id,
+            campaignId: mission.campaignId,
+            battlefieldId: mission.battlefieldId,
+            question: lastAssistantContent,
+            answer: decision.answer,
+            reasoning: decision.reasoning,
+            confidence: decision.confidence,
+            escalated: decision.escalate ? 1 : 0,
+          });
+
+          // Show in mission comms
+          const captainMsg = `[CAPTAIN] ${decision.answer}\n(confidence: ${decision.confidence})`;
+          io.to(room).emit('mission:log', {
+            missionId: mission.id,
+            timestamp: Date.now(),
+            type: 'status',
+            content: captainMsg + '\n',
+          });
+          storeLog('status', captainMsg);
+
+          // Write to agent's stdin
+          proc.stdin?.write(decision.answer + '\n');
+
+          // Reset detection
+          lastAssistantContent = '';
+          lastActivityTime = Date.now();
+
+          // Handle escalation
+          if (decision.escalate) {
+            const bf = db.select({ codename: battlefields.codename })
+              .from(battlefields)
+              .where(eq(battlefields.id, mission.battlefieldId))
+              .get();
+            io.to('hq:activity').emit('activity:event', {
+              type: 'captain:escalation',
+              battlefieldCodename: bf?.codename || 'UNKNOWN',
+              missionTitle: mission.title,
+              timestamp: Date.now(),
+              detail: `Captain escalation: ${decision.reasoning}`,
+            });
+          }
+        } finally {
+          waitingForInput = false;
+        }
+      }
+    }, 5_000);
 
     // Read stdout line by line
     const rl = createInterface({ input: proc.stdout! });
     for await (const line of rl) {
       parser.feed(line);
+    }
+
+    // Clean up stall detection interval
+    if (stallCheckInterval) {
+      clearInterval(stallCheckInterval);
+      stallCheckInterval = null;
     }
 
     // Wait for process to fully close
@@ -354,6 +475,12 @@ export async function executeMission(
     }
 
   } catch (err) {
+    // Clean up stall detection interval on error
+    if (stallCheckInterval) {
+      clearInterval(stallCheckInterval);
+      stallCheckInterval = null;
+    }
+
     if (err instanceof RateLimitError) {
       throw err; // Re-throw for orchestrator to handle
     }
