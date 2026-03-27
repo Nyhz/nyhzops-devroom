@@ -35,7 +35,7 @@ function NavLink({
           : 'text-dr-muted hover:text-dr-text hover:bg-dr-elevated',
       )}
     >
-      <span className={cn('w-5 text-center text-xs', active && 'text-dr-amber')}>
+      <span className={cn('w-6 text-center text-base', active && 'text-dr-amber')}>
         {icon}
       </span>
       <span className="flex-1">{label}</span>

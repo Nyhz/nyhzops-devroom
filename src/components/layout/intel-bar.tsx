@@ -143,7 +143,7 @@ export function IntelBar() {
             {'\u{1F514}'}
           </span>
           {unreadCount > 0 && (
-            <span className="text-dr-red font-bold text-[10px] min-w-[14px] text-center bg-dr-red/20 px-1 rounded-sm">
+            <span className="text-dr-red font-bold text-xs min-w-[14px] text-center bg-dr-red/20 px-1 rounded-sm">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
@@ -155,7 +155,7 @@ export function IntelBar() {
             <div className="px-3 py-2 border-b border-dr-border flex items-center justify-between">
               <span className="text-dr-amber text-xs font-bold">NOTIFICATIONS</span>
               {unreadCount > 0 && (
-                <span className="text-dr-dim text-[10px]">{unreadCount} UNREAD</span>
+                <span className="text-dr-dim text-xs">{unreadCount} UNREAD</span>
               )}
             </div>
 
@@ -186,10 +186,10 @@ export function IntelBar() {
                             <span className="w-1.5 h-1.5 bg-dr-amber rounded-full flex-shrink-0" />
                           )}
                         </div>
-                        <p className="text-[10px] text-dr-muted truncate mt-0.5">
+                        <p className="text-xs text-dr-muted truncate mt-0.5">
                           {n.detail}
                         </p>
-                        <span className="text-[9px] text-dr-dim mt-0.5 block">
+                        <span className="text-[10px] text-dr-dim mt-0.5 block">
                           {formatRelativeTime(n.createdAt)}
                         </span>
                       </div>
@@ -203,7 +203,7 @@ export function IntelBar() {
               <div className="px-3 py-2 border-t border-dr-border">
                 <button
                   onClick={handleMarkAllRead}
-                  className="text-[10px] text-dr-amber hover:text-dr-green transition-colors font-bold w-full text-center"
+                  className="text-xs text-dr-amber hover:text-dr-green transition-colors font-bold w-full text-center"
                 >
                   [ MARK ALL READ ]
                 </button>
@@ -218,7 +218,7 @@ export function IntelBar() {
         className="flex items-center gap-1.5 text-xs whitespace-nowrap hover:opacity-80 transition-opacity"
       >
         <span className="text-dr-dim">LOGISTICS</span>
-        <span className="text-[8px] text-dr-green">{'\u25CF'}</span>
+        <span className="text-sm text-dr-green">{'\u25CF'}</span>
       </Link>
     </header>
   );

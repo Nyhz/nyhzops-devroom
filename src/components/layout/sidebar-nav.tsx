@@ -79,7 +79,7 @@ export function SidebarNav({ assetCount, missionCounts, campaignCounts }: Sideba
                 : "text-dr-muted hover:text-dr-text"
             )}
           >
-            <span className="w-5 text-center text-xs">{item.icon}</span>
+            <span className="w-6 text-center text-base">{item.icon}</span>
             <span className="flex-1">{item.label}</span>
             {itemCount !== undefined && itemCount > 0 && (
               <span className="text-dr-dim text-xs">{itemCount}</span>

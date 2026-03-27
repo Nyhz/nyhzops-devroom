@@ -52,7 +52,7 @@ export function Sidebar() {
               <span className="text-dr-text text-base font-bold tracking-wide">
                 NYHZ OPS
               </span>
-              <span className="text-dr-green text-[10px]">●</span>
+              <span className="text-dr-green text-sm">●</span>
             </div>
             <span className="text-dr-muted text-sm">DEVROOM</span>
           </div>
@@ -92,11 +92,11 @@ export function Sidebar() {
           Intel Briefing
         </span>
         <div className="mt-2 flex items-center gap-2">
-          <span className="text-dr-green text-[10px]">●</span>
+          <span className="text-dr-green text-sm">●</span>
           <span className="text-dr-muted text-sm">All systems operational</span>
         </div>
         <div className="mt-1.5 flex items-center gap-2">
-          <span className="text-dr-dim text-[10px]">●</span>
+          <span className="text-dr-dim text-sm">●</span>
           <span className="text-dr-dim text-sm">
             0/{config.maxAgents} assets deployed
           </span>
