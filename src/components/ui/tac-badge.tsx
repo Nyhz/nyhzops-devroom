@@ -14,6 +14,7 @@ const statusColorMap: Record<string, StatusColor> = {
   active: 'amber',
   in_combat: 'amber',
   deploying: 'amber',
+  reviewing: 'blue',
   compromised: 'red',
   initializing: 'blue',
   queued: 'blue',

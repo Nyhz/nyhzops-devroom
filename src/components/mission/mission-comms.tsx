@@ -4,9 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMissionComms } from '@/hooks/use-mission-comms';
 import { Terminal } from '@/components/ui/terminal';
-import { TacBadge } from '@/components/ui/tac-badge';
 import { MissionActions } from '@/components/mission/mission-actions';
-import { Markdown } from '@/components/ui/markdown';
 import { formatDuration } from '@/lib/utils';
 import type { MissionLog, MissionStatus } from '@/types';
 
@@ -69,12 +67,13 @@ export function MissionComms({
   const displayDuration = initialTokens.duration; // Duration comes from DB on completion
   const displayCostUsd = tokens?.costUsd ?? null;
 
-  const totalTokens = displayInput + displayOutput;
+  const totalInputContext = displayInput + displayCacheHit;
   const cachePercent =
-    totalTokens > 0 ? Math.round((displayCacheHit / totalTokens) * 100) : 0;
+    totalInputContext > 0 ? Math.round((displayCacheHit / totalInputContext) * 100) : 0;
 
   // Build terminal logs
   const isPreDeploy = PRE_DEPLOY_STATUSES.includes(liveStatus);
+  const isReviewing = liveStatus === 'reviewing';
   const terminalLogs = isPreDeploy
     ? [
         {
@@ -84,19 +83,25 @@ export function MissionComms({
             'Awaiting deployment. Comms will appear here when the mission is in combat.',
         },
       ]
-    : logs.map((log) => ({
-        timestamp: log.timestamp,
-        type: (log.type as 'log' | 'status' | 'error') ?? 'log',
-        content: log.content,
-      }));
+    : [
+        ...logs.map((log) => ({
+          timestamp: log.timestamp,
+          type: (log.type as 'log' | 'status' | 'error') ?? 'log',
+          content: log.content,
+        })),
+        ...(isReviewing
+          ? [
+              {
+                timestamp: Date.now(),
+                type: 'status' as const,
+                content: 'Agent work complete. Captain reviewing debrief...',
+              },
+            ]
+          : []),
+      ];
 
   return (
     <div className="space-y-6">
-      {/* Status badge */}
-      <div className="flex items-center gap-3">
-        <TacBadge status={liveStatus} glow />
-      </div>
-
       {/* Comms terminal */}
       <div className="space-y-3">
         <div className="space-y-1">
@@ -153,12 +158,20 @@ export function MissionComms({
         <div className="space-y-3">
           <div className="space-y-1">
             <h2 className="text-sm font-tactical text-dr-amber tracking-wider">
-              DEBRIEF
+              {liveStatus === 'compromised' ? 'SITUATION REPORT' : 'DEBRIEF'}
             </h2>
             <div className="h-px bg-dr-border" />
           </div>
-          <div className="font-data text-sm leading-relaxed bg-dr-surface border border-dr-border p-4">
-            <Markdown content={liveDebrief} />
+          <div
+            className={`font-data text-sm leading-relaxed border p-4 ${
+              liveStatus === 'compromised'
+                ? 'bg-dr-red/5 border-dr-red/30'
+                : 'bg-dr-surface border-dr-border'
+            }`}
+          >
+            {liveDebrief.split('\n').filter(Boolean).map((line, i) => (
+              <p key={i} className="text-dr-text mb-2 last:mb-0">{line}</p>
+            ))}
           </div>
         </div>
       )}
