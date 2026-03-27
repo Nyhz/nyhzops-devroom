@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const GLOBAL_LINKS = [
-  { href: '/', icon: '⌘', label: 'WAR ROOM', exact: true },
   { href: '/battlefields', icon: '◉', label: 'HQ', exact: false },
+  { href: '/overwatch', icon: '◎', label: 'OVERWATCH', exact: true },
 ] as const;
 
 const BOTTOM_LINKS = [
