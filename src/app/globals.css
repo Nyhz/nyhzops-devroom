@@ -149,3 +149,12 @@
     scrollbar-color: #2a2a32 #0a0a0c;
   }
 }
+
+/* OVERWATCH — metric flash animation */
+@keyframes overwatch-number-flash {
+  0% { text-shadow: 0 0 12px currentColor, 0 0 24px currentColor; }
+  100% { text-shadow: none; }
+}
+.overwatch-flash {
+  animation: overwatch-number-flash 0.5s ease-out;
+}
