@@ -60,7 +60,7 @@ export function SidebarNav({ assetCount, missionCounts, campaignCounts }: Sideba
   }
 
   return (
-    <nav className="flex flex-col px-2 gap-0.5">
+    <nav className="flex flex-col px-3 gap-0.5">
       {NAV_ITEMS.map((item) => {
         const active = isActive(item);
         const href = item.segment === ""
@@ -73,16 +73,16 @@ export function SidebarNav({ assetCount, missionCounts, campaignCounts }: Sideba
             key={item.label}
             href={href}
             className={cn(
-              "flex items-center gap-2.5 px-2 py-1.5 text-xs transition-colors",
+              "flex items-center gap-3 px-3 py-3 text-sm transition-colors",
               active
                 ? "bg-dr-elevated text-dr-amber"
                 : "text-dr-muted hover:text-dr-text"
             )}
           >
-            <span className="w-4 text-center text-[10px]">{item.icon}</span>
+            <span className="w-5 text-center text-xs">{item.icon}</span>
             <span className="flex-1">{item.label}</span>
             {itemCount !== undefined && itemCount > 0 && (
-              <span className="text-dr-dim text-[10px]">{itemCount}</span>
+              <span className="text-dr-dim text-xs">{itemCount}</span>
             )}
           </Link>
         );

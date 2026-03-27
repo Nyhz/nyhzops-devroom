@@ -41,19 +41,19 @@ export function Sidebar() {
   return (
     <aside className="bg-dr-surface border-r border-dr-border flex flex-col overflow-y-auto">
       {/* Brand block */}
-      <div className="px-4 pt-4 pb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-dr-amber flex items-center justify-center text-dr-bg font-bold text-sm shrink-0">
+      <div className="px-5 pt-5 pb-4">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-dr-amber flex items-center justify-center text-dr-bg font-bold text-base shrink-0">
             N
           </div>
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-dr-text text-sm font-bold tracking-wide">
+              <span className="text-dr-text text-base font-bold tracking-wide">
                 NYHZ OPS
               </span>
-              <span className="text-dr-green text-[8px]">●</span>
+              <span className="text-dr-green text-[10px]">●</span>
             </div>
-            <span className="text-dr-muted text-xs">DEVROOM</span>
+            <span className="text-dr-muted text-sm">DEVROOM</span>
           </div>
         </div>
       </div>
@@ -62,7 +62,7 @@ export function Sidebar() {
       <div className="border-t border-dr-border" />
 
       {/* Battlefield selector */}
-      <div className="px-3 py-3">
+      <div className="px-4 py-4">
         <BattlefieldSelector battlefields={allBattlefields} />
       </div>
 
@@ -77,35 +77,35 @@ export function Sidebar() {
       <div className="flex-1" />
 
       {/* Global links */}
-      <div className="px-2 mb-1 space-y-0.5">
+      <div className="px-3 mb-1 space-y-0.5">
         <Link
           href="/captain-log"
-          className="flex items-center gap-2.5 px-2 py-1.5 text-xs text-dr-muted hover:text-dr-text transition-colors"
+          className="flex items-center gap-3 px-3 py-3 text-sm text-dr-muted hover:text-dr-text transition-colors"
         >
-          <span className="w-4 text-center text-[10px]">⚓</span>
+          <span className="w-5 text-center text-xs">⚓</span>
           <span className="flex-1">CAPTAIN&apos;S LOG</span>
         </Link>
         <Link
           href="/logistics"
-          className="flex items-center gap-2.5 px-2 py-1.5 text-xs text-dr-muted hover:text-dr-text transition-colors"
+          className="flex items-center gap-3 px-3 py-3 text-sm text-dr-muted hover:text-dr-text transition-colors"
         >
-          <span className="w-4 text-center text-[10px]">◈</span>
+          <span className="w-5 text-center text-xs">◈</span>
           <span className="flex-1">LOGISTICS</span>
         </Link>
       </div>
 
       {/* Intel Briefing */}
-      <div className="border-t border-dr-border px-4 py-3">
-        <span className="text-dr-dim text-[10px] tracking-widest uppercase">
+      <div className="border-t border-dr-border px-5 py-4">
+        <span className="text-dr-dim text-xs tracking-widest uppercase">
           Intel Briefing
         </span>
         <div className="mt-2 flex items-center gap-2">
-          <span className="text-dr-green text-[8px]">●</span>
-          <span className="text-dr-muted text-xs">All systems operational</span>
+          <span className="text-dr-green text-[10px]">●</span>
+          <span className="text-dr-muted text-sm">All systems operational</span>
         </div>
-        <div className="mt-1 flex items-center gap-2">
-          <span className="text-dr-dim text-[8px]">●</span>
-          <span className="text-dr-dim text-xs">
+        <div className="mt-1.5 flex items-center gap-2">
+          <span className="text-dr-dim text-[10px]">●</span>
+          <span className="text-dr-dim text-sm">
             0/{config.maxAgents} assets deployed
           </span>
         </div>

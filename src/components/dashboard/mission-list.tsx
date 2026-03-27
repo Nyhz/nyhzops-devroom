@@ -47,8 +47,8 @@ export function MissionList({ missions, battlefieldId }: MissionListProps) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase">
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-dr-amber font-tactical text-sm tracking-widest uppercase">
           MISSIONS
         </div>
         <SearchInput
@@ -72,29 +72,29 @@ export function MissionList({ missions, battlefieldId }: MissionListProps) {
           {filtered.map((mission) => (
             <div
               key={mission.id}
-              className={`bg-dr-surface border-l-2 ${getStatusBorderColor(mission.status)} flex items-center justify-between px-4 py-3`}
+              className={`bg-dr-surface border-l-2 ${getStatusBorderColor(mission.status)} flex items-center justify-between px-5 py-4`}
             >
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-dr-text font-tactical text-sm truncate">
+                <div className="flex items-center gap-3">
+                  <span className="text-dr-text font-tactical text-base truncate">
                     {mission.title ?? 'Untitled Mission'}
                   </span>
                   {(mission.iterations ?? 0) > 1 && (
-                    <span className="text-dr-amber font-tactical text-[10px] bg-dr-elevated px-1.5 py-0.5 shrink-0">
+                    <span className="text-dr-amber font-tactical text-xs bg-dr-elevated px-2 py-0.5 shrink-0">
                       &times;{mission.iterations}
                     </span>
                   )}
                 </div>
-                <div className="text-dr-dim font-tactical text-[11px] mt-0.5">
+                <div className="text-dr-dim font-tactical text-sm mt-1">
                   {mission.assetCodename ?? 'UNASSIGNED'} &middot;{' '}
                   {formatRelativeTime(mission.createdAt)}
                 </div>
               </div>
-              <div className="flex items-center gap-4 shrink-0 ml-4">
+              <div className="flex items-center gap-5 shrink-0 ml-4">
                 <TacBadge status={mission.status ?? 'standby'} />
                 <Link
                   href={`/battlefields/${battlefieldId}/missions/${mission.id}`}
-                  className="text-dr-amber font-tactical text-xs tracking-wider hover:text-dr-green transition-colors"
+                  className="text-dr-amber font-tactical text-sm tracking-wider hover:text-dr-green transition-colors"
                 >
                   VIEW
                 </Link>

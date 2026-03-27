@@ -151,12 +151,12 @@ export function IntelBar() {
   };
 
   return (
-    <header className="bg-dr-surface border-b border-dr-border px-4 py-1.5 flex items-center gap-3 min-h-[32px]">
-      <span className="text-dr-amber font-bold text-xs whitespace-nowrap">
+    <header className="bg-dr-surface border-b border-dr-border px-6 py-2.5 flex items-center gap-4 min-h-[44px]">
+      <span className="text-dr-amber font-bold text-sm whitespace-nowrap">
         INTEL //
       </span>
       <span
-        className="text-dr-dim text-xs truncate transition-opacity duration-300 flex-1"
+        className="text-dr-dim text-sm truncate transition-opacity duration-300 flex-1"
         style={{ opacity: visible ? 1 : 0 }}
       >
         {INTEL_QUOTES[index]}

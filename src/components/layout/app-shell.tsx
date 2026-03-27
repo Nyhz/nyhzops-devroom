@@ -13,7 +13,7 @@ export function AppShell({ children }: AppShellProps) {
       <IntelBar />
 
       {/* Middle row: sidebar + content */}
-      <div className="grid grid-cols-[220px_1fr] min-h-0">
+      <div className="grid grid-cols-[300px_1fr] min-h-0">
         <Sidebar />
         <main className="overflow-y-auto">{children}</main>
       </div>

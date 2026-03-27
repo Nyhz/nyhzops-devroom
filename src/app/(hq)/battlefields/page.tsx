@@ -79,10 +79,10 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-8">
       {/* Global Stats */}
       <div>
-        <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase mb-2">
+        <div className="text-dr-amber font-tactical text-sm tracking-widest uppercase mb-3">
           HQ // GLOBAL OPERATIONS STATUS
         </div>
         <StatsBar
@@ -96,15 +96,15 @@ export default function ProjectsPage() {
 
       {/* Battlefield Grid */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase">
+        <div className="flex items-center justify-between mb-5">
+          <div className="text-dr-amber font-tactical text-sm tracking-widest uppercase">
             BATTLEFIELDS // SELECT THEATER OF OPERATIONS
           </div>
           <Link href="/battlefields/new">
             <TacButton size="sm">+ NEW BATTLEFIELD</TacButton>
           </Link>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {allBattlefields.map((bf) => {
             const statusColor = bf.status === 'active'
               ? 'green'
@@ -118,8 +118,8 @@ export default function ProjectsPage() {
                   status={statusColor as 'green' | 'amber' | 'red' | 'blue' | undefined}
                   className="hover:border-dr-amber transition-colors cursor-pointer"
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="text-dr-amber font-tactical text-sm tracking-wider uppercase">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="text-dr-amber font-tactical text-base tracking-wider uppercase">
                       {bf.codename}
                     </div>
                     <TacBadge status={bf.status ?? 'initializing'} />
@@ -140,13 +140,13 @@ export default function ProjectsPage() {
       </div>
 
       {/* Bottom: Activity Feed + Recent Missions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left: Activity Feed */}
         <ActivityFeed />
 
         {/* Right: Recent Missions */}
         <div>
-          <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase mb-2">
+          <div className="text-dr-amber font-tactical text-sm tracking-widest uppercase mb-3">
             RECENT MISSIONS
           </div>
           <div className="bg-dr-surface border border-dr-border">
@@ -160,7 +160,7 @@ export default function ProjectsPage() {
                   <Link
                     key={m.id}
                     href={`/battlefields/${m.battlefieldId}/missions/${m.id}`}
-                    className="block px-3 py-2 hover:bg-dr-elevated transition-colors"
+                    className="block px-4 py-3 hover:bg-dr-elevated transition-colors"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">

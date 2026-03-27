@@ -6,8 +6,8 @@ export const TacInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInp
     <input
       ref={ref}
       className={cn(
-        'w-full bg-dr-bg border border-dr-border text-dr-text font-tactical text-sm',
-        'px-3 py-2 placeholder:text-dr-dim',
+        'w-full bg-dr-bg border border-dr-border text-dr-text font-tactical text-base',
+        'px-4 py-3 placeholder:text-dr-dim',
         'focus:border-dr-amber focus:outline-none',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         className,
@@ -23,8 +23,8 @@ export const TacTextarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttribute
     <textarea
       ref={ref}
       className={cn(
-        'w-full bg-dr-bg border border-dr-border text-dr-text font-tactical text-sm',
-        'px-3 py-2 placeholder:text-dr-dim resize-vertical min-h-[80px]',
+        'w-full bg-dr-bg border border-dr-border text-dr-text font-tactical text-base',
+        'px-4 py-3 placeholder:text-dr-dim resize-vertical min-h-[100px]',
         'focus:border-dr-amber focus:outline-none',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         className,

@@ -151,44 +151,44 @@ function WarRoomDashboard({
   return (
     <div className="h-screen flex flex-col bg-dr-bg">
       {/* ── Top Bar ─────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between px-4 py-2 border-b border-dr-border bg-dr-surface shrink-0">
-        <div className="flex items-center gap-3">
+      <header className="flex items-center justify-between px-6 py-3 border-b border-dr-border bg-dr-surface shrink-0">
+        <div className="flex items-center gap-4">
           {/* Brand */}
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-dr-green/20 border border-dr-green/40 flex items-center justify-center">
-              <span className="text-dr-green font-tactical text-sm font-bold">N</span>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-dr-green/20 border border-dr-green/40 flex items-center justify-center">
+              <span className="text-dr-green font-tactical text-base font-bold">N</span>
             </div>
             <div>
-              <span className="text-dr-text font-tactical text-sm tracking-wider">DEVROOM</span>
-              <span className="text-dr-amber font-tactical text-[10px] tracking-widest ml-2">WAR ROOM</span>
+              <span className="text-dr-text font-tactical text-base tracking-wider">DEVROOM</span>
+              <span className="text-dr-amber font-tactical text-xs tracking-widest ml-2">WAR ROOM</span>
             </div>
           </div>
         </div>
 
         {/* Status indicators */}
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-1.5">
-            <span className="text-dr-dim font-tactical text-[10px] tracking-wider">AGENTS:</span>
-            <span className={`font-tactical text-xs ${agentsInUse > 0 ? 'text-dr-amber' : 'text-dr-green'}`}>
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2">
+            <span className="text-dr-dim font-tactical text-xs tracking-wider">AGENTS:</span>
+            <span className={`font-tactical text-sm ${agentsInUse > 0 ? 'text-dr-amber' : 'text-dr-green'}`}>
               {agentsInUse}/{maxAgents}
             </span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-dr-dim font-tactical text-[10px] tracking-wider">QUEUE:</span>
-            <span className="font-tactical text-xs text-dr-text">{stats.queued}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-dr-dim font-tactical text-xs tracking-wider">QUEUE:</span>
+            <span className="font-tactical text-sm text-dr-text">{stats.queued}</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-dr-dim font-tactical text-[10px] tracking-wider">OPS:</span>
-            <span className="font-tactical text-xs text-dr-green">{stats.accomplished}</span>
-            <span className="text-dr-dim font-tactical text-[10px]">/</span>
-            <span className="font-tactical text-xs text-dr-red">{stats.compromised}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-dr-dim font-tactical text-xs tracking-wider">OPS:</span>
+            <span className="font-tactical text-sm text-dr-green">{stats.accomplished}</span>
+            <span className="text-dr-dim font-tactical text-xs">/</span>
+            <span className="font-tactical text-sm text-dr-red">{stats.compromised}</span>
           </div>
-          <div className="text-dr-muted font-data text-xs">
+          <div className="text-dr-muted font-data text-sm">
             {dateStr} {timeStr}
           </div>
           <Link
             href="/battlefields"
-            className="px-3 py-1 bg-dr-green/10 border border-dr-green/40 text-dr-green font-tactical text-xs tracking-wider hover:bg-dr-green/20 transition-colors"
+            className="px-5 py-2 bg-dr-green/10 border border-dr-green/40 text-dr-green font-tactical text-sm tracking-wider hover:bg-dr-green/20 transition-colors"
           >
             ENTER HQ
           </Link>
@@ -196,15 +196,15 @@ function WarRoomDashboard({
       </header>
 
       {/* ── Main Content ────────────────────────────────────────── */}
-      <div className="flex-1 grid grid-cols-[280px_1fr_280px] min-h-0">
+      <div className="flex-1 grid grid-cols-[380px_1fr_380px] min-h-0">
         {/* Left: Activity Feed */}
         <aside className="border-r border-dr-border bg-dr-surface overflow-y-auto">
-          <div className="px-3 py-3 border-b border-dr-border">
-            <span className="text-dr-amber font-tactical text-xs tracking-widest uppercase">
+          <div className="px-4 py-4 border-b border-dr-border">
+            <span className="text-dr-amber font-tactical text-sm tracking-widest uppercase">
               LIVE ACTIVITY FEED
             </span>
           </div>
-          <div className="p-2 space-y-0.5">
+          <div className="p-3 space-y-1">
             {events.length === 0 && (
               <div className="text-dr-dim font-data text-[11px] px-2 py-4 text-center">
                 Awaiting signals...
@@ -218,8 +218,8 @@ function WarRoomDashboard({
 
         {/* Center: Active Operations */}
         <main className="overflow-y-auto">
-          <div className="px-4 py-3 border-b border-dr-border flex items-center justify-between">
-            <span className="text-dr-amber font-tactical text-xs tracking-widest uppercase">
+          <div className="px-6 py-4 border-b border-dr-border flex items-center justify-between">
+            <span className="text-dr-amber font-tactical text-sm tracking-widest uppercase">
               ACTIVE OPERATIONS
             </span>
             <div className="flex items-center gap-4">
@@ -228,7 +228,7 @@ function WarRoomDashboard({
               <StatChip label="STANDBY" value={stats.standby} color="text-dr-dim" />
             </div>
           </div>
-          <div className="p-4 space-y-2">
+          <div className="p-6 space-y-3">
             {liveMissions.length === 0 && (
               <div className="text-dr-dim font-data text-xs text-center py-12">
                 No active operations. All quiet on the front.
@@ -243,12 +243,12 @@ function WarRoomDashboard({
         {/* Right: Campaign Progress + Asset Deployment */}
         <aside className="border-l border-dr-border bg-dr-surface overflow-y-auto">
           {/* Campaign Progress */}
-          <div className="px-3 py-3 border-b border-dr-border">
-            <span className="text-dr-amber font-tactical text-xs tracking-widest uppercase">
+          <div className="px-4 py-4 border-b border-dr-border">
+            <span className="text-dr-amber font-tactical text-sm tracking-widest uppercase">
               CAMPAIGN PROGRESS
             </span>
           </div>
-          <div className="p-3 space-y-3">
+          <div className="p-4 space-y-3">
             {activeCampaigns.length === 0 && (
               <div className="text-dr-dim font-data text-[11px] text-center py-4">
                 No active campaigns
@@ -260,16 +260,16 @@ function WarRoomDashboard({
           </div>
 
           {/* Asset Deployment */}
-          <div className="px-3 py-3 border-b border-t border-dr-border">
-            <span className="text-dr-amber font-tactical text-xs tracking-widest uppercase">
+          <div className="px-4 py-4 border-b border-t border-dr-border">
+            <span className="text-dr-amber font-tactical text-sm tracking-widest uppercase">
               ASSET DEPLOYMENT
             </span>
           </div>
-          <div className="p-3 space-y-1.5">
+          <div className="p-4 space-y-2">
             {assetDeployment.map((asset) => (
-              <div key={asset.id} className="flex items-center gap-2">
+              <div key={asset.id} className="flex items-center gap-3">
                 <span
-                  className={`text-[8px] ${
+                  className={`text-[10px] ${
                     asset.currentStatus === 'in_combat'
                       ? 'text-dr-amber'
                       : asset.currentStatus === 'queued'
@@ -280,15 +280,15 @@ function WarRoomDashboard({
                   &#9679;
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-dr-text font-tactical text-xs">{asset.codename}</div>
-                  <div className="text-dr-dim font-data text-[10px] truncate">
+                  <div className="text-dr-text font-tactical text-sm">{asset.codename}</div>
+                  <div className="text-dr-dim font-data text-xs truncate">
                     {asset.currentStatus === 'idle'
                       ? 'Standing by'
                       : asset.currentMissionTitle ?? asset.currentStatus.toUpperCase()}
                   </div>
                 </div>
                 <span
-                  className={`font-tactical text-[10px] tracking-wider ${
+                  className={`font-tactical text-xs tracking-wider ${
                     asset.currentStatus === 'in_combat'
                       ? 'text-dr-amber'
                       : asset.currentStatus === 'queued'
@@ -314,23 +314,23 @@ function WarRoomDashboard({
           <Link
             key={bf.id}
             href={`/battlefields/${bf.id}`}
-            className="flex items-center gap-2 px-4 py-1.5 border-r border-dr-border hover:bg-dr-elevated transition-colors shrink-0"
+            className="flex items-center gap-3 px-5 py-2.5 border-r border-dr-border hover:bg-dr-elevated transition-colors shrink-0"
           >
-            <span className="text-dr-text font-tactical text-[11px] tracking-wider">
+            <span className="text-dr-text font-tactical text-sm tracking-wider">
               {bf.codename}
             </span>
-            <span className="text-dr-dim font-data text-[10px]">
+            <span className="text-dr-dim font-data text-xs">
               {bf.missionCount}
             </span>
             {bf.activeCount > 0 && (
-              <span className="text-dr-amber font-tactical text-[10px]">
+              <span className="text-dr-amber font-tactical text-xs">
                 &#9679; {bf.activeCount}
               </span>
             )}
           </Link>
         ))}
         {battlefieldSummaries.length === 0 && (
-          <div className="px-4 py-1.5 text-dr-dim font-tactical text-[11px]">
+          <div className="px-5 py-2.5 text-dr-dim font-tactical text-sm">
             No battlefields deployed
           </div>
         )}
@@ -345,32 +345,32 @@ function WarRoomDashboard({
 
 function StatChip({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className={`font-tactical text-xs ${color}`}>{value}</span>
-      <span className="text-dr-dim font-tactical text-[10px] tracking-wider">{label}</span>
+    <div className="flex items-center gap-2">
+      <span className={`font-tactical text-sm ${color}`}>{value}</span>
+      <span className="text-dr-dim font-tactical text-xs tracking-wider">{label}</span>
     </div>
   );
 }
 
 function ActivityItem({ event }: { event: ActivityEvent }) {
   return (
-    <div className="px-2 py-1.5 hover:bg-dr-elevated/50 transition-colors">
-      <div className="flex items-center gap-1.5">
-        <span className={`text-[10px] ${activityColor(event.type)}`}>
+    <div className="px-3 py-2 hover:bg-dr-elevated/50 transition-colors">
+      <div className="flex items-center gap-2">
+        <span className={`text-xs ${activityColor(event.type)}`}>
           {activityIcon(event.type)}
         </span>
-        <span className="text-dr-muted font-data text-[10px] truncate flex-1">
+        <span className="text-dr-muted font-data text-xs truncate flex-1">
           {event.battlefieldCodename}
         </span>
-        <span className="text-dr-dim font-data text-[10px] shrink-0">
+        <span className="text-dr-dim font-data text-xs shrink-0">
           {formatRelativeTime(event.timestamp)}
         </span>
       </div>
-      <div className="text-dr-text font-data text-[11px] truncate mt-0.5 pl-4">
+      <div className="text-dr-text font-data text-sm truncate mt-1 pl-5">
         {event.missionTitle}
       </div>
       {event.detail && (
-        <div className="text-dr-dim font-data text-[10px] truncate mt-0.5 pl-4">
+        <div className="text-dr-dim font-data text-xs truncate mt-0.5 pl-5">
           {event.detail}
         </div>
       )}
@@ -388,17 +388,17 @@ function MissionCard({
 
   return (
     <div
-      className={`border bg-dr-surface p-3 ${
+      className={`border bg-dr-surface p-4 ${
         isInCombat ? 'border-dr-amber/40' : 'border-dr-border'
       }`}
     >
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-dr-text font-tactical text-xs truncate flex-1 mr-2">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-dr-text font-tactical text-sm truncate flex-1 mr-2">
           {mission.title}
         </span>
         <TacBadge status={mission.status ?? 'standby'} />
       </div>
-      <div className="flex items-center gap-3 text-dr-dim font-data text-[10px]">
+      <div className="flex items-center gap-4 text-dr-dim font-data text-xs">
         {mission.assetCodename && (
           <span className="text-dr-muted">{mission.assetCodename}</span>
         )}
@@ -411,8 +411,8 @@ function MissionCard({
         )}
       </div>
       {isInCombat && mission.lastCommsLine && (
-        <div className="mt-2 bg-dr-bg border border-dr-border px-2 py-1 overflow-hidden">
-          <div className="text-dr-muted font-data text-[10px] truncate">
+        <div className="mt-3 bg-dr-bg border border-dr-border px-3 py-2 overflow-hidden">
+          <div className="text-dr-muted font-data text-xs truncate">
             {mission.lastCommsLine}
             <span className="inline-block w-1.5 h-3 bg-dr-green/70 ml-0.5 animate-pulse" />
           </div>
@@ -428,12 +428,12 @@ function CampaignCard({
   campaign: WarRoomProps['activeCampaigns'][number];
 }) {
   return (
-    <div className="border border-dr-border bg-dr-elevated p-2">
+    <div className="border border-dr-border bg-dr-elevated p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-dr-text font-tactical text-[11px] truncate">
+        <span className="text-dr-text font-tactical text-sm truncate">
           {campaign.name}
         </span>
-        <span className="text-dr-dim font-data text-[10px]">
+        <span className="text-dr-dim font-data text-xs">
           {campaign.battlefieldCodename}
         </span>
       </div>

@@ -18,7 +18,7 @@ export function TacCard({ status, className, children }: TacCardProps) {
   return (
     <div
       className={cn(
-        'bg-dr-surface border border-dr-border p-4',
+        'bg-dr-surface border border-dr-border p-6',
         status && statusBorderStyles[status],
         className,
       )}
