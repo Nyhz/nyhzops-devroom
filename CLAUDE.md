@@ -46,116 +46,152 @@ devroom/
 ├── package.json
 ├── tsconfig.json
 ├── next.config.ts
-├── tailwind.config.ts
 ├── drizzle.config.ts
+├── postcss.config.mjs
+├── eslint.config.mjs
+├── components.json                    # shadcn/ui configuration
 ├── .env.local
 ├── server.ts                          # Custom server (Next.js + Socket.IO)
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx                 # Root layout — tactical shell
-│   │   ├── page.tsx                   # HQ Dashboard (redirect or overview)
-│   │   ├── projects/
-│   │   │   ├── page.tsx               # Battlefield selector
-│   │   │   └── [id]/
-│   │   │       ├── layout.tsx         # Battlefield layout (sidebar nav)
-│   │   │       ├── page.tsx           # Battlefield overview — missions tab
-│   │   │       ├── missions/
-│   │   │       │   └── [missionId]/
-│   │   │       │       └── page.tsx   # Mission detail + live comms
-│   │   │       ├── campaigns/
-│   │   │       │   ├── page.tsx       # Campaigns list
-│   │   │       │   └── [campaignId]/
-│   │   │       │       └── page.tsx   # Campaign detail + phase view
-│   │   │       ├── assets/
-│   │   │       │   └── page.tsx       # Asset management for this battlefield
-│   │   │       ├── git/
-│   │   │       │   └── page.tsx       # Git dashboard (status, log, branches, diffs)
-│   │   │       ├── console/
-│   │   │       │   └── page.tsx       # Quick commands + dev server management
-│   │   │       ├── schedule/
-│   │   │       │   └── page.tsx       # Scheduled tasks (cron missions/campaigns)
-│   │   │       └── config/
-│   │   │           └── page.tsx       # Battlefield configuration
+│   │   ├── loading.tsx                # Root loading skeleton
+│   │   ├── error.tsx                  # Global error boundary
+│   │   ├── warroom/
+│   │   │   └── page.tsx               # Boot sequence animation (first-visit gate)
+│   │   ├── overwatch/
+│   │   │   └── page.tsx               # System metrics dashboard (agents, tokens, uptime)
+│   │   ├── (hq)/                      # Route group — HQ layout shell
+│   │   │   ├── layout.tsx             # HQ layout (sidebar + intel bar + footer)
+│   │   │   ├── page.tsx               # HQ Dashboard — global overview
+│   │   │   ├── captain-log/
+│   │   │   │   └── page.tsx           # Captain AI decision log viewer
+│   │   │   ├── logistics/
+│   │   │   │   └── page.tsx           # Token usage & rate limit dashboard
+│   │   │   └── battlefields/
+│   │   │       ├── page.tsx           # Battlefield selector
+│   │   │       ├── new/
+│   │   │       │   └── page.tsx       # Create new battlefield
+│   │   │       └── [id]/
+│   │   │           ├── layout.tsx     # Battlefield layout (sidebar nav)
+│   │   │           ├── loading.tsx    # Battlefield loading skeleton
+│   │   │           ├── page.tsx       # Battlefield overview — missions tab
+│   │   │           ├── missions/
+│   │   │           │   └── [missionId]/
+│   │   │           │       └── page.tsx   # Mission detail + live comms
+│   │   │           ├── campaigns/
+│   │   │           │   ├── page.tsx       # Campaigns list
+│   │   │           │   ├── loading.tsx
+│   │   │           │   ├── new/
+│   │   │           │   │   └── page.tsx   # Create new campaign
+│   │   │           │   └── [campaignId]/
+│   │   │           │       ├── page.tsx   # Campaign detail + phase view
+│   │   │           │       └── loading.tsx
+│   │   │           ├── assets/
+│   │   │           │   ├── page.tsx       # Asset management
+│   │   │           │   └── loading.tsx
+│   │   │           ├── git/
+│   │   │           │   ├── page.tsx       # Git dashboard
+│   │   │           │   └── loading.tsx
+│   │   │           ├── console/
+│   │   │           │   ├── page.tsx       # Quick commands + dev server
+│   │   │           │   └── loading.tsx
+│   │   │           ├── schedule/
+│   │   │           │   ├── page.tsx       # Scheduled tasks
+│   │   │           │   └── loading.tsx
+│   │   │           └── config/
+│   │   │               ├── page.tsx       # Battlefield configuration
+│   │   │               └── loading.tsx
 │   │   └── api/
 │   │       ├── battlefields/
 │   │       │   └── [id]/
-│   │       │       ├── bootstrap/route.ts
-│   │       │       ├── bootstrap/approve/route.ts
-│   │       │       ├── console/route.ts          # Execute quick commands
-│   │       │       ├── devserver/route.ts         # Start/stop/restart dev server
-│   │       │       └── git/route.ts               # Git operations (status, log, diff, checkout)
-│   │       ├── missions/
-│   │       │   └── [id]/
-│   │       │       ├── execute/route.ts
-│   │       │       └── abort/route.ts
-│   │       ├── campaigns/
-│   │       │   └── [id]/
-│   │       │       ├── generate-plan/route.ts
-│   │       │       └── launch/route.ts
-│   │       └── socket/
+│   │       │       └── scaffold/
+│   │       │           ├── route.ts       # Start battlefield scaffold process
+│   │       │           └── logs/
+│   │       │               └── route.ts   # Stream scaffold logs (SSE)
+│   │       └── logistics/
+│   │           └── rate-limit/
+│   │               └── route.ts           # Check Claude API rate limit status
 │   ├── lib/
 │   │   ├── db/
 │   │   │   ├── index.ts              # DB connection singleton
-│   │   │   ├── schema.ts             # Drizzle schema
+│   │   │   ├── schema.ts             # Drizzle schema (13 tables)
 │   │   │   └── migrations/
 │   │   ├── orchestrator/
 │   │   │   ├── orchestrator.ts       # Core engine — queue loop, concurrency
 │   │   │   ├── executor.ts           # Claude Code spawn + stream management
-│   │   │   ├── bootstrapper.ts       # Battlefield bootstrap — generate CLAUDE.md + SPEC.md
-│   │   │   ├── scaffolder.ts         # Project creation — mkdir, git init, scaffold
+│   │   │   ├── campaign-executor.ts  # Multi-phase campaign orchestration
+│   │   │   ├── plan-generator.ts     # AI battle plan generation from objective
+│   │   │   ├── stream-parser.ts      # Parse Claude Code stream-json output
 │   │   │   ├── worktree.ts           # Git worktree lifecycle
 │   │   │   ├── merger.ts             # Branch merge + conflict resolution
 │   │   │   └── prompt-builder.ts     # Prompt assembly + cache optimization
+│   │   ├── captain/
+│   │   │   ├── captain.ts            # AI decision layer — autonomous judgment calls
+│   │   │   ├── captain-db.ts         # Captain decision persistence
+│   │   │   ├── debrief-reviewer.ts   # Mission result review + quality assessment
+│   │   │   ├── escalation.ts         # Telegram escalation for critical decisions
+│   │   │   └── phase-failure-handler.ts  # Phase failure recovery logic
 │   │   ├── process/
 │   │   │   ├── dev-server.ts         # Dev server lifecycle (start/stop/restart, port tracking)
-│   │   │   ├── command-runner.ts     # Quick command execution + streaming output
-│   │   │   └── process-registry.ts   # Track all running child processes per battlefield
+│   │   │   └── command-runner.ts     # Quick command execution + streaming output
 │   │   ├── scheduler/
 │   │   │   ├── scheduler.ts          # Cron engine — evaluate schedules, trigger missions/campaigns
 │   │   │   └── cron.ts               # Cron expression parsing + next-run calculation
 │   │   ├── socket/
 │   │   │   └── server.ts             # Socket.IO setup + room management
+│   │   ├── telegram/
+│   │   │   └── telegram.ts           # Telegram bot polling + notification delivery
 │   │   ├── config.ts
 │   │   └── utils.ts                  # ULID generation, time formatting, etc.
 │   ├── actions/
 │   │   ├── battlefield.ts            # Server Actions for battlefield CRUD + scaffold
-│   │   ├── mission.ts                # Server Actions for mission CRUD + deploy
-│   │   ├── campaign.ts               # Server Actions for campaign CRUD + launch
+│   │   ├── mission.ts                # Server Actions for mission CRUD + deploy + abort
+│   │   ├── campaign.ts               # Server Actions for campaign CRUD + plan + launch
 │   │   ├── asset.ts                  # Server Actions for asset CRUD
+│   │   ├── captain.ts                # Server Actions for captain log queries
 │   │   ├── console.ts                # Server Actions for quick commands + dev server
+│   │   ├── dossier.ts                # Server Actions for briefing template CRUD
 │   │   ├── git.ts                    # Server Actions for git operations
+│   │   ├── logistics.ts              # Server Actions for token usage + cost tracking
+│   │   ├── notification.ts           # Server Actions for notification CRUD + read status
 │   │   └── schedule.ts               # Server Actions for scheduled task CRUD
 │   ├── components/
 │   │   ├── layout/
 │   │   │   ├── app-shell.tsx         # Top intel bar + sidebar + content area
-│   │   │   ├── sidebar.tsx           # Left nav — project selector, section links
+│   │   │   ├── sidebar.tsx           # Left nav — branding + battlefield selector
+│   │   │   ├── sidebar-nav.tsx       # Section navigation links (missions, campaigns, etc.)
+│   │   │   ├── global-nav.tsx        # Top-level nav (HQ, Captain Log, Logistics, Overwatch)
+│   │   │   ├── battlefield-selector.tsx # Battlefield dropdown selector
 │   │   │   ├── intel-bar.tsx         # Top bar — rotating military quotes
+│   │   │   ├── page-wrapper.tsx      # Consistent page padding + title wrapper
 │   │   │   └── status-footer.tsx     # Bottom bar — system status + LAN warning
 │   │   ├── dashboard/
 │   │   │   ├── deploy-mission.tsx    # Quick deploy form (textarea + asset picker)
+│   │   │   ├── dossier-selector.tsx  # Dossier template picker for deploy form
 │   │   │   ├── stats-bar.tsx         # IN COMBAT | ACCOMPLISHED | COMPROMISED | STANDBY
 │   │   │   ├── mission-list.tsx      # Searchable mission table
 │   │   │   └── activity-feed.tsx     # Real-time ops log
 │   │   ├── battlefield/
 │   │   │   ├── create-battlefield.tsx # Create form with initial briefing textarea
 │   │   │   ├── bootstrap-review.tsx  # Review generated CLAUDE.md + SPEC.md before commit
-│   │   │   └── bootstrap-comms.tsx   # Live log stream during bootstrap generation
+│   │   │   ├── bootstrap-comms.tsx   # Live log stream during bootstrap generation
+│   │   │   ├── bootstrap-error.tsx   # Bootstrap failure display + retry
+│   │   │   ├── scaffold-output.tsx   # Scaffold command output viewer
+│   │   │   └── scaffold-retry.tsx    # Scaffold failure retry UI
 │   │   ├── mission/
-│   │   │   ├── mission-card.tsx
-│   │   │   ├── mission-detail.tsx
 │   │   │   ├── mission-comms.tsx     # Live terminal log stream
-│   │   │   ├── mission-debrief.tsx   # Commander-addressed debrief report
-│   │   │   └── status-badge.tsx
+│   │   │   └── mission-actions.tsx   # Continue / Redeploy / Abandon buttons
 │   │   ├── campaign/
-│   │   │   ├── campaign-card.tsx
-│   │   │   ├── phase-card.tsx        # Phase container with nested mission cards
-│   │   │   ├── phase-timeline.tsx
-│   │   │   ├── plan-generator.tsx    # AI battle plan generation + review
-│   │   │   └── campaign-controls.tsx # MISSION ACCOMPLISHED | REDEPLOY | ABANDON
+│   │   │   ├── campaign-controls.tsx # MISSION ACCOMPLISHED | REDEPLOY | ABANDON
+│   │   │   ├── campaign-live-view.tsx # Real-time campaign progress viewer
+│   │   │   ├── generate-plan-button.tsx # AI battle plan generation trigger
+│   │   │   ├── mission-card.tsx      # Campaign-specific mission card
+│   │   │   ├── phase-timeline.tsx    # Phase container with nested mission cards
+│   │   │   └── plan-editor.tsx       # Editable plan viewer (reorder phases/missions)
 │   │   ├── asset/
 │   │   │   ├── asset-list.tsx        # Right sidebar asset panel
-│   │   │   ├── asset-breakdown.tsx   # Per-asset mission stats
-│   │   │   └── asset-form.tsx
+│   │   │   └── asset-form.tsx        # Create/edit asset form
 │   │   ├── git/
 │   │   │   ├── git-status.tsx        # Working tree status (modified, staged, untracked)
 │   │   │   ├── git-log.tsx           # Commit history with branch graph
@@ -165,23 +201,44 @@ devroom/
 │   │   │   ├── dev-server-panel.tsx  # Start/stop/restart + port + log stream
 │   │   │   ├── quick-commands.tsx    # Predefined command buttons + custom input
 │   │   │   └── command-output.tsx    # Streaming command output terminal
+│   │   ├── config/
+│   │   │   └── config-form.tsx       # Battlefield configuration form
 │   │   ├── schedule/
 │   │   │   ├── schedule-list.tsx     # List of scheduled tasks
-│   │   │   ├── schedule-form.tsx     # Create/edit scheduled task
-│   │   │   └── schedule-log.tsx      # Execution history per schedule
+│   │   │   └── schedule-form.tsx     # Create/edit scheduled task
+│   │   ├── overwatch/
+│   │   │   └── overwatch.tsx         # System metrics display component
+│   │   ├── warroom/
+│   │   │   ├── boot-gate.tsx         # First-visit boot animation gate
+│   │   │   └── boot-sequence.tsx     # Tactical boot animation sequence
+│   │   ├── providers/
+│   │   │   ├── socket-provider.tsx   # Socket.IO context provider
+│   │   │   └── toast-provider.tsx    # Toast notification provider (sonner)
 │   │   └── ui/
 │   │       ├── terminal.tsx          # Reusable monospace log viewer
 │   │       ├── tac-button.tsx        # Tactical button variants
-│   │       ├── tac-input.tsx         # Tactical input/textarea
+│   │       ├── tac-input.tsx         # Tactical input
+│   │       ├── tac-textarea-with-images.tsx  # Textarea with image paste (Cmd+V, base64)
 │   │       ├── tac-card.tsx          # Dark card with optional status border
 │   │       ├── tac-badge.tsx         # Status badge (● ACCOMPLISHED, etc.)
 │   │       ├── tac-select.tsx        # Styled dropdown
 │   │       ├── search-input.tsx      # Search with monospace placeholder
-│   │       └── modal.tsx
+│   │       ├── markdown.tsx          # Markdown renderer (react-markdown + remark-gfm)
+│   │       ├── modal.tsx
+│   │       ├── button.tsx            # shadcn button (restyled)
+│   │       ├── dialog.tsx            # shadcn dialog
+│   │       ├── dropdown-menu.tsx     # shadcn dropdown menu
+│   │       ├── popover.tsx           # shadcn popover
+│   │       ├── scroll-area.tsx       # shadcn scroll area
+│   │       ├── select.tsx            # shadcn select
+│   │       ├── tabs.tsx              # shadcn tabs
+│   │       └── tooltip.tsx           # shadcn tooltip
 │   ├── hooks/
-│   │   ├── use-socket.ts
-│   │   ├── use-mission-comms.ts
-│   │   ├── use-activity-feed.ts
+│   │   ├── use-socket.ts             # Socket.IO connection hook
+│   │   ├── use-mission-comms.ts      # Mission log stream subscription
+│   │   ├── use-campaign-comms.ts     # Campaign progress stream subscription
+│   │   ├── use-activity-feed.ts      # HQ activity feed subscription
+│   │   ├── use-notifications.ts      # Notification stream subscription
 │   │   ├── use-dev-server.ts         # Dev server status + log stream
 │   │   └── use-command-output.ts     # Streaming command output
 │   └── types/
@@ -210,6 +267,12 @@ devroom/
 | Result        | **Debrief**       | Post-mission summary report, addressed to the Commander.       |
 | Logs          | **Comms**         | Real-time output stream from a running mission.                |
 | Dashboard     | **HQ**            | The main overview screen.                                      |
+| Template      | **Dossier**       | Reusable mission briefing template with variable placeholders. |
+| AI Layer      | **Captain**       | Autonomous decision engine — judges, escalates, reviews.       |
+| Alert         | **Notification**  | In-app + Telegram alert for events and escalations.            |
+| Monitoring    | **OVERWATCH**     | System metrics dashboard (agents, tokens, uptime).             |
+| Startup       | **War Room**      | Boot sequence animation shown on first visit.                  |
+| Cost Tracking | **Logistics**     | Token usage, rate limits, and cost tracking dashboard.         |
 
 ### Status Terms
 
@@ -238,6 +301,7 @@ devroom/
 - claudeMdPath      TEXT                     -- path to project CLAUDE.md (auto-set after bootstrap)
 - specMdPath        TEXT                     -- path to project SPEC.md (auto-set after bootstrap)
 - scaffoldCommand   TEXT                     -- command used to scaffold (for reference)
+- scaffoldStatus    TEXT                     -- null | 'running' | 'complete' | 'failed'
 - devServerCommand  TEXT DEFAULT 'npm run dev' -- command to start dev server
 - autoStartDevServer INTEGER DEFAULT 0       -- boolean
 - status            TEXT DEFAULT 'initializing' -- initializing | active | archived
@@ -261,6 +325,7 @@ devroom/
 - assetId         TEXT REFERENCES assets(id)
 - useWorktree     INTEGER DEFAULT 0
 - worktreeBranch  TEXT
+- dependsOn       TEXT                     -- mission ID this depends on (intra-phase ordering)
 - sessionId       TEXT                     -- Claude Code session for reuse
 - debrief         TEXT
 - iterations      INTEGER DEFAULT 0
@@ -358,6 +423,59 @@ devroom/
 - createdAt       INTEGER NOT NULL
 ```
 
+### Dossier
+
+Reusable mission briefing templates with variable interpolation.
+
+```
+- id              TEXT PRIMARY KEY (ULID)
+- codename        TEXT NOT NULL UNIQUE     -- e.g. "CODE_REVIEW", "SECURITY_AUDIT"
+- name            TEXT NOT NULL
+- description     TEXT
+- briefingTemplate TEXT NOT NULL           -- markdown with {{variable}} placeholders
+- variables       TEXT                     -- JSON array of DossierVariable objects
+- assetCodename   TEXT                     -- recommended asset for this dossier
+- createdAt       INTEGER NOT NULL
+- updatedAt       INTEGER NOT NULL
+```
+
+`DossierVariable` shape: `{ key, label, description, placeholder }`.
+
+### CaptainLog
+
+Records AI-made autonomous decisions during mission/campaign execution.
+
+```
+- id              TEXT PRIMARY KEY (ULID)
+- missionId       TEXT NOT NULL REFERENCES missions(id)
+- campaignId      TEXT REFERENCES campaigns(id)
+- battlefieldId   TEXT NOT NULL REFERENCES battlefields(id)
+- question        TEXT NOT NULL             -- the decision the Captain faced
+- answer          TEXT NOT NULL             -- the decision made
+- reasoning       TEXT NOT NULL             -- why this decision was chosen
+- confidence      TEXT NOT NULL             -- 'high' | 'medium' | 'low'
+- escalated       INTEGER DEFAULT 0        -- whether it was escalated to Commander
+- timestamp       INTEGER NOT NULL
+```
+
+### Notification
+
+In-app and Telegram alerts for mission events, failures, and escalations.
+
+```
+- id              TEXT PRIMARY KEY (ULID)
+- level           TEXT NOT NULL             -- 'info' | 'warning' | 'critical'
+- title           TEXT NOT NULL
+- detail          TEXT NOT NULL
+- entityType      TEXT                     -- 'mission' | 'campaign' | 'phase'
+- entityId        TEXT
+- battlefieldId   TEXT
+- read            INTEGER DEFAULT 0
+- telegramSent    INTEGER DEFAULT 0
+- telegramMsgId   INTEGER
+- createdAt       INTEGER NOT NULL
+```
+
 ---
 
 ## Coding Rules
@@ -367,7 +485,7 @@ devroom/
 1. **TypeScript strict mode.** No `any` unless unavoidable (with comment).
 2. **App Router only.** Server Components by default. `"use client"` only for interactivity.
 3. **Server Actions for mutations.** Route Handlers only for orchestrator-internal endpoints.
-4. **Tailwind only.** No inline styles, no CSS modules. All tokens in `tailwind.config.ts`.
+4. **Tailwind only.** No inline styles, no CSS modules. All tokens in `globals.css` via `@theme` blocks (Tailwind v4).
 5. **Drizzle for DB.** No raw SQL. Never modify existing migrations.
 6. **Synchronous DB.** better-sqlite3 is sync — use it directly.
 7. **AbortController on all long ops.** Claude Code processes, git operations — everything cancellable.
@@ -385,7 +503,7 @@ devroom/
 - **Server Components**: data display — lists, details, stats. Query Drizzle directly.
 - **Client Components**: Socket.IO subscriptions, forms, real-time terminals.
 - **Server Actions** (in `src/actions/`): all CRUD mutations. Call `revalidatePath()` after writes.
-- **Route Handlers** (`app/api/`): orchestrator endpoints only (execute, abort, generate plan, launch).
+- **Route Handlers** (`app/api/`): scaffold process streaming and rate-limit checks only. Mission execute/abort and campaign launch are Server Actions.
 - **`loading.tsx`**: skeleton screens — pulsing dark green bars.
 - **`error.tsx`**: styled error with military quote, retry button, collapsible details.
 
@@ -435,21 +553,31 @@ Target 90%+ cache hit rate.
 ### Socket.IO
 
 - Attached to custom `server.ts`.
-- Rooms: `mission:{id}` per mission, `hq:activity` for global, `devserver:{battlefieldId}` for dev server logs, `console:{battlefieldId}` for command output.
-- Server → Client: `mission:log`, `mission:status`, `mission:debrief`, `mission:tokens`, `activity:event`, `devserver:log`, `devserver:status`, `console:output`.
-- Client → Server: `mission:subscribe`, `mission:unsubscribe`, `hq:subscribe`, `devserver:subscribe`, `console:subscribe`.
+- Rooms: `mission:{id}` per mission, `campaign:{id}` per campaign, `hq:activity` for global, `devserver:{battlefieldId}` for dev server logs, `console:{battlefieldId}` for command output.
+- Server → Client: `mission:log`, `mission:status`, `mission:debrief`, `mission:tokens`, `campaign:status`, `campaign:phase`, `activity:event`, `devserver:log`, `devserver:status`, `console:output`, `notification`.
+- Client → Server: `mission:subscribe`, `mission:unsubscribe`, `campaign:subscribe`, `campaign:unsubscribe`, `hq:subscribe`, `devserver:subscribe`, `console:subscribe`.
 
 ---
 
 ## Custom Server
 
-```typescript
-// server.ts
-import { createServer } from 'http';
-import { Server as SocketIOServer } from 'socket.io';
-import next from 'next';
-import { startOrchestrator } from './src/lib/orchestrator/orchestrator';
+The `server.ts` entry point boots the full system. Startup sequence:
 
+1. Initialize database (SQLite + WAL mode + Drizzle migrations).
+2. Seed default assets if table is empty.
+3. Prepare Next.js app.
+4. Create HTTP server, attach Socket.IO at `/socket.io`.
+5. Start Orchestrator (queue poll loop).
+6. Start DevServerManager (per-battlefield dev server lifecycle).
+7. Pause any campaigns left `active` from previous run.
+8. Auto-start dev servers for flagged battlefields.
+9. Start Scheduler (cron engine + seed WORKTREE SWEEP daily task).
+10. Start Telegram bot polling (if configured).
+11. Detect local IP, log startup banner.
+12. Register graceful shutdown handler (SIGINT/SIGTERM → abort missions → close DB → exit).
+
+```typescript
+// Simplified server.ts structure
 const app = next({ dev: process.env.NODE_ENV !== 'production' });
 const handle = app.getRequestHandler();
 
@@ -457,7 +585,12 @@ app.prepare().then(() => {
   const httpServer = createServer((req, res) => handle(req, res));
   const io = new SocketIOServer(httpServer, { path: '/socket.io' });
   global.io = io;
-  startOrchestrator(io);
+
+  const orchestrator = new Orchestrator(io);
+  const devServerManager = new DevServerManager(io);
+  orchestrator.start();
+  // ... scheduler, telegram, auto-start, etc.
+
   const port = parseInt(process.env.DEVROOM_PORT || '7777');
   httpServer.listen(port, '0.0.0.0');
 });
@@ -495,42 +628,36 @@ The UI follows the tactical operations center aesthetic from the reference scree
 
 ### Tailwind Theme
 
-```typescript
-// tailwind.config.ts
-{
-  theme: {
-    extend: {
-      colors: {
-        dr: {
-          bg:        '#0a0a0c',
-          surface:   '#111114',
-          elevated:  '#1a1a22',
-          border:    '#2a2a32',
-          text:      '#b8b8c8',
-          muted:     '#6a6a7a',
-          dim:       '#4a4a5a',
-          green:     '#00ff41',
-          amber:     '#ffbf00',
-          red:       '#ff3333',
-          blue:      '#00aaff',
-        }
-      },
-      fontFamily: {
-        tactical: ['"Share Tech Mono"', 'monospace'],
-        mono:     ['"IBM Plex Mono"', 'monospace'],
-        data:     ['"Courier Prime"', 'monospace'],
-      },
-      boxShadow: {
-        'glow-green': '0 0 10px rgba(0, 255, 65, 0.3)',
-        'glow-amber': '0 0 10px rgba(255, 191, 0, 0.3)',
-        'glow-red':   '0 0 10px rgba(255, 51, 51, 0.3)',
-      }
-    }
-  }
+Tailwind v4 uses CSS-based configuration. There is **no `tailwind.config.ts`**. All theme tokens are defined in `src/app/globals.css` using `@theme inline` blocks:
+
+```css
+/* src/app/globals.css */
+@theme inline {
+  --color-dr-bg:        #0a0a0c;
+  --color-dr-surface:   #111114;
+  --color-dr-elevated:  #1a1a22;
+  --color-dr-border:    #2a2a32;
+  --color-dr-text:      #b8b8c8;
+  --color-dr-muted:     #6a6a7a;
+  --color-dr-dim:       #4a4a5a;
+  --color-dr-green:     #00ff41;
+  --color-dr-amber:     #ffbf00;
+  --color-dr-red:       #ff3333;
+  --color-dr-blue:      #00aaff;
+
+  --font-tactical: 'Share Tech Mono', monospace;
+  --font-mono:     'IBM Plex Mono', monospace;
+  --font-data:     'Courier Prime', monospace;
+
+  --shadow-glow-green: 0 0 10px rgba(0, 255, 65, 0.3);
+  --shadow-glow-amber: 0 0 10px rgba(255, 191, 0, 0.3);
+  --shadow-glow-red:   0 0 10px rgba(255, 51, 51, 0.3);
+
+  --radius-*: 0rem;  /* No border-radius — sharp angular military feel */
 }
 ```
 
-> **Note:** Tailwind v4 uses CSS-based configuration in `globals.css` rather than `tailwind.config.ts`. The theme values above are defined as CSS custom properties using `@theme` blocks.
+Usage in components: `bg-dr-bg`, `text-dr-green`, `font-tactical`, `shadow-glow-green`, etc.
 
 ### Intel Bar
 
@@ -708,9 +835,15 @@ Campaign     = Multi-phase operation
 Phase        = Campaign step (parallel missions)
 Mission      = Single task (one Claude Code process)
 Asset        = Agent profile (specialty + system prompt)
+Dossier      = Reusable mission briefing template
+Captain      = AI decision layer (autonomous judgment + escalation)
 Debrief      = Post-mission report to Commander
 Comms        = Real-time log stream
 HQ           = Main dashboard
+OVERWATCH    = System metrics dashboard
+War Room     = Boot sequence animation
+Logistics    = Token usage + cost tracking
+Notification = In-app + Telegram alert
 ```
 
 **Battlefields:** `INITIALIZING → ACTIVE → ARCHIVED`

@@ -18,9 +18,15 @@ This document specifies every feature, screen, and workflow. Use alongside `CLAU
 6. Prepare Next.js app.
 7. Create HTTP server, attach Socket.IO, wire Next.js handler.
 8. Start orchestrator engine (queue poll loop).
-9. Detect local IP via `os.networkInterfaces()`.
-10. Run log retention cleanup (delete logs older than `DEVROOM_LOG_RETENTION_DAYS`).
-11. Log startup:
+9. Start DevServerManager (per-battlefield dev server lifecycle).
+10. Pause any campaigns left `active` from previous run.
+11. Auto-start dev servers for flagged battlefields (`autoStartDevServer = true`).
+12. Start Scheduler (cron engine + seed WORKTREE SWEEP daily task at 03:00).
+13. Start Telegram bot polling (if `TELEGRAM_BOT_TOKEN` configured).
+14. Detect local IP via `os.networkInterfaces()`.
+15. Run log retention cleanup (delete logs older than `DEVROOM_LOG_RETENTION_DAYS`).
+16. Register graceful shutdown handler (SIGINT/SIGTERM).
+17. Log startup:
 ```
 ═══════════════════════════════════════════
   NYHZ OPS — DEVROOM
@@ -38,10 +44,12 @@ On `SIGINT` / `SIGTERM`:
 1. Log: `DEVROOM — STANDING DOWN...`
 2. Stop accepting connections.
 3. Abort all running missions via AbortControllers.
-4. Wait up to 30s for processes to exit.
-5. Update interrupted missions: status → `abandoned`, debrief notes shutdown.
-6. Close Socket.IO, close DB.
-7. Exit.
+4. Stop all dev servers gracefully.
+5. Stop Telegram polling.
+6. Wait up to 5s for processes to exit, then force-kill.
+7. Update interrupted missions: status → `abandoned`, debrief notes shutdown.
+8. Close Socket.IO, close DB.
+9. Exit.
 
 ### 1.3 LAN Access
 
@@ -68,9 +76,15 @@ Fixed-width left sidebar:
 
 **Battlefield selector**:
 - Dropdown showing current battlefield name (codename style).
-- Selecting navigates to `/projects/[id]`.
+- Selecting navigates to `/battlefields/[id]`.
 
-**Section navigation**:
+**Global navigation** (top, above battlefield selector):
+- `HQ` — Main dashboard overview.
+- `CAPTAIN LOG` — AI decision log viewer.
+- `LOGISTICS` — Token usage & rate limits.
+- `OVERWATCH` — System metrics (links to `/overwatch`).
+
+**Battlefield section navigation** (when a battlefield is selected):
 - `■ MISSIONS` — with count badge.
 - `✕ CAMPAIGNS`
 - `◎ ASSETS`
@@ -203,7 +217,7 @@ If the Commander already has a CLAUDE.md for the project (e.g. migrating from an
 
 ---
 
-## 4. Battlefield Overview — `/projects/[id]`
+## 4. Battlefield Overview — `/battlefields/[id]`
 
 Server Component. The main working screen.
 
@@ -246,7 +260,7 @@ Rows (div-based, not `<table>`):
 ### 4.5 Right Sidebar
 
 **ASSETS** section:
-- Header with `manage` link → `/projects/[id]/assets`.
+- Header with `manage` link → `/battlefields/[id]/assets`.
 - List: green dot (active) / gray (offline) + codename + model dim text.
 
 **ASSET BREAKDOWN** section:
@@ -312,7 +326,7 @@ Completed missions store `sessionId`. Detail page shows:
 
 Extract summary from Claude Code output. If unclear, spawn a quick process to generate one. Written in Commander-addressed military briefing style.
 
-### 5.7 Mission Detail — `/projects/[id]/missions/[missionId]`
+### 5.7 Mission Detail — `/battlefields/[id]/missions/[missionId]`
 
 Server Component + Client children for real-time:
 
@@ -384,7 +398,7 @@ Multi-phase operation. Phases execute sequentially. Within each phase, missions 
 
 `isTemplate = true` → appears in templates section. `[RUN TEMPLATE]` clones campaign + phases + missions.
 
-### 6.5 Campaign Detail — `/projects/[id]/campaigns/[campaignId]`
+### 6.5 Campaign Detail — `/battlefields/[id]/campaigns/[campaignId]`
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -453,7 +467,7 @@ Phase containers: left border (green=secured, amber=active). Header: `Phase {n}`
 
 All default to `claude-sonnet-4-6`.
 
-### 7.2 Management — `/projects/[id]/assets`
+### 7.2 Management — `/battlefields/[id]/assets`
 
 Grid of cards: codename, specialty, model, status, completed count. Edit, toggle offline, recruit new.
 
@@ -470,7 +484,7 @@ Multiple missions can use the same asset concurrently (it's a profile, not a sin
 
 ---
 
-## 8. Git Dashboard — `/projects/[id]/git`
+## 8. Git Dashboard — `/battlefields/[id]/git`
 
 Visual git interface so the Commander never needs to open a terminal for git operations.
 
@@ -519,7 +533,7 @@ When viewing a file diff (from status or log):
 
 ---
 
-## 9. Console & Dev Server — `/projects/[id]/console`
+## 9. Console & Dev Server — `/battlefields/[id]/console`
 
 Command execution panel. Replaces the need to open a terminal for routine operations.
 
@@ -552,7 +566,7 @@ Top section of the console page. Manages the project's development server.
 - `[RESTART]`: stop then start.
 - Status indicator: `● RUNNING` (green) / `● STOPPED` (dim) / `● CRASHED` (red).
 - On DEVROOM shutdown: all dev servers are stopped gracefully.
-- The process registry (`process-registry.ts`) tracks all running dev servers and their PIDs.
+- The `DevServerManager` tracks all running dev servers and their PIDs.
 
 **Auto-start** (optional): battlefield config can flag `autoStartDevServer = true`. On DEVROOM boot, dev servers for flagged battlefields start automatically.
 
@@ -599,7 +613,7 @@ console:exit     — { battlefieldId, commandId, exitCode, durationMs }
 
 ---
 
-## 10. Scheduled Tasks — `/projects/[id]/schedule`
+## 10. Scheduled Tasks — `/battlefields/[id]/schedule`
 
 Cron-based automation for recurring missions and campaigns.
 
@@ -1007,7 +1021,7 @@ Respond ONLY with the JSON object. No preamble, no markdown fences.
 
 ---
 
-## 15. Configuration — `/projects/[id]/config`
+## 15. Configuration — `/battlefields/[id]/config`
 
 Per-battlefield:
 - Name / codename / description (editable).
@@ -1062,15 +1076,157 @@ simple-git throw → log → `compromised` → git error in debrief → `[RETRY 
 
 ---
 
-## 19. Future Ops (Backlog)
+## 19. Captain — AI Decision Layer
+
+### 19.1 Concept
+
+The Captain is an autonomous AI decision layer that makes judgment calls during mission and campaign execution without Commander intervention. It reviews debriefs, handles phase failures, and escalates critical decisions.
+
+Implementation: `src/lib/captain/`
+
+### 19.2 Modules
+
+| Module                    | Purpose                                               |
+|---------------------------|-------------------------------------------------------|
+| `captain.ts`              | Core decision engine — evaluates situations, makes calls |
+| `captain-db.ts`           | Persists decisions to `captainLogs` table             |
+| `debrief-reviewer.ts`     | Reviews mission debriefs for quality and completeness |
+| `escalation.ts`           | Routes critical decisions to Commander via Telegram   |
+| `phase-failure-handler.ts`| Handles phase failures — retry, skip, or escalate    |
+
+### 19.3 Decision Confidence
+
+Each decision is logged with a confidence level:
+- **high**: Captain acts autonomously.
+- **medium**: Captain acts but logs prominently for review.
+- **low**: Captain escalates to Commander (via Telegram if configured).
+
+### 19.4 Captain Log Page — `/(hq)/captain-log`
+
+Displays all Captain decisions across battlefields. Each entry shows the question faced, the decision made, reasoning, confidence level, and whether it was escalated.
+
+---
+
+## 20. Dossiers — Briefing Templates
+
+### 20.1 Concept
+
+Dossiers are reusable mission briefing templates with variable interpolation. Each dossier has a codename (e.g. `CODE_REVIEW`, `SECURITY_AUDIT`), a markdown template with `{{variable}}` placeholders, and an optional recommended asset.
+
+### 20.2 Schema
+
+See `Dossier` table in CLAUDE.md. Variables are stored as a JSON array of `DossierVariable` objects: `{ key, label, description, placeholder }`.
+
+### 20.3 Usage
+
+- The deploy mission form includes a `[Load dossier]` button (`<DossierSelector />`).
+- Selecting a dossier populates the briefing textarea with the template.
+- If the dossier has variables, a form appears to fill in values before populating.
+- The recommended asset is auto-selected if specified.
+
+### 20.4 CRUD
+
+Server Actions in `src/actions/dossier.ts`: create, update, delete, list, get by codename.
+
+---
+
+## 21. Notifications & Escalations
+
+### 21.1 Concept
+
+Notifications track important events (mission completions, failures, Captain escalations) and optionally deliver them via Telegram.
+
+### 21.2 Levels
+
+| Level      | Color  | Telegram | Description                        |
+|------------|--------|----------|------------------------------------|
+| `info`     | blue   | No       | Mission completed, phase secured   |
+| `warning`  | amber  | Optional | Captain medium-confidence decision |
+| `critical` | red    | Yes      | Mission compromised, escalation    |
+
+### 21.3 In-App
+
+Notifications are accessible via a bell icon or notification panel. Unread count shown in nav. Mark as read via Server Action.
+
+### 21.4 Telegram Integration
+
+When `TELEGRAM_BOT_TOKEN` is set:
+- Bot polls for incoming messages (no webhooks — LAN-only).
+- Critical notifications are sent to the configured Telegram chat.
+- Commander can respond to escalations directly in Telegram.
+- `telegramSent` and `telegramMsgId` fields track delivery status.
+
+Implementation: `src/lib/telegram/telegram.ts`
+
+---
+
+## 22. Logistics — Token & Cost Tracking
+
+### 22.1 Page — `/(hq)/logistics`
+
+Dashboard showing token usage and rate limit status across all battlefields.
+
+### 22.2 Features
+
+- **Token usage breakdown**: input tokens, output tokens, cache hits, cache creation.
+- **Rate limit status**: fetched via `GET /api/logistics/rate-limit` (proxied Claude API check).
+- **Cost tracking**: per-mission cost data from `costInput`, `costOutput`, `costCacheHit` fields.
+- **Cache hit rate**: overall and per-battlefield percentage.
+
+Server Actions in `src/actions/logistics.ts`.
+
+---
+
+## 23. OVERWATCH — System Metrics
+
+### 23.1 Page — `/overwatch`
+
+A standalone monitoring dashboard (outside the HQ layout group) showing system-wide operational metrics.
+
+### 23.2 Features
+
+- **Agent status**: active/total agent slots, currently running missions.
+- **Token counters**: live token usage with flash animation on updates.
+- **Uptime tracking**: system uptime since last boot.
+- **Battlefield status overview**: quick status of all battlefields.
+
+Component: `src/components/overwatch/overwatch.tsx`
+
+---
+
+## 24. War Room — Boot Sequence
+
+### 24.1 Page — `/warroom`
+
+A cinematic boot animation shown on first visit to DEVROOM. Creates an immersive tactical startup experience.
+
+### 24.2 Flow
+
+1. First visit to HQ triggers redirect to `/warroom`.
+2. Boot sequence animation plays (typewriter text, system checks, ASCII art).
+3. On completion, redirects to HQ dashboard.
+4. A session flag prevents re-showing on subsequent visits.
+
+Components: `src/components/warroom/boot-gate.tsx`, `src/components/warroom/boot-sequence.tsx`
+
+The HQ root layout uses `<BootGate>` as an overlay — if the boot animation hasn't been seen, it renders on top of the HQ content and fades out on completion. This avoids a flash of content before redirect.
+
+---
+
+## 25. Future Ops (Backlog)
 
 - [ ] Auto-import skills from curated registry.
-- [ ] Cost dashboard with token graphs over time.
+- [ ] Cost dashboard with token graphs over time (basic cost tracking exists in Logistics).
 - [ ] Mobile-optimized UI pass.
-- [ ] Push notifications on completion.
-- [ ] Mission dependencies (DAG within phases).
+- [x] Push notifications on completion (implemented via Telegram integration).
+- [ ] Mission dependencies (DAG within phases — `dependsOn` field exists but no UI).
 - [ ] Multi-repo campaigns.
 - [ ] Audit log.
 - [ ] Export/import state.
 - [ ] Voice debriefs (TTS).
-- [ ] Dossier library (saved briefing templates).
+- [x] Dossier library (saved briefing templates — fully implemented).
+- [x] Captain AI decision layer (autonomous judgment, escalation, debrief review).
+- [x] OVERWATCH system metrics dashboard.
+- [x] War Room boot sequence animation.
+- [x] Logistics / token usage dashboard.
+- [ ] Image paste in briefing textarea (Cmd+V, base64 — component exists but not fully wired).
