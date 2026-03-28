@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import { eq } from 'drizzle-orm';
 import { getMission } from '@/actions/mission';
 import { getCaptainLogs } from '@/actions/captain';
@@ -8,6 +7,7 @@ import { missionLogs } from '@/lib/db/schema';
 import { LiveStatusBadge } from '@/components/mission/live-status-badge';
 import { MissionComms } from '@/components/mission/mission-comms';
 import { PageWrapper } from '@/components/layout/page-wrapper';
+import { TacCard } from '@/components/ui/tac-card';
 import { formatRelativeTime } from '@/lib/utils';
 
 export default async function MissionDetailPage({
@@ -35,33 +35,23 @@ export default async function MissionDetailPage({
   const status = mission.status ?? 'standby';
 
   return (
-    <PageWrapper>
-      {/* Header */}
-      <div className="space-y-3">
-        <div className="text-xs font-tactical text-dr-dim tracking-wider">
-          <Link
-            href={`/battlefields/${id}`}
-            className="hover:text-dr-muted transition-colors"
-          >
-            Battlefields // {mission.battlefieldCodename} // Missions
-          </Link>
-        </div>
-        <h1 className="text-xl font-tactical text-dr-amber tracking-wider">
-          MISSION: {mission.title}
-        </h1>
-        <div className="flex items-center gap-4 text-xs font-tactical">
-          <LiveStatusBadge missionId={missionId} initialStatus={status} />
-          <span className="text-dr-muted">
-            Asset:{' '}
-            <span className="text-dr-text">
-              {mission.assetCodename ?? 'UNASSIGNED'}
-            </span>
+    <PageWrapper
+      breadcrumb={[mission.battlefieldCodename ?? 'Battlefield', 'MISSIONS']}
+      title={`MISSION: ${mission.title}`}
+    >
+      {/* Status bar */}
+      <div className="flex items-center gap-4 text-xs font-tactical">
+        <LiveStatusBadge missionId={missionId} initialStatus={status} />
+        <span className="text-dr-muted">
+          Asset:{' '}
+          <span className="text-dr-text">
+            {mission.assetCodename ?? 'UNASSIGNED'}
           </span>
-          <span className="text-dr-muted">
-            Priority:{' '}
-            <span className="text-dr-text uppercase">{mission.priority}</span>
-          </span>
-        </div>
+        </span>
+        <span className="text-dr-muted">
+          Priority:{' '}
+          <span className="text-dr-text uppercase">{mission.priority}</span>
+        </span>
       </div>
 
       {/* Briefing */}
@@ -72,11 +62,11 @@ export default async function MissionDetailPage({
           </h2>
           <div className="h-px bg-dr-border" />
         </div>
-        <div className="bg-dr-surface border border-dr-border p-4 font-data text-sm leading-relaxed">
+        <TacCard className="p-4 font-data text-sm leading-relaxed">
           {mission.briefing.split('\n').filter(Boolean).map((paragraph, i) => (
             <p key={i} className="text-dr-text mb-2 last:mb-0">{paragraph}</p>
           ))}
-        </div>
+        </TacCard>
       </div>
 
       {/* Live Comms + Tokens + Debrief + Actions */}
@@ -107,11 +97,10 @@ export default async function MissionDetailPage({
           </div>
           <div className="space-y-2">
             {captainLogEntries.map((log) => (
-              <div
+              <TacCard
                 key={log.id}
-                className={`border bg-dr-surface px-3 py-2.5 space-y-1.5 ${
-                  log.escalated ? 'border-dr-red' : 'border-dr-border'
-                }`}
+                status={log.escalated ? 'red' : undefined}
+                className="px-3 py-2.5 space-y-1.5"
               >
                 <div className="flex items-center gap-3 text-xs font-tactical">
                   <span className="text-dr-dim">
@@ -147,7 +136,7 @@ export default async function MissionDetailPage({
                 <p className="text-xs font-data text-dr-dim italic">
                   {log.reasoning}
                 </p>
-              </div>
+              </TacCard>
             ))}
           </div>
         </div>
