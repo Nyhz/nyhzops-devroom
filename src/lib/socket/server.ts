@@ -62,6 +62,24 @@ export function setupSocketIO(io: SocketIOServer) {
       }
     });
 
+    socket.on('general:subscribe', (sessionId: string) => {
+      socket.join(`general:${sessionId}`);
+    });
+
+    socket.on('general:unsubscribe', (sessionId: string) => {
+      socket.leave(`general:${sessionId}`);
+    });
+
+    socket.on('general:send', async (data: { sessionId: string; message: string }) => {
+      try {
+        const { sendGeneralMessage } = await import('@/lib/general/general-engine');
+        await sendGeneralMessage(io, data.sessionId, data.message);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'GENERAL session failed';
+        socket.emit('general:error', { sessionId: data.sessionId, error: message });
+      }
+    });
+
     socket.on('disconnect', () => {
       console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
     });
