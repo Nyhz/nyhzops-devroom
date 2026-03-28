@@ -15,16 +15,10 @@ export default async function CaptainLogPage() {
     : 0;
 
   return (
-    <PageWrapper>
-      {/* Header */}
-      <div className="space-y-3">
-        <h1 className="text-xl font-tactical text-dr-amber tracking-wider">
-          CAPTAIN&apos;S LOG
-        </h1>
-        <p className="text-xs font-tactical text-dr-muted">
-          Autonomous decision record — all Captain interventions during mission execution
-        </p>
-      </div>
+    <PageWrapper breadcrumb="HQ" title="CAPTAIN'S LOG">
+      <p className="text-xs font-tactical text-dr-muted -mt-4">
+        Autonomous decision record — all Captain interventions during mission execution
+      </p>
 
       {/* Stats bar */}
       <div className="flex items-center gap-6 text-xs font-tactical border border-dr-border bg-dr-surface px-4 py-3">

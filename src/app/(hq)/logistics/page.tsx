@@ -42,16 +42,10 @@ export default async function LogisticsPage() {
   );
 
   return (
-    <PageWrapper>
-      {/* Header */}
-      <div>
-        <h1 className="text-dr-amber font-tactical text-xl tracking-widest uppercase">
-          LOGISTICS
-        </h1>
-        <div className="text-dr-muted font-tactical text-xs mt-1">
-          Resource allocation and expenditure tracking
-        </div>
-      </div>
+    <PageWrapper breadcrumb="HQ" title="LOGISTICS">
+      <p className="text-xs font-tactical text-dr-muted -mt-4">
+        Resource allocation and expenditure tracking
+      </p>
 
       {/* Totals Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
