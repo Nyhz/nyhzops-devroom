@@ -85,11 +85,11 @@ export default function ProjectsPage() {
 
   return (
     <BootGate battlefieldCount={allBattlefields.length} inCombatCount={totalInCombat}>
-    <PageWrapper className="space-y-8">
+    <PageWrapper breadcrumb="HQ" title="HEADQUARTERS" className="space-y-8">
       {/* Global Stats */}
       <div>
-        <div className="text-dr-amber font-tactical text-sm tracking-widest uppercase mb-3">
-          HQ // GLOBAL OPERATIONS STATUS
+        <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase mb-3">
+          GLOBAL OPERATIONS STATUS
         </div>
         <StatsBar
           inCombat={totalInCombat}
