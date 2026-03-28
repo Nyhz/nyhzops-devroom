@@ -121,19 +121,19 @@ export function MissionComms({
       <div className="bg-dr-surface border border-dr-border p-4">
         <div className="grid grid-cols-5 gap-4 text-xs font-tactical">
           <div>
-            <div className="text-dr-dim tracking-wider mb-1">INPUT</div>
+            <div className="text-dr-muted tracking-wider mb-1">INPUT</div>
             <div className="text-dr-text">
               {displayInput > 0 ? displayInput.toLocaleString() : '\u2014'}
             </div>
           </div>
           <div>
-            <div className="text-dr-dim tracking-wider mb-1">OUTPUT</div>
+            <div className="text-dr-muted tracking-wider mb-1">OUTPUT</div>
             <div className="text-dr-text">
               {displayOutput > 0 ? displayOutput.toLocaleString() : '\u2014'}
             </div>
           </div>
           <div>
-            <div className="text-dr-dim tracking-wider mb-1">CACHE</div>
+            <div className="text-dr-muted tracking-wider mb-1">CACHE</div>
             <div className="text-dr-text">
               {displayCacheHit > 0
                 ? `${displayCacheHit.toLocaleString()} (${cachePercent}%)`
@@ -141,13 +141,13 @@ export function MissionComms({
             </div>
           </div>
           <div>
-            <div className="text-dr-dim tracking-wider mb-1">DURATION</div>
+            <div className="text-dr-muted tracking-wider mb-1">DURATION</div>
             <div className="text-dr-text">
               {displayDuration > 0 ? formatDuration(displayDuration) : '\u2014'}
             </div>
           </div>
           <div>
-            <div className="text-dr-dim tracking-wider mb-1">COST</div>
+            <div className="text-dr-muted tracking-wider mb-1">COST</div>
             <div className="text-dr-text">
               {displayCostUsd != null && displayCostUsd > 0
                 ? `$${displayCostUsd.toFixed(4)}`

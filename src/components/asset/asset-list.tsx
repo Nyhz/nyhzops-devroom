@@ -158,12 +158,12 @@ export function AssetList({ assets }: AssetListProps) {
               <div className="text-dr-text font-tactical text-xs mb-1">
                 {asset.specialty}
               </div>
-              <div className="text-dr-dim font-tactical text-[10px] mb-2">
+              <div className="text-dr-muted font-tactical text-xs mb-2">
                 {MODEL_LABELS[asset.model ?? 'claude-sonnet-4-6'] ?? asset.model}
               </div>
               <div className="border-t border-dr-border pt-2 mt-2">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-dr-dim font-tactical text-[10px] uppercase tracking-wider">
+                  <span className="text-dr-muted font-tactical text-xs uppercase tracking-wider">
                     Missions completed
                   </span>
                   <span className="text-dr-text font-tactical text-xs">
@@ -175,7 +175,7 @@ export function AssetList({ assets }: AssetListProps) {
                     variant="primary"
                     size="sm"
                     onClick={() => handleEdit(asset)}
-                    className="text-[10px] px-2 py-0.5"
+                    className="text-xs px-2 py-0.5"
                   >
                     EDIT
                   </TacButton>
@@ -183,7 +183,7 @@ export function AssetList({ assets }: AssetListProps) {
                     variant="danger"
                     size="sm"
                     onClick={() => setConfirmDeleteId(asset.id)}
-                    className="text-[10px] px-2 py-0.5"
+                    className="text-xs px-2 py-0.5"
                   >
                     DELETE
                   </TacButton>

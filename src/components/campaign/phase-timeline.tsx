@@ -51,7 +51,7 @@ function formatTokenCount(tokens: number): string {
 export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: PhaseTimelineProps) {
   if (phases.length === 0) {
     return (
-      <div className="text-dr-dim font-tactical text-sm py-8 text-center">
+      <div className="text-dr-muted font-tactical text-sm py-8 text-center">
         No phases in this campaign
       </div>
     );
@@ -75,7 +75,7 @@ export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: Ph
             {/* Phase header */}
             <div className="bg-dr-elevated px-4 py-2 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
-                <span className="font-tactical text-xs text-dr-dim shrink-0">
+                <span className="font-tactical text-xs text-dr-muted shrink-0">
                   PHASE {phase.phaseNumber}
                 </span>
                 <span className="font-tactical text-sm text-dr-amber truncate">
@@ -98,7 +98,7 @@ export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: Ph
 
               {/* Metrics row */}
               {hasMetrics && (
-                <div className="flex items-center gap-4 mb-3 font-data text-xs text-dr-dim">
+                <div className="flex items-center gap-4 mb-3 font-data text-xs text-dr-muted">
                   {phase.durationMs != null && (
                     <span>{formatDuration(phase.durationMs)}</span>
                   )}
@@ -139,7 +139,7 @@ export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: Ph
                   })}
                 </div>
               ) : (
-                <p className="font-tactical text-xs text-dr-dim">
+                <p className="font-tactical text-xs text-dr-muted">
                   No missions in this phase
                 </p>
               )}
@@ -147,7 +147,7 @@ export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: Ph
               {/* Collapsible debrief */}
               {phase.debrief && (
                 <details className="mt-4">
-                  <summary className="font-tactical text-xs text-dr-dim cursor-pointer hover:text-dr-muted select-none">
+                  <summary className="font-tactical text-xs text-dr-muted cursor-pointer hover:text-dr-text select-none">
                     DEBRIEF
                   </summary>
                   <div className="mt-2 p-3 bg-dr-elevated border border-dr-border font-data text-sm text-dr-muted whitespace-pre-wrap">

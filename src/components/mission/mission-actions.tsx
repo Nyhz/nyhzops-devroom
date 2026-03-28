@@ -271,7 +271,7 @@ export function MissionActions({
             <h3 className="text-sm font-tactical text-dr-amber tracking-wider">
               TACTICAL OVERRIDE
             </h3>
-            <p className="text-dr-dim font-data text-xs">
+            <p className="text-dr-muted font-data text-sm">
               Edit the briefing below. The agent will receive this updated briefing with its previous session context preserved.
             </p>
             <TacTextarea

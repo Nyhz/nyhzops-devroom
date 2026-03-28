@@ -233,7 +233,7 @@ function SortableMissionItem({
           />
         </div>
         <span
-          className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', dotColor)}
+          className={cn('mt-1.5 h-3 w-3 shrink-0 rounded-full', dotColor)}
           title={`Priority: ${mission.priority}`}
         />
         <button
@@ -248,7 +248,7 @@ function SortableMissionItem({
       {/* Briefing toggle */}
       <button
         onClick={() => setBriefingExpanded(!briefingExpanded)}
-        className="text-left text-[10px] text-dr-dim uppercase tracking-wider hover:text-dr-muted"
+        className="text-left text-xs text-dr-muted uppercase tracking-wider hover:text-dr-text"
       >
         {briefingExpanded ? '▾ BRIEFING' : '▸ BRIEFING'}
       </button>
@@ -263,7 +263,7 @@ function SortableMissionItem({
 
       {/* Asset selector */}
       <div className="flex items-center gap-2">
-        <span className="text-[10px] text-dr-dim uppercase tracking-wider shrink-0">
+        <span className="text-xs text-dr-muted uppercase tracking-wider shrink-0">
           ASSET
         </span>
         <select
@@ -282,7 +282,7 @@ function SortableMissionItem({
 
       {/* Priority selector */}
       <div className="flex items-center gap-2">
-        <span className="text-[10px] text-dr-dim uppercase tracking-wider shrink-0">
+        <span className="text-xs text-dr-muted uppercase tracking-wider shrink-0">
           PRIORITY
         </span>
         <select
@@ -300,13 +300,13 @@ function SortableMissionItem({
 
       {/* DependsOn tags */}
       <div className="flex flex-wrap items-center gap-1">
-        <span className="text-[10px] text-dr-dim uppercase tracking-wider shrink-0">
+        <span className="text-xs text-dr-muted uppercase tracking-wider shrink-0">
           DEPS
         </span>
         {currentDeps.map((dep) => (
           <span
             key={dep}
-            className="inline-flex items-center gap-1 bg-dr-bg border border-dr-border text-dr-muted text-[10px] px-1.5 py-0.5 font-tactical"
+            className="inline-flex items-center gap-1 bg-dr-bg border border-dr-border text-dr-muted text-xs px-1.5 py-0.5 font-tactical"
           >
             {dep}
             <button
@@ -374,10 +374,10 @@ function MissionOverlay({ mission }: { mission: PlanMission }) {
         <span className="font-tactical text-sm text-dr-text truncate flex-1">
           {mission.title || '(untitled)'}
         </span>
-        <span className={cn('h-2 w-2 shrink-0 rounded-full', dotColor)} />
+        <span className={cn('h-3 w-3 shrink-0 rounded-full', dotColor)} />
       </div>
       {mission.assetCodename && (
-        <span className="text-[10px] text-dr-dim font-tactical pl-5">
+        <span className="text-xs text-dr-muted font-tactical pl-5">
           {mission.assetCodename}
         </span>
       )}
@@ -450,7 +450,7 @@ function SortablePhaseItem({
         >
           ⠿
         </button>
-        <span className="text-[10px] text-dr-dim uppercase tracking-wider shrink-0">
+        <span className="text-xs text-dr-muted uppercase tracking-wider shrink-0">
           PHASE {phaseIndex + 1}
         </span>
         <div className="flex-1 min-w-0">
@@ -461,7 +461,7 @@ function SortablePhaseItem({
             className="font-tactical text-sm text-dr-amber"
           />
         </div>
-        <span className="text-[10px] text-dr-dim font-tactical">
+        <span className="text-xs text-dr-muted font-tactical">
           {phase.missions.length} mission{phase.missions.length !== 1 ? 's' : ''}
         </span>
         <button
@@ -485,7 +485,7 @@ function SortablePhaseItem({
 
       {/* Phase objective */}
       <div className="px-4 py-2 border-b border-dr-border/50">
-        <span className="text-[10px] text-dr-dim uppercase tracking-wider mr-2">
+        <span className="text-xs text-dr-muted uppercase tracking-wider mr-2">
           OBJECTIVE
         </span>
         <InlineEdit
@@ -544,13 +544,13 @@ function PhaseOverlay({ phase, phaseIndex }: { phase: PlanPhase; phaseIndex: num
     <div className="bg-dr-surface border border-dr-amber border-l-2 border-l-dr-amber shadow-glow-amber opacity-90 p-4">
       <div className="flex items-center gap-3">
         <span className="text-dr-amber text-lg">⠿</span>
-        <span className="text-[10px] text-dr-dim uppercase tracking-wider">
+        <span className="text-xs text-dr-muted uppercase tracking-wider">
           PHASE {phaseIndex + 1}
         </span>
         <span className="font-tactical text-sm text-dr-amber">
           {phase.name || '(unnamed)'}
         </span>
-        <span className="text-[10px] text-dr-dim font-tactical ml-auto">
+        <span className="text-xs text-dr-muted font-tactical ml-auto">
           {phase.missions.length} mission{phase.missions.length !== 1 ? 's' : ''}
         </span>
       </div>
@@ -819,7 +819,7 @@ export function PlanEditor({
             BATTLE PLAN EDITOR
           </h2>
           {dirty && (
-            <span className="font-tactical text-[10px] text-dr-amber animate-pulse uppercase tracking-wider">
+            <span className="font-tactical text-xs text-dr-amber animate-pulse uppercase tracking-wider">
               ● UNSAVED CHANGES
             </span>
           )}
@@ -843,7 +843,7 @@ export function PlanEditor({
 
       {/* Summary */}
       <div className="bg-dr-surface border border-dr-border p-4">
-        <span className="text-[10px] text-dr-dim uppercase tracking-wider block mb-2">
+        <span className="text-xs text-dr-muted uppercase tracking-wider block mb-2">
           PLAN SUMMARY
         </span>
         <TacTextarea

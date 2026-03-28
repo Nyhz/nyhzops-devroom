@@ -72,7 +72,7 @@ export function AssetForm({ editAsset, onClose }: AssetFormProps) {
       )}
 
       <div>
-        <label className="block text-dr-muted font-tactical text-[10px] tracking-wider uppercase mb-1">
+        <label className="block text-dr-muted font-tactical text-xs tracking-wider uppercase mb-1">
           Codename
         </label>
         <TacInput
@@ -84,7 +84,7 @@ export function AssetForm({ editAsset, onClose }: AssetFormProps) {
       </div>
 
       <div>
-        <label className="block text-dr-muted font-tactical text-[10px] tracking-wider uppercase mb-1">
+        <label className="block text-dr-muted font-tactical text-xs tracking-wider uppercase mb-1">
           Specialty
         </label>
         <TacInput
@@ -96,7 +96,7 @@ export function AssetForm({ editAsset, onClose }: AssetFormProps) {
       </div>
 
       <div>
-        <label className="block text-dr-muted font-tactical text-[10px] tracking-wider uppercase mb-1">
+        <label className="block text-dr-muted font-tactical text-xs tracking-wider uppercase mb-1">
           System Prompt
         </label>
         <TacTextarea
@@ -108,7 +108,7 @@ export function AssetForm({ editAsset, onClose }: AssetFormProps) {
       </div>
 
       <div>
-        <label className="block text-dr-muted font-tactical text-[10px] tracking-wider uppercase mb-1">
+        <label className="block text-dr-muted font-tactical text-xs tracking-wider uppercase mb-1">
           Model
         </label>
         <TacSelect value={model} onValueChange={(val) => { if (val) setModel(val); }}>
