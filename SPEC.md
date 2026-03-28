@@ -79,7 +79,6 @@ Fixed-width left sidebar:
 - `HQ` — Main dashboard overview.
 - `CAPTAIN LOG` — AI decision log viewer.
 - `LOGISTICS` — Token usage & rate limits.
-- `OVERWATCH` — System metrics (links to `/overwatch`).
 
 **Battlefield section navigation** (when a battlefield is selected):
 - `■ MISSIONS` — with count badge.
@@ -1189,30 +1188,13 @@ Server Actions in `src/actions/logistics.ts`.
 
 ---
 
-## 23. OVERWATCH — System Metrics
+## 23. War Room — Boot Sequence
 
-### 23.1 Page — `/overwatch`
-
-A standalone monitoring dashboard (outside the HQ layout group) showing system-wide operational metrics.
-
-### 23.2 Features
-
-- **Agent status**: active/total agent slots, currently running missions.
-- **Token counters**: live token usage with flash animation on updates.
-- **Uptime tracking**: system uptime since last boot.
-- **Battlefield status overview**: quick status of all battlefields.
-
-Component: `src/components/overwatch/overwatch.tsx`
-
----
-
-## 24. War Room — Boot Sequence
-
-### 24.1 Page — `/warroom`
+### 23.1 Page — `/warroom`
 
 A cinematic boot animation shown on first visit to DEVROOM. Creates an immersive tactical startup experience.
 
-### 24.2 Flow
+### 23.2 Flow
 
 1. First visit to HQ triggers redirect to `/warroom`.
 2. Boot sequence animation plays (typewriter text, system checks, ASCII art).
@@ -1225,7 +1207,7 @@ The HQ root layout uses `<BootGate>` as an overlay — if the boot animation has
 
 ---
 
-## 25. Future Ops (Backlog)
+## 24. Future Ops (Backlog)
 
 - [ ] Auto-import skills from curated registry.
 - [ ] Cost dashboard with token graphs over time (basic cost tracking exists in Logistics).
@@ -1239,7 +1221,6 @@ The HQ root layout uses `<BootGate>` as an overlay — if the boot animation has
 - [ ] Voice debriefs (TTS).
 - [x] Dossier library (saved briefing templates — fully implemented).
 - [x] Captain AI decision layer (autonomous judgment, escalation, debrief review).
-- [x] OVERWATCH system metrics dashboard.
 - [x] War Room boot sequence animation.
 - [x] Logistics / token usage dashboard.
 - [ ] Image paste in briefing textarea (Cmd+V, base64 — component exists but not fully wired).
