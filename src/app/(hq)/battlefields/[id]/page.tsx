@@ -175,21 +175,12 @@ export default async function BattlefieldOverviewPage({
   };
 
   return (
-    <PageWrapper>
-      {/* Header */}
-      <div>
-        <div className="text-dr-dim font-tactical text-xs tracking-wider mb-1">
-          Battlefields // {battlefield.name}
+    <PageWrapper breadcrumb={battlefield.codename} title="Missions">
+      {battlefield.description && (
+        <div className="text-dr-muted font-tactical text-xs -mt-4">
+          {battlefield.description}
         </div>
-        <h1 className="text-dr-amber font-tactical text-xl tracking-widest uppercase">
-          {battlefield.codename}
-        </h1>
-        {battlefield.description && (
-          <div className="text-dr-muted font-tactical text-xs mt-1">
-            {battlefield.description}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Deploy Mission */}
       <DeployMission battlefieldId={id} assets={assetList} />
