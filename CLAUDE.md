@@ -55,7 +55,6 @@ The interface follows a tactical operations center aesthetic. Dark backgrounds, 
 | Template      | **Dossier**       | Reusable mission briefing template with variable placeholders. |
 | AI Layer      | **Captain**       | Autonomous decision engine — judges, escalates, reviews.       |
 | Alert         | **Notification**  | In-app + Telegram alert for events and escalations.            |
-| Monitoring    | **OVERWATCH**     | System metrics dashboard (agents, tokens, uptime).             |
 | Startup       | **War Room**      | Boot sequence animation shown on first visit.                  |
 | Planning Chat | **Briefing**      | Interactive campaign planning chat with GENERAL asset.         |
 | Cost Tracking | **Logistics**     | Token usage, rate limits, and cost tracking dashboard.         |
@@ -144,7 +143,6 @@ Captain      = AI decision layer (autonomous judgment + escalation)
 Debrief      = Post-mission report to Commander
 Comms        = Real-time log stream
 HQ           = Main dashboard
-OVERWATCH    = System metrics dashboard
 War Room     = Boot sequence animation
 Logistics    = Token usage + cost tracking
 Notification = In-app + Telegram alert
