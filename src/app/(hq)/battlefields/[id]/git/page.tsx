@@ -7,7 +7,6 @@ import { GitLog } from '@/components/git/git-log';
 import { GitBranches } from '@/components/git/git-branches';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageWrapper } from '@/components/layout/page-wrapper';
-import { PageHeader } from '@/components/layout/page-header';
 
 export default async function GitPage({
   params,
@@ -26,13 +25,14 @@ export default async function GitPage({
   const bf = db.select({ codename: battlefields.codename }).from(battlefields).where(eq(battlefields.id, id)).get();
 
   return (
-    <PageWrapper className="space-y-4">
-      <div>
-        <PageHeader codename={bf?.codename ?? ''} section="GIT" title="Git" />
-        <p className="text-dr-dim text-xs font-tactical mt-1">
-          Branch: <span className="text-dr-green">{branches.current}</span>
-        </p>
-      </div>
+    <PageWrapper
+      breadcrumb={[bf?.codename ?? '', 'GIT']}
+      title="GIT"
+      className="space-y-4"
+    >
+      <p className="text-dr-dim text-xs font-tactical -mt-4">
+        Branch: <span className="text-dr-green">{branches.current}</span>
+      </p>
 
       <Tabs defaultValue="status">
         <TabsList

@@ -1,5 +1,4 @@
 import { PageWrapper } from '@/components/layout/page-wrapper';
-import { PageHeader } from '@/components/layout/page-header';
 import { getBattlefield } from '@/actions/battlefield';
 import { getDevServerStatus, getPackageScripts, getCommandHistory } from '@/actions/console';
 import { DevServerPanel } from '@/components/console/dev-server-panel';
@@ -23,8 +22,10 @@ export default async function ConsolePage({
   const devCommand = battlefield?.devServerCommand ?? 'npm run dev';
 
   return (
-    <PageWrapper>
-      <PageHeader codename={battlefield?.codename ?? ''} section="CONSOLE" title="Console" />
+    <PageWrapper
+      breadcrumb={[battlefield?.codename ?? '', 'CONSOLE']}
+      title="CONSOLE"
+    >
 
       {/* Dev Server Section */}
       <div className="space-y-2">
