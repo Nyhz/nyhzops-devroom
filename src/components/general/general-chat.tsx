@@ -183,7 +183,7 @@ export function GeneralChat({
                   e.stopPropagation();
                   setCloseTarget(session);
                 }}
-                className="text-dr-dim hover:text-dr-red ml-1 text-[10px]"
+                className="text-dr-muted hover:text-dr-red ml-1 text-xs"
               >
                 ✕
               </span>
@@ -191,7 +191,7 @@ export function GeneralChat({
           ))}
           <button
             onClick={() => setShowNewModal(true)}
-            className="px-4 py-2.5 text-dr-dim hover:text-dr-amber font-mono text-sm transition-colors shrink-0"
+            className="px-4 py-2.5 text-dr-muted hover:text-dr-amber font-mono text-sm transition-colors shrink-0"
           >
             +
           </button>
@@ -200,7 +200,7 @@ export function GeneralChat({
           onClick={() => setShowCommands((v) => !v)}
           className={cn(
             'px-4 py-2.5 font-mono text-sm transition-colors shrink-0',
-            showCommands ? 'text-dr-amber' : 'text-dr-dim hover:text-dr-amber',
+            showCommands ? 'text-dr-amber' : 'text-dr-muted hover:text-dr-amber',
           )}
         >
           ?
@@ -236,7 +236,7 @@ export function GeneralChat({
               </button>
             )}
             {activeSession.battlefieldId && (
-              <span className="text-dr-dim font-mono text-[10px]">
+              <span className="text-dr-muted font-mono text-xs">
                 BATTLEFIELD LINKED
               </span>
             )}
@@ -279,10 +279,10 @@ export function GeneralChat({
         {streaming && (
           <div className="flex justify-start">
             <div className="max-w-[80%] space-y-1">
-              <div className="text-dr-amber font-tactical text-[10px] tracking-widest">GENERAL</div>
+              <div className="text-dr-amber font-tactical text-xs tracking-widest">GENERAL</div>
               <div className="text-dr-text font-mono text-sm leading-relaxed prose prose-invert prose-sm max-w-none">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{streaming}</ReactMarkdown>
-                <span className="inline-block w-2 h-4 bg-dr-amber animate-pulse ml-0.5" />
+                <span className="inline-block w-2.5 h-4 bg-dr-amber animate-pulse ml-0.5" />
               </div>
             </div>
           </div>
@@ -291,7 +291,7 @@ export function GeneralChat({
         {/* Loading indicator */}
         {isLoading && !streaming && (
           <div className="flex justify-start">
-            <div className="text-dr-dim font-mono text-sm animate-pulse">
+            <div className="text-dr-muted font-mono text-sm animate-pulse">
               GENERAL is thinking...
             </div>
           </div>
@@ -361,7 +361,7 @@ function MessageBubble({ role, content }: { role: string; content: string }) {
   if (role === 'system') {
     return (
       <div className="flex justify-center py-2">
-        <span className="text-dr-dim font-mono text-[11px] tracking-widest">{content}</span>
+        <span className="text-dr-muted font-mono text-xs tracking-widest">{content}</span>
       </div>
     );
   }
@@ -373,7 +373,7 @@ function MessageBubble({ role, content }: { role: string; content: string }) {
       <div className={cn('max-w-[80%] space-y-1')}>
         <div
           className={cn(
-            'font-tactical text-[10px] tracking-widest',
+            'font-tactical text-xs tracking-widest',
             isCommander ? 'text-dr-green text-right' : 'text-dr-amber',
           )}
         >

@@ -67,7 +67,7 @@ export function NewSessionModal({ open, onClose, onCreate, battlefields }: NewSe
 
           <div>
             <label className="text-dr-muted font-tactical text-xs block mb-1">
-              BATTLEFIELD CONTEXT <span className="text-dr-dim">(optional)</span>
+              BATTLEFIELD CONTEXT <span className="text-dr-muted">(optional)</span>
             </label>
             <select
               value={battlefieldId}
