@@ -8,11 +8,31 @@ export interface DebriefReview {
   reasoning: string;
 }
 
-const FALLBACK_REVIEW: DebriefReview = {
-  satisfactory: true,
-  concerns: [],
-  recommendation: 'accept',
-  reasoning: 'Unable to parse review',
+const REVIEW_JSON_SCHEMA = JSON.stringify({
+  type: 'object',
+  properties: {
+    satisfactory: { type: 'boolean', description: 'Whether the mission was completed successfully' },
+    concerns: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'List of specific concerns found (empty array if none)',
+    },
+    recommendation: {
+      type: 'string',
+      enum: ['accept', 'retry', 'escalate'],
+      description: 'accept = approve, retry = agent should redo, escalate = Commander must intervene',
+    },
+    reasoning: { type: 'string', description: 'Brief explanation of the judgment' },
+  },
+  required: ['satisfactory', 'concerns', 'recommendation', 'reasoning'],
+  additionalProperties: false,
+});
+
+const PARSE_FAILURE_REVIEW: DebriefReview = {
+  satisfactory: false,
+  concerns: ['Captain review output could not be parsed — treating as inconclusive'],
+  recommendation: 'retry',
+  reasoning: 'Review parse failure — retrying to get a valid assessment',
 };
 
 function buildReviewPrompt(params: {
@@ -31,7 +51,6 @@ MISSION DEBRIEF (what was done):
 ${params.missionDebrief}`);
 
   if (params.claudeMd) {
-    // Include a trimmed version — key rules only
     const trimmed = params.claudeMd.length > 3000
       ? params.claudeMd.slice(0, 3000) + '\n\n[...truncated]'
       : params.claudeMd;
@@ -44,56 +63,84 @@ ${params.missionDebrief}`);
 3. Are there indicators of test failures or incomplete work?
 4. Did the agent make unexpected decisions that deviate from conventions?
 
-Respond with JSON:
-{
-  "satisfactory": true/false,
-  "concerns": ["specific concern 1", "..."],
-  "recommendation": "accept" | "retry" | "escalate",
-  "reasoning": "Brief explanation"
-}
-
 Rules:
 - Most debriefs are satisfactory. Only flag genuine issues.
 - Minor style differences are not concerns.
 - "retry" only if the agent clearly failed to complete the task.
-- "escalate" only if there's a significant risk the Commander should know about.
-
-Respond with a JSON object only. No markdown fences, no extra text.`);
+- "escalate" only if there's a significant risk the Commander should know about.`);
 
   return sections.join('\n\n---\n\n');
 }
 
-function parseReview(raw: string): DebriefReview {
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    return FALLBACK_REVIEW;
-  }
+function spawnReview(prompt: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(config.claudePath, [
+      '--print',
+      '--output-format', 'json',
+      '--dangerously-skip-permissions',
+      '--max-turns', '5',
+      '--json-schema', REVIEW_JSON_SCHEMA,
+    ], { cwd: '/tmp' });
 
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
+    proc.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); });
+
+    proc.stdin?.write(prompt);
+    proc.stdin?.end();
+
+    proc.on('close', (code) => {
+      if (code === 0 && stdout.trim()) {
+        resolve(stdout);
+      } else {
+        reject(new Error(`Review process exited with code ${code}. stderr: ${stderr.slice(0, 500)}`));
+      }
+    });
+
+    proc.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+function parseReview(raw: string): DebriefReview | null {
   try {
-    const parsed = JSON.parse(jsonMatch[0]) as {
-      satisfactory?: boolean;
-      concerns?: string[];
-      recommendation?: string;
-      reasoning?: string;
+    const envelope = JSON.parse(raw) as {
+      subtype?: string;
+      structured_output?: {
+        satisfactory?: boolean;
+        concerns?: unknown[];
+        recommendation?: string;
+        reasoning?: string;
+      };
     };
 
-    const validRecommendations = ['accept', 'retry', 'escalate'] as const;
-    const recommendation = validRecommendations.includes(
-      parsed.recommendation as typeof validRecommendations[number],
-    )
-      ? (parsed.recommendation as DebriefReview['recommendation'])
-      : 'accept';
+    if (envelope.subtype !== 'success' || !envelope.structured_output) {
+      return null;
+    }
+
+    const parsed = envelope.structured_output;
+
+    if (typeof parsed.satisfactory !== 'boolean') return null;
+    if (!['accept', 'retry', 'escalate'].includes(parsed.recommendation ?? '')) return null;
+    if (typeof parsed.reasoning !== 'string' || parsed.reasoning.length === 0) return null;
 
     return {
-      satisfactory: parsed.satisfactory !== false, // Default true
-      concerns: Array.isArray(parsed.concerns) ? parsed.concerns : [],
-      recommendation,
-      reasoning: parsed.reasoning || 'No reasoning provided.',
+      satisfactory: parsed.satisfactory,
+      concerns: Array.isArray(parsed.concerns)
+        ? parsed.concerns.filter((c): c is string => typeof c === 'string')
+        : [],
+      recommendation: parsed.recommendation as DebriefReview['recommendation'],
+      reasoning: parsed.reasoning,
     };
   } catch {
-    return FALLBACK_REVIEW;
+    return null;
   }
 }
+
+const MAX_PARSE_ATTEMPTS = 2;
 
 export async function reviewDebrief(params: {
   missionBriefing: string;
@@ -108,39 +155,30 @@ export async function reviewDebrief(params: {
     claudeMd: params.claudeMd,
   });
 
-  return new Promise<DebriefReview>((resolve) => {
-    const proc = spawn(config.claudePath, [
-      '--print',
-      '--dangerously-skip-permissions',
-      '--max-turns', '1',
-    ], { cwd: '/tmp' });
+  for (let attempt = 1; attempt <= MAX_PARSE_ATTEMPTS; attempt++) {
+    try {
+      const stdout = await spawnReview(prompt);
+      const review = parseReview(stdout);
 
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
-    proc.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); });
-
-    // Pipe prompt via stdin
-    proc.stdin?.write(prompt);
-    proc.stdin?.end();
-
-    proc.on('close', (code) => {
-      if (code === 0 && stdout.trim()) {
-        const review = parseReview(stdout);
-        if (review.reasoning === 'Unable to parse review') {
-          console.warn(`[Captain] Debrief review: could not parse JSON from output (${stdout.length} chars). First 300 chars: ${stdout.slice(0, 300)}`);
-        }
-        resolve(review);
-      } else {
-        console.warn(`[Captain] Debrief review exited with code ${code}. stderr: ${stderr.slice(0, 500)}`);
-        resolve(FALLBACK_REVIEW);
+      if (review) {
+        return review;
       }
-    });
 
-    proc.on('error', (err) => {
-      console.error(`[Captain] Debrief review spawn error:`, err.message);
-      resolve(FALLBACK_REVIEW);
-    });
-  });
+      console.warn(
+        `[Captain] Debrief review parse failed (attempt ${attempt}/${MAX_PARSE_ATTEMPTS}). ` +
+        `Output (${stdout.length} chars): ${stdout.slice(0, 300)}`,
+      );
+    } catch (err) {
+      console.warn(
+        `[Captain] Debrief review spawn failed (attempt ${attempt}/${MAX_PARSE_ATTEMPTS}):`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  console.error(
+    `[Captain] Debrief review: all ${MAX_PARSE_ATTEMPTS} parse attempts failed for mission ${params.missionId}. ` +
+    `Returning inconclusive review (will trigger retry).`,
+  );
+  return PARSE_FAILURE_REVIEW;
 }

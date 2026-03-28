@@ -117,15 +117,15 @@ The interface follows a tactical operations center aesthetic. Dark backgrounds, 
 
 ## Extended Documentation
 
-Detailed docs are split into topic files under `.claude/`. Reference these when working on related areas:
+Detailed docs are split into topic files under `.devroom/`. Reference these when working on related areas:
 
 | File | Contents |
 |------|----------|
-| `.claude/project-structure.md` | Full project file tree and directory layout |
-| `.claude/database-schema.md` | All Drizzle table definitions (Battlefield, Mission, Campaign, Phase, Asset, etc.) |
-| `.claude/ui-theme.md` | Branding, Tailwind theme tokens, layout structure, UI patterns, Commander reporting tone |
-| `.claude/server-and-sockets.md` | Custom server boot, Socket.IO rooms/events, Claude Code invocation, prompt cache optimization |
-| `.claude/git-and-workflows.md` | Git/worktree rules, Definition of Done, scripts, environment variables |
+| `.devroom/project-structure.md` | Full project file tree and directory layout |
+| `.devroom/database-schema.md` | All Drizzle table definitions (Battlefield, Mission, Campaign, Phase, Asset, etc.) |
+| `.devroom/ui-theme.md` | Branding, Tailwind theme tokens, layout structure, UI patterns, Commander reporting tone |
+| `.devroom/server-and-sockets.md` | Custom server boot, Socket.IO rooms/events, Claude Code invocation, prompt cache optimization |
+| `.devroom/git-and-workflows.md` | Git/worktree rules, Definition of Done, scripts, environment variables |
 
 ---
 

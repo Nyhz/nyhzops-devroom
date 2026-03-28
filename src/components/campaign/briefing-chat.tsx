@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBriefing } from '@/hooks/use-briefing';
 import { TacButton } from '@/components/ui/tac-button';
-import { TacTextarea } from '@/components/ui/tac-input';
+import { TacTextareaWithImages } from '@/components/ui/tac-textarea-with-images';
 
 interface BriefingChatProps {
   campaignId: string;
@@ -133,9 +133,9 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
       {/* Input */}
       <div className="border-t border-dr-border bg-dr-surface p-3">
         <div className="flex gap-3">
-          <TacTextarea
+          <TacTextareaWithImages
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={setInput}
             onKeyDown={handleKeyDown}
             placeholder="Brief the GENERAL..."
             rows={2}

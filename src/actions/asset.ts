@@ -1,11 +1,68 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { eq, count } from 'drizzle-orm';
+import { eq, count, inArray, desc } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { assets, missions } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import type { AssetStatus } from '@/types';
+
+export interface AssetDeploymentEntry {
+  id: string;
+  codename: string;
+  status: 'in_combat' | 'queued';
+  missionTitle: string;
+}
+
+export interface AssetDeploymentData {
+  active: AssetDeploymentEntry[];
+  idle: string[]; // codenames of idle assets
+}
+
+// ---------------------------------------------------------------------------
+// getAssetDeployment — live deployment status for all active assets
+// ---------------------------------------------------------------------------
+export async function getAssetDeployment(): Promise<AssetDeploymentData> {
+  const db = getDatabase();
+  const activeAssets = db.select().from(assets).where(eq(assets.status, 'active')).all();
+
+  // Find all missions currently in active states
+  const activeMissions = db
+    .select({
+      id: missions.id,
+      title: missions.title,
+      status: missions.status,
+      assetId: missions.assetId,
+    })
+    .from(missions)
+    .where(inArray(missions.status, ['in_combat', 'deploying', 'reviewing', 'queued']))
+    .all();
+
+  const active: AssetDeploymentEntry[] = [];
+  const busyAssetIds = new Set<string>();
+
+  for (const mission of activeMissions) {
+    const asset = activeAssets.find((a) => a.id === mission.assetId);
+    if (!asset) continue;
+
+    busyAssetIds.add(asset.id);
+    const status: 'in_combat' | 'queued' =
+      mission.status === 'queued' ? 'queued' : 'in_combat';
+
+    active.push({
+      id: mission.id,
+      codename: asset.codename,
+      status,
+      missionTitle: mission.title,
+    });
+  }
+
+  const idle = activeAssets
+    .filter((a) => !busyAssetIds.has(a.id))
+    .map((a) => a.codename);
+
+  return { active, idle };
+}
 
 const VALID_MODELS = [
   'claude-opus-4-6',

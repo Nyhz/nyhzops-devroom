@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 
 const GLOBAL_LINKS = [
   { href: '/', icon: '◉', label: 'HQ', exact: true },
-  { href: '/overwatch', icon: '◎', label: 'OVERWATCH', exact: true },
 ] as const;
 
 const BOTTOM_LINKS = [

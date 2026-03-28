@@ -113,7 +113,7 @@ export function CampaignControls({
         {/* PLANNING: GREEN LIGHT, BACK TO BRIEFING, DELETE */}
         {status === 'planning' && (
           <>
-            <TacButton onClick={handleGreenLight} disabled={disabled} variant="primary">
+            <TacButton onClick={handleGreenLight} disabled={disabled} variant="success">
               {loading === 'launch' ? 'LAUNCHING...' : 'GREEN LIGHT'}
             </TacButton>
             <TacButton onClick={handleBackToDraft} disabled={disabled} variant="ghost">
