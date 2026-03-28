@@ -12,7 +12,6 @@ import { PlanEditor } from '@/components/campaign/plan-editor';
 import { PhaseTimeline } from '@/components/campaign/phase-timeline';
 import { CampaignLiveView } from '@/components/campaign/campaign-live-view';
 import { PageWrapper } from '@/components/layout/page-wrapper';
-import { PageHeader } from '@/components/layout/page-header';
 import type { PlanJSON, MissionPriority } from '@/types';
 
 export default async function CampaignDetailPage({
@@ -40,13 +39,15 @@ export default async function CampaignDetailPage({
     />
   );
 
+  const breadcrumb = [bf?.codename ?? '', 'CAMPAIGNS'];
+  const statusBadge = <TacBadge status={status} />;
+
   // --- DRAFT ---
   if (status === 'draft') {
     const briefingMessages = await getBriefingMessages(campaignId);
 
     return (
-      <PageWrapper>
-        <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
+      <PageWrapper breadcrumb={breadcrumb} title={campaign.name}>
         <BriefingChat campaignId={campaignId} initialMessages={briefingMessages} />
         {controls}
       </PageWrapper>
@@ -57,8 +58,7 @@ export default async function CampaignDetailPage({
   if (status === 'planning') {
     if (isTemplate) {
       return (
-        <PageWrapper>
-          <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
+        <PageWrapper breadcrumb={breadcrumb} title={campaign.name}>
           <PhaseTimeline phases={campaign.phases} />
           {controls}
         </PageWrapper>
@@ -93,8 +93,7 @@ export default async function CampaignDetailPage({
       .all();
 
     return (
-      <PageWrapper>
-        <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
+      <PageWrapper breadcrumb={breadcrumb} title={campaign.name}>
         <PlanEditor
           campaignId={campaignId}
           battlefieldId={id}
@@ -109,11 +108,7 @@ export default async function CampaignDetailPage({
   // --- ACTIVE ---
   if (status === 'active' || status === 'paused') {
     return (
-      <PageWrapper>
-        <div className="flex flex-col gap-2">
-          <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
-          <TacBadge status={status} />
-        </div>
+      <PageWrapper breadcrumb={breadcrumb} title={campaign.name} actions={statusBadge}>
         <CampaignLiveView
           campaignId={campaignId}
           initialStatus={status}
@@ -128,11 +123,7 @@ export default async function CampaignDetailPage({
   // --- COMPROMISED ---
   if (status === 'compromised') {
     return (
-      <PageWrapper>
-        <div className="flex flex-col gap-2">
-          <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
-          <TacBadge status={status} />
-        </div>
+      <PageWrapper breadcrumb={breadcrumb} title={campaign.name} actions={statusBadge}>
         <CampaignLiveView
           campaignId={campaignId}
           initialStatus={status}
@@ -166,11 +157,7 @@ export default async function CampaignDetailPage({
       .all();
 
     return (
-      <PageWrapper>
-        <div className="flex flex-col gap-2">
-          <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
-          <TacBadge status={status} />
-        </div>
+      <PageWrapper breadcrumb={breadcrumb} title={campaign.name} actions={statusBadge}>
         <CampaignResults campaignName={campaign.name} missions={resultMissions} />
         {controls}
       </PageWrapper>
@@ -179,11 +166,7 @@ export default async function CampaignDetailPage({
 
   // --- ABANDONED (and any other status) ---
   return (
-    <PageWrapper>
-      <div className="flex flex-col gap-2">
-        <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
-        <TacBadge status={status} />
-      </div>
+    <PageWrapper breadcrumb={breadcrumb} title={campaign.name} actions={statusBadge}>
       <PhaseTimeline phases={campaign.phases} />
       {controls}
     </PageWrapper>

@@ -3,7 +3,6 @@ import { getDatabase } from '@/lib/db/index';
 import { battlefields } from '@/lib/db/schema';
 import { NewCampaignForm } from './form';
 import { PageWrapper } from '@/components/layout/page-wrapper';
-import { PageHeader } from '@/components/layout/page-header';
 
 export default async function NewCampaignPage({
   params,
@@ -15,8 +14,11 @@ export default async function NewCampaignPage({
   const bf = db.select({ codename: battlefields.codename }).from(battlefields).where(eq(battlefields.id, id)).get();
 
   return (
-    <PageWrapper maxWidth className="flex flex-col gap-6">
-      <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title="New Campaign" />
+    <PageWrapper
+      maxWidth
+      breadcrumb={[bf?.codename ?? '', 'CAMPAIGNS']}
+      title="NEW CAMPAIGN"
+    >
       <NewCampaignForm battlefieldId={id} />
     </PageWrapper>
   );

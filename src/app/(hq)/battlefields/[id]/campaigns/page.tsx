@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { PageWrapper } from '@/components/layout/page-wrapper';
-import { PageHeader } from '@/components/layout/page-header';
 import { listCampaigns, listTemplates, runTemplate } from '@/actions/campaign';
 import { getDatabase } from '@/lib/db/index';
 import { battlefields, phases, missions } from '@/lib/db/schema';
@@ -78,14 +77,17 @@ export default async function CampaignsPage({
   }
 
   return (
-    <PageWrapper>
-      <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title="Campaigns">
+    <PageWrapper
+      breadcrumb={[bf?.codename ?? '', 'CAMPAIGNS']}
+      title="CAMPAIGNS"
+      actions={
         <Link href={`/battlefields/${id}/campaigns/new`}>
           <TacButton variant="primary" size="sm">
             + NEW CAMPAIGN
           </TacButton>
         </Link>
-      </PageHeader>
+      }
+    >
 
       {/* Campaign grid */}
       {campaignList.length === 0 ? (
