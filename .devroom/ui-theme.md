@@ -25,7 +25,9 @@ The UI follows the tactical operations center aesthetic from the reference scree
 - **Sharp corners** — no border-radius on cards. Angular, military feel.
 - **Top intel bar** with rotating military quotes.
 - **Bottom status bar** with system status and LAN access warning.
-- **Left sidebar** with battlefield selector dropdown, section navigation (MISSIONS, CAMPAIGNS, ASSETS, GIT, CONSOLE, SCHEDULE, CONFIG), counts.
+- **Left sidebar** split into two sections:
+  - **Global nav** (always visible): top links — HQ (◉), GENERAL (◇); bottom links — CAPTAIN'S LOG (⚓), ASSETS (◎), LOGISTICS (◈).
+  - **Battlefield nav** (visible when inside `/battlefields/[id]`): MISSIONS (■), CAMPAIGNS (✕), GIT (◆), CONSOLE (▶), SCHEDULE (⏱), CONFIG (⚙) — with count badges.
 - **Right sidebar** (battlefield view) with asset list and asset breakdown stats.
 
 ### Tailwind Theme
@@ -103,19 +105,22 @@ Bottom bar: `● LOCAL ACCESS ONLY — NOT SAFE TO EXPOSE TO A NETWORK`. Green d
 │  ROOM  │  ┌─ DEPLOY MISSION ──────────────┐     │  ...          │
 │        │  │ [textarea] [asset] [deploy]   │     │               │
 │ ─────  │  └───────────────────────────────┘     │  BREAKDOWN    │
-│ PROJ ▾ │                                        │  OPERATIVE 83 │
-│        │  0 IN COMBAT │ 251 ACCOMPLISHED │ ...  │  PATHFINDER 7 │
-│ ■ MISS │                                        │  ...          │
-│ ✕ CAMP │  MISSIONS          [Search...]         │               │
-│ ◆ GIT  │  │ mission title    ● ACCOMP.  │       │               │
+│ ◉ HQ   │                                        │  OPERATIVE 83 │
+│ ◇ GEN  │  0 IN COMBAT │ 251 ACCOMPLISHED │ ...  │  PATHFINDER 7 │
+│        │                                        │  ...          │
+│ ─────  │  MISSIONS          [Search...]         │               │
+│ PROJ ▾ │  │ mission title    ● ACCOMP.  │       │               │
+│ ■ MISS │  │ ASSET · 9 mins ago    VIEW  │       │               │
+│ ✕ CAMP │  ├─────────────────────────────┤       │               │
+│ ◆ GIT  │  │ ...                         │       │               │
 │ ▶ CONS │  │ ASSET · 9 mins ago    VIEW  │       │               │
-│ ⏱ SCHD │  ├─────────────────────────────┤       │               │
-│ ⚙ CONF │  │ ...                         │       │               │
-│        │  │ ASSET · 9 mins ago    VIEW  │       │               │
-│ ─────  │  └─────────────────────────────┘       │               │
-│ INTEL  │                                        │               │
-│ BRIEF  │                                        │               │
-│ ● OK   │                                        │               │
+│ ⏱ SCHD │  └─────────────────────────────┘       │               │
+│ ⚙ CONF │                                        │               │
+│        │                                        │               │
+│ ─────  │                                        │               │
+│ ⚓ LOG  │                                        │               │
+│ ◎ ASST │                                        │               │
+│ ◈ LOGI │                                        │               │
 ├────────┴────────────────────────────────────────┴───────────────┤
 │  ● LOCAL ACCESS ONLY — NOT SAFE TO EXPOSE TO A NETWORK          │
 └─────────────────────────────────────────────────────────────────┘

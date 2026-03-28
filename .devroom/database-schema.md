@@ -212,3 +212,27 @@ In-app and Telegram alerts for mission events, failures, and escalations.
 - telegramMsgId   INTEGER
 - createdAt       INTEGER NOT NULL
 ```
+
+### GeneralSession
+
+Standalone GENERAL chat sessions — independent of campaigns. Can optionally link to a battlefield for project context.
+
+```
+- id              TEXT PRIMARY KEY (ULID)
+- name            TEXT NOT NULL             -- user-assigned session name
+- sessionId       TEXT                     -- Claude Code resume session ID
+- battlefieldId   TEXT REFERENCES battlefields(id) -- optional battlefield context
+- status          TEXT DEFAULT 'active'    -- 'active' | 'closed'
+- createdAt       INTEGER NOT NULL
+- updatedAt       INTEGER NOT NULL
+```
+
+### GeneralMessage
+
+```
+- id              TEXT PRIMARY KEY (ULID)
+- sessionId       TEXT NOT NULL REFERENCES generalSessions(id)
+- role            TEXT NOT NULL             -- 'commander' | 'general' | 'system'
+- content         TEXT NOT NULL
+- timestamp       INTEGER NOT NULL
+```
