@@ -10,9 +10,10 @@ import {
   abandonMission,
   continueMission,
   deployMission,
-  redeployMission,
   removeMission,
 } from '@/actions/mission';
+import { tacticalOverride, skipMission, commanderOverride } from '@/actions/campaign';
+import { tacTooltip } from '@/components/ui/tac-tooltip';
 
 interface MissionActionsProps {
   missionId: string;
@@ -20,6 +21,8 @@ interface MissionActionsProps {
   battlefieldId: string;
   sessionId: string | null;
   worktreeBranch: string | null;
+  campaignId?: string | null;
+  briefing?: string;
 }
 
 export function MissionActions({
@@ -28,11 +31,15 @@ export function MissionActions({
   battlefieldId,
   sessionId,
   worktreeBranch,
+  campaignId,
+  briefing,
 }: MissionActionsProps) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
   const [showContinue, setShowContinue] = useState(false);
   const [continueBriefing, setContinueBriefing] = useState('');
+  const [showOverride, setShowOverride] = useState(false);
+  const [overrideBriefing, setOverrideBriefing] = useState('');
   const [confirm, ConfirmDialog] = useConfirm();
 
   const canDeploy = status === 'standby';
@@ -40,7 +47,8 @@ export function MissionActions({
   const isTerminal = status === 'accomplished' || status === 'compromised' || status === 'abandoned';
   const canContinue =
     (status === 'accomplished' || status === 'compromised') && sessionId != null;
-  const canRedeploy = isTerminal;
+  const canTacticalOverride = status === 'compromised' && !!campaignId;
+  const canSkipMission = status === 'compromised' && !!campaignId;
 
   const handleAbandon = async () => {
     const result = await confirm({
@@ -51,7 +59,7 @@ export function MissionActions({
           <p>
             <span className="text-dr-amber font-tactical">ABANDON</span>{' '}
             — marks the mission as abandoned. The briefing, comms, and debrief
-            are preserved for reference. The mission can be redeployed later.
+            are preserved for reference.
           </p>
           <p>
             <span className="text-dr-red font-tactical">ABANDON &amp; REMOVE</span>{' '}
@@ -93,19 +101,6 @@ export function MissionActions({
     }
   };
 
-  const handleRedeploy = async () => {
-    setIsPending(true);
-    try {
-      const newMission = await redeployMission(missionId);
-      toast.success('Mission redeployed');
-      router.push(`/battlefields/${battlefieldId}/missions/${newMission.id}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to redeploy mission');
-    } finally {
-      setIsPending(false);
-    }
-  };
-
   const handleContinueDeploy = async () => {
     if (!continueBriefing.trim()) return;
     setIsPending(true);
@@ -142,6 +137,7 @@ export function MissionActions({
               variant="primary"
               onClick={handleDeploy}
               disabled={isPending}
+              {...tacTooltip('Queue this mission for execution')}
             >
               {isPending ? 'DEPLOYING...' : 'DEPLOY'}
             </TacButton>
@@ -151,26 +147,87 @@ export function MissionActions({
               variant="danger"
               onClick={handleAbandon}
               disabled={isPending}
+              {...tacTooltip('Stop this mission. Can abandon or permanently remove.')}
             >
               {isPending ? 'PROCESSING...' : 'ABANDON'}
             </TacButton>
           )}
-          {canRedeploy && (
-            <TacButton
-              variant="danger"
-              onClick={handleRedeploy}
-              disabled={isPending}
-            >
-              {isPending ? 'REDEPLOYING...' : 'REDEPLOY'}
-            </TacButton>
-          )}
-          {canContinue && !showContinue && (
+          {canContinue && !showContinue && !showOverride && (
             <TacButton
               variant="primary"
               onClick={() => setShowContinue(true)}
               disabled={isPending}
+              {...tacTooltip('Resume the same session with follow-up instructions. Agent keeps full context of previous work.')}
             >
               CONTINUE MISSION
+            </TacButton>
+          )}
+          {canTacticalOverride && !showOverride && !showContinue && (
+            <TacButton
+              variant="primary"
+              onClick={() => {
+                setShowOverride(true);
+                setOverrideBriefing(briefing ?? '');
+              }}
+              disabled={isPending}
+              {...tacTooltip('Edit the briefing and redeploy. Agent keeps session context + receives your corrected orders.')}
+            >
+              TACTICAL OVERRIDE
+            </TacButton>
+          )}
+          {status === 'compromised' && (
+            <TacButton
+              variant="success"
+              {...tacTooltip("Override the Captain's rejection. Mark this mission as accomplished — you outrank the Captain.")}
+              onClick={async () => {
+                const result = await confirm({
+                  title: 'COMMANDER OVERRIDE',
+                  description: 'Override the Captain and approve this mission as accomplished.',
+                  body: <p>This marks the mission as accomplished regardless of the Captain&apos;s assessment. Use when you&apos;ve reviewed the work and deem it acceptable.</p>,
+                  actions: [{ label: 'APPROVE', variant: 'success' }],
+                });
+                if (result !== 0) return;
+                setIsPending(true);
+                try {
+                  await commanderOverride(missionId);
+                  toast.success('Mission approved by Commander');
+                  router.refresh();
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'Override failed');
+                } finally {
+                  setIsPending(false);
+                }
+              }}
+              disabled={isPending}
+            >
+              APPROVE
+            </TacButton>
+          )}
+          {canSkipMission && (
+            <TacButton
+              variant="ghost"
+              {...tacTooltip('Abandon this mission and cascade-abandon any missions that depend on it. Campaign continues without it.')}
+              onClick={async () => {
+                const result = await confirm({
+                  title: 'SKIP MISSION',
+                  description: 'This will abandon the mission and cascade-abandon any missions that depend on it.',
+                  actions: [{ label: 'SKIP', variant: 'danger' }],
+                });
+                if (result !== 0) return;
+                setIsPending(true);
+                try {
+                  await skipMission(missionId);
+                  toast('Mission skipped');
+                  router.refresh();
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'Failed to skip');
+                } finally {
+                  setIsPending(false);
+                }
+              }}
+              disabled={isPending}
+            >
+              SKIP MISSION
             </TacButton>
           )}
         </div>
@@ -200,6 +257,54 @@ export function MissionActions({
                 onClick={() => {
                   setShowContinue(false);
                   setContinueBriefing('');
+                }}
+                disabled={isPending}
+              >
+                CANCEL
+              </TacButton>
+            </div>
+          </div>
+        )}
+
+        {canTacticalOverride && showOverride && (
+          <div className="space-y-3">
+            <h3 className="text-sm font-tactical text-dr-amber tracking-wider">
+              TACTICAL OVERRIDE
+            </h3>
+            <p className="text-dr-dim font-data text-xs">
+              Edit the briefing below. The agent will receive this updated briefing with its previous session context preserved.
+            </p>
+            <TacTextarea
+              value={overrideBriefing}
+              onChange={(e) => setOverrideBriefing(e.target.value)}
+              rows={8}
+              className="w-full"
+            />
+            <div className="flex gap-3">
+              <TacButton
+                variant="primary"
+                onClick={async () => {
+                  if (!overrideBriefing.trim()) return;
+                  setIsPending(true);
+                  try {
+                    await tacticalOverride(missionId, overrideBriefing.trim());
+                    toast.success('Tactical override — mission redeployed');
+                    router.refresh();
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : 'Override failed');
+                  } finally {
+                    setIsPending(false);
+                  }
+                }}
+                disabled={isPending || !overrideBriefing.trim()}
+              >
+                {isPending ? 'DEPLOYING...' : 'DEPLOY WITH OVERRIDE'}
+              </TacButton>
+              <TacButton
+                variant="ghost"
+                onClick={() => {
+                  setShowOverride(false);
+                  setOverrideBriefing('');
                 }}
                 disabled={isPending}
               >

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { eq, desc, count, like, sql, and } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
-import { missions, assets, battlefields, missionLogs, captainLogs } from '@/lib/db/schema';
+import { missions, assets, battlefields, missionLogs, captainLogs, campaigns } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import type {
   Mission,
@@ -414,71 +414,6 @@ export async function continueMission(
     missionTitle: title,
     timestamp: now,
     detail: `Continued from mission: ${original.title}. Status: QUEUED`,
-  });
-
-  revalidatePath(`/battlefields/${original.battlefieldId}`);
-
-  // Trigger orchestrator
-  globalThis.orchestrator?.onMissionQueued(id);
-
-  return db.select().from(missions).where(eq(missions.id, id)).get() as Mission;
-}
-
-// ---------------------------------------------------------------------------
-// redeployMission
-// ---------------------------------------------------------------------------
-export async function redeployMission(missionId: string): Promise<Mission> {
-  const db = getDatabase();
-
-  // Get the original mission
-  const original = db.select().from(missions).where(eq(missions.id, missionId)).get();
-  if (!original) throw new Error('Mission not found');
-  if (!['accomplished', 'compromised', 'abandoned'].includes(original.status!)) {
-    throw new Error('Can only redeploy terminal missions');
-  }
-
-  const now = Date.now();
-  const id = generateId();
-
-  // Create new mission — same briefing, fresh start (no sessionId)
-  const newMission: typeof missions.$inferInsert = {
-    id,
-    battlefieldId: original.battlefieldId,
-    title: original.title,
-    briefing: original.briefing,
-    status: 'queued',
-    priority: original.priority || 'normal',
-    assetId: original.assetId,
-    // No sessionId — fresh start
-    useWorktree: 1,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  db.insert(missions).values(newMission).run();
-
-  // Increment iterations on the ORIGINAL mission
-  db.update(missions)
-    .set({
-      iterations: (original.iterations || 0) + 1,
-      updatedAt: now,
-    })
-    .where(eq(missions.id, missionId))
-    .run();
-
-  // Emit activity
-  const bf = db
-    .select({ codename: battlefields.codename })
-    .from(battlefields)
-    .where(eq(battlefields.id, original.battlefieldId))
-    .get();
-
-  globalThis.io?.to('hq:activity').emit('activity:event', {
-    type: 'mission:created',
-    battlefieldCodename: bf?.codename || 'UNKNOWN',
-    missionTitle: original.title,
-    timestamp: now,
-    detail: `Redeployed. Status: QUEUED`,
   });
 
   revalidatePath(`/battlefields/${original.battlefieldId}`);

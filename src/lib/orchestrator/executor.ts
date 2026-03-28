@@ -5,7 +5,7 @@ import path from 'path';
 import { eq } from 'drizzle-orm';
 import { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
-import { missions, missionLogs, battlefields, assets } from '@/lib/db/schema';
+import { missions, missionLogs, battlefields, assets, campaigns } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
 import { buildPrompt } from './prompt-builder';
@@ -88,6 +88,14 @@ export async function executeMission(
     // Step 1: DEPLOYING
     updateStatus('deploying');
     emitActivity('mission:deploying', `Deploying mission: ${mission.title}`);
+
+    // Ensure campaign is active if this is a campaign mission
+    if (mission.campaignId) {
+      db.update(campaigns).set({
+        status: 'active',
+        updatedAt: Date.now(),
+      }).where(eq(campaigns.id, mission.campaignId)).run();
+    }
 
     // Step 2: Build prompt
     const battlefield = db.select().from(battlefields)

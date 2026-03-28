@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Share_Tech_Mono, IBM_Plex_Mono, Courier_Prime } from 'next/font/google';
 import { SocketProvider } from '@/components/providers/socket-provider';
 import { ToastProvider } from '@/components/providers/toast-provider';
+import { TacTooltipProvider } from '@/components/ui/tac-tooltip';
 import './globals.css';
 
 const shareTechMono = Share_Tech_Mono({
@@ -38,6 +39,7 @@ export default function RootLayout({
         <SocketProvider>
           {children}
           <ToastProvider />
+          <TacTooltipProvider />
         </SocketProvider>
       </body>
     </html>

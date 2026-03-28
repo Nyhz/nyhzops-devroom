@@ -23,6 +23,17 @@ export class Orchestrator {
   constructor(io: SocketIOServer) {
     this.io = io;
     this.maxAgents = config.maxAgents;
+
+    // Drain queue on startup — pick up any missions left queued from previous run
+    setTimeout(() => {
+      console.log('[Orchestrator] Startup drain — checking for queued missions');
+      this.drainQueue();
+    }, 5000);
+  }
+
+  /** Expose drain for external triggers (e.g. after manual DB changes) */
+  triggerDrain(): void {
+    this.drainQueue();
   }
 
   async onMissionQueued(missionId: string): Promise<void> {
@@ -64,7 +75,13 @@ export class Orchestrator {
         // Notify campaign executor if this is a campaign mission
         const completedMission = db.select().from(missions).where(eq(missions.id, missionId)).get();
         if (completedMission?.campaignId) {
-          const campaignExec = this.activeCampaigns.get(completedMission.campaignId);
+          let campaignExec = this.activeCampaigns.get(completedMission.campaignId);
+          if (!campaignExec) {
+            // Auto-register campaign executor if missing (e.g. after server restart)
+            campaignExec = new CampaignExecutor(completedMission.campaignId, this.io);
+            this.activeCampaigns.set(completedMission.campaignId, campaignExec);
+            console.log(`[Orchestrator] Auto-registered campaign executor for ${completedMission.campaignId}`);
+          }
           if (campaignExec) {
             campaignExec.onCampaignMissionComplete(missionId).catch(err => {
               console.error(`[Orchestrator] Campaign mission complete handler failed:`, err);
@@ -148,7 +165,7 @@ export class Orchestrator {
     this.activeCampaigns.clear();
   }
 
-  private async drainQueue(): Promise<void> {
+  async drainQueue(): Promise<void> {
     const slots = this.maxAgents - this.activeJobs.size;
     if (slots <= 0) return;
 

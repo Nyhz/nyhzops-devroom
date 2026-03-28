@@ -9,17 +9,18 @@ interface ResultMission {
   costOutput: number | null;
   costCacheHit: number | null;
   durationMs: number | null;
-  debrief: string | null;
   phaseName: string;
   phaseNumber: number;
+  phaseDebrief: string | null;
 }
 
 interface CampaignResultsProps {
   campaignName: string;
   missions: ResultMission[];
+  battlefieldId?: string;
 }
 
-export function CampaignResults({ campaignName, missions }: CampaignResultsProps) {
+export function CampaignResults({ campaignName, missions, battlefieldId }: CampaignResultsProps) {
   const totalDuration = missions.reduce((sum, m) => sum + (m.durationMs || 0), 0);
   const totalInput = missions.reduce((sum, m) => sum + (m.costInput || 0), 0);
   const totalOutput = missions.reduce((sum, m) => sum + (m.costOutput || 0), 0);
@@ -33,10 +34,10 @@ export function CampaignResults({ campaignName, missions }: CampaignResultsProps
   const compromised = missions.filter(m => m.status === 'compromised').length;
 
   // Group by phase
-  const phaseMap = new Map<number, { name: string; missions: ResultMission[] }>();
+  const phaseMap = new Map<number, { name: string; debrief: string | null; missions: ResultMission[] }>();
   for (const m of missions) {
     if (!phaseMap.has(m.phaseNumber)) {
-      phaseMap.set(m.phaseNumber, { name: m.phaseName, missions: [] });
+      phaseMap.set(m.phaseNumber, { name: m.phaseName, debrief: m.phaseDebrief, missions: [] });
     }
     phaseMap.get(m.phaseNumber)!.missions.push(m);
   }
@@ -79,28 +80,46 @@ export function CampaignResults({ campaignName, missions }: CampaignResultsProps
             <span className="text-dr-amber font-tactical text-sm">{phase.name}</span>
           </div>
 
+          {/* Missions summary */}
           <div className="divide-y divide-dr-border/50">
-            {phase.missions.map((m) => (
-              <div key={m.id} className="px-4 py-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className={`text-xs ${m.status === 'accomplished' ? 'text-dr-green' : 'text-dr-red'}`}>●</span>
-                    <span className="text-dr-text font-tactical text-sm">{m.title}</span>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs font-tactical text-dr-dim">
-                    <span>{m.assetCodename ?? 'UNASSIGNED'}</span>
-                    <span>{m.durationMs ? formatDuration(m.durationMs) : '—'}</span>
-                    <span>{formatTokens((m.costInput || 0) + (m.costOutput || 0) + (m.costCacheHit || 0))} tok</span>
+            {phase.missions.map((m) => {
+              const row = (
+                <div key={m.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className={`text-xs ${m.status === 'accomplished' ? 'text-dr-green' : m.status === 'compromised' ? 'text-dr-red' : 'text-dr-dim'}`}>●</span>
+                      <span className="text-dr-text font-tactical text-sm">{m.title}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs font-tactical text-dr-dim">
+                      <span>{m.assetCodename ?? 'UNASSIGNED'}</span>
+                      <span>{m.durationMs ? formatDuration(m.durationMs) : '—'}</span>
+                      <span>{formatTokens((m.costInput || 0) + (m.costOutput || 0) + (m.costCacheHit || 0))} tok</span>
+                    </div>
                   </div>
                 </div>
-                {m.debrief && (
-                  <div className="text-dr-muted font-data text-xs pl-6 line-clamp-3">
-                    {m.debrief.split('\n')[0]}
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+              if (battlefieldId) {
+                return (
+                  <a key={m.id} href={`/battlefields/${battlefieldId}/missions/${m.id}`} className="block hover:bg-dr-elevated/50 transition-colors">
+                    {row}
+                  </a>
+                );
+              }
+              return row;
+            })}
           </div>
+
+          {/* Phase debrief — toggleable */}
+          {phase.debrief && (
+            <details className="border-t border-dr-border bg-dr-bg/50">
+              <summary className="px-4 py-2.5 cursor-pointer text-dr-dim font-tactical text-[10px] tracking-wider hover:text-dr-muted transition-colors select-none">
+                PHASE DEBRIEF
+              </summary>
+              <div className="px-4 pb-3 text-dr-muted font-data text-xs whitespace-pre-wrap leading-relaxed">
+                {phase.debrief}
+              </div>
+            </details>
+          )}
         </div>
       ))}
     </div>

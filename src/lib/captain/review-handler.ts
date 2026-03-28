@@ -127,11 +127,24 @@ export async function runCaptainReview(missionId: string): Promise<void> {
       entityId: mission.id,
       battlefieldId: mission.battlefieldId,
     });
+
+    // Notify campaign executor
+    if (mission.campaignId) {
+      const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
+      if (executor) {
+        executor.onCampaignMissionComplete(missionId).catch(err => {
+          console.error(`[Captain] Campaign mission complete notification failed:`, err);
+        });
+      }
+    }
   }
 }
 
 function promoteMission(missionId: string, status: 'accomplished'): void {
   const db = getDatabase();
+
+  const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
+
   db.update(missions).set({
     status,
     completedAt: Date.now(),
@@ -140,6 +153,16 @@ function promoteMission(missionId: string, status: 'accomplished'): void {
 
   emitStatusChange(missionId, status);
   console.log(`[Captain] Mission ${missionId} → ${status}`);
+
+  // Notify campaign executor if this is a campaign mission
+  if (mission?.campaignId) {
+    const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
+    if (executor) {
+      executor.onCampaignMissionComplete(missionId).catch(err => {
+        console.error(`[Captain] Campaign mission complete notification failed:`, err);
+      });
+    }
+  }
 }
 
 async function requeueMissionWithFeedback(
@@ -202,6 +225,16 @@ function exhaustRetries(mission: Mission, review: DebriefReview): void {
   });
 
   console.log(`[Captain] Mission ${mission.id} → compromised (retries exhausted)`);
+
+  // Notify campaign executor
+  if (mission.campaignId) {
+    const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
+    if (executor) {
+      executor.onCampaignMissionComplete(mission.id).catch(err => {
+        console.error(`[Captain] Campaign mission complete notification failed:`, err);
+      });
+    }
+  }
 }
 
 function emitStatusChange(missionId: string, status: string): void {

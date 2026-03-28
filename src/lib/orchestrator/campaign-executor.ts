@@ -267,6 +267,9 @@ export class CampaignExecutor {
     if (allTerminal) {
       await this.onPhaseComplete(mission.phaseId);
     }
+
+    // Drain queue — newly unblocked or phase-advanced missions need pickup
+    globalThis.orchestrator?.drainQueue();
   }
 
   // ---------------------------------------------------------------------------
@@ -435,18 +438,11 @@ export class CampaignExecutor {
       if (decision.decision === 'retry') {
         console.log(`[Campaign] ${this.campaignId} — Captain decided to retry ${compromisedMissions.length} mission(s).`);
 
-        // Redeploy failed missions with modified briefings
-        const { redeployMission } = await import('@/actions/mission');
+        // Retry failed missions via tactical override
+        const { tacticalOverride } = await import('@/actions/campaign');
         for (const m of compromisedMissions) {
-          // If Captain provided a modified briefing, update the mission before redeploying
-          const newBriefing = decision.retryBriefings?.[m.id];
-          if (newBriefing) {
-            db.update(missions).set({
-              briefing: newBriefing,
-              updatedAt: Date.now(),
-            }).where(eq(missions.id, m.id)).run();
-          }
-          await redeployMission(m.id);
+          const newBriefing = decision.retryBriefings?.[m.id] || m.briefing;
+          await tacticalOverride(m.id, newBriefing);
         }
         // Don't pause — redeployed missions will run and onCampaignMissionComplete will re-evaluate
         return;

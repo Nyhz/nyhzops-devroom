@@ -2,7 +2,7 @@ import fs from 'fs';
 import { count, eq, and } from 'drizzle-orm';
 import type { Mission, Battlefield, Asset } from '@/types';
 import { getDatabase } from '@/lib/db/index';
-import { campaigns, phases } from '@/lib/db/schema';
+import { campaigns, phases, missions as missionsTable } from '@/lib/db/schema';
 
 function buildCampaignMissionPrompt(
   mission: Mission,
@@ -37,18 +37,39 @@ function buildCampaignMissionPrompt(
       const totalPhases = db.select({ value: count() }).from(phases)
         .where(eq(phases.campaignId, campaign.id)).all();
 
-      // Get previous phase debrief
-      let prevDebrief = 'This is Phase 1 — no previous debrief.';
+      // Get debriefs from all completed previous phases
+      const prevPhaseSections: string[] = [];
       if (phase.phaseNumber > 1) {
-        const prevPhase = db.select().from(phases)
+        const completedPhases = db.select().from(phases)
           .where(and(
             eq(phases.campaignId, campaign.id),
-            eq(phases.phaseNumber, phase.phaseNumber - 1)
-          )).get();
-        if (prevPhase?.debrief) {
-          prevDebrief = prevPhase.debrief;
+          ))
+          .orderBy(phases.phaseNumber)
+          .all()
+          .filter(p => p.phaseNumber < phase.phaseNumber);
+
+        for (const prevPhase of completedPhases) {
+          // Get actual mission debriefs from this phase
+          const phaseMissions = db.select().from(missionsTable)
+            .where(eq(missionsTable.phaseId, prevPhase.id))
+            .all();
+
+          const missionDebriefs = phaseMissions
+            .filter(m => m.debrief)
+            .map(m => `**${m.title}** (${m.status}):\n${m.debrief}`)
+            .join('\n\n');
+
+          if (missionDebriefs) {
+            prevPhaseSections.push(
+              `#### Phase ${prevPhase.phaseNumber}: ${prevPhase.name}\n${missionDebriefs}`
+            );
+          }
         }
       }
+
+      const prevContext = prevPhaseSections.length > 0
+        ? prevPhaseSections.join('\n\n---\n\n')
+        : 'This is Phase 1 — no previous work to reference.';
 
       phaseContext = [
         '## Campaign Context',
@@ -57,8 +78,8 @@ function buildCampaignMissionPrompt(
         `**Objective**: ${campaign.objective}`,
         `**Phase**: ${phase.name} (${phase.phaseNumber} of ${totalPhases[0]?.value || '?'})`,
         '',
-        '### Previous Phase Debrief',
-        prevDebrief,
+        '### Previous Phase Results',
+        prevContext,
       ].join('\n');
     }
   }

@@ -42,11 +42,13 @@ ${params.campaignObjective}`);
   sections.push(`AVAILABLE ASSETS:\n${assetList}`);
 
   sections.push(`YOUR ORDERS:
+- This is a CONVERSATION. Each time you respond, STOP and WAIT for the Commander's reply. Do NOT use tools or explore the codebase unless the Commander explicitly asks you to.
 - Ask the Commander clarifying questions to deeply understand the objective
 - Discuss technical approach, risks, and trade-offs
 - Propose a phased plan with concrete missions
 - Consider inter-mission dependencies — what must complete before what
 - Assign appropriate assets to each mission based on their specialties
+- Keep each response concise and focused — ask 2-3 questions at most per turn
 - The Commander will give the order "GENERATE PLAN" when satisfied
 
 When the Commander says "GENERATE PLAN", output the final plan as JSON:

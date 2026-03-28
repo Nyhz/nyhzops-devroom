@@ -12,6 +12,7 @@ import { PlanEditor } from '@/components/campaign/plan-editor';
 import { PhaseTimeline } from '@/components/campaign/phase-timeline';
 import { CampaignLiveView } from '@/components/campaign/campaign-live-view';
 import { PageWrapper } from '@/components/layout/page-wrapper';
+import { PageHeader } from '@/components/layout/page-header';
 import type { PlanJSON, MissionPriority } from '@/types';
 
 export default async function CampaignDetailPage({
@@ -25,7 +26,6 @@ export default async function CampaignDetailPage({
   if (!campaign) return notFound();
 
   const status = campaign.status ?? 'draft';
-  const isTemplate = Boolean(campaign.isTemplate);
 
   const db = getDatabase();
   const bf = db.select({ codename: battlefields.codename }).from(battlefields).where(eq(battlefields.id, id)).get();
@@ -35,7 +35,6 @@ export default async function CampaignDetailPage({
       campaignId={campaignId}
       battlefieldId={id}
       status={status}
-      isTemplate={isTemplate}
     />
   );
 
@@ -47,24 +46,16 @@ export default async function CampaignDetailPage({
     const briefingMessages = await getBriefingMessages(campaignId);
 
     return (
-      <PageWrapper breadcrumb={breadcrumb} title={campaign.name}>
+      <div className="flex flex-col h-full p-8 gap-6">
+        <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
         <BriefingChat campaignId={campaignId} initialMessages={briefingMessages} />
         {controls}
-      </PageWrapper>
+      </div>
     );
   }
 
   // --- PLANNING ---
   if (status === 'planning') {
-    if (isTemplate) {
-      return (
-        <PageWrapper breadcrumb={breadcrumb} title={campaign.name}>
-          <PhaseTimeline phases={campaign.phases} />
-          {controls}
-        </PageWrapper>
-      );
-    }
-
     // Convert DB phases/missions into PlanJSON for the editor
     const planJSON: PlanJSON = {
       summary: campaign.objective || '',
@@ -146,9 +137,9 @@ export default async function CampaignDetailPage({
       costOutput: missions.costOutput,
       costCacheHit: missions.costCacheHit,
       durationMs: missions.durationMs,
-      debrief: missions.debrief,
       phaseName: phases.name,
       phaseNumber: phases.phaseNumber,
+      phaseDebrief: phases.debrief,
     }).from(missions)
       .innerJoin(phases, eq(missions.phaseId, phases.id))
       .leftJoin(assets, eq(missions.assetId, assets.id))
@@ -158,7 +149,7 @@ export default async function CampaignDetailPage({
 
     return (
       <PageWrapper breadcrumb={breadcrumb} title={campaign.name} actions={statusBadge}>
-        <CampaignResults campaignName={campaign.name} missions={resultMissions} />
+        <CampaignResults campaignName={campaign.name} missions={resultMissions} battlefieldId={id} />
         {controls}
       </PageWrapper>
     );
@@ -167,7 +158,7 @@ export default async function CampaignDetailPage({
   // --- ABANDONED (and any other status) ---
   return (
     <PageWrapper breadcrumb={breadcrumb} title={campaign.name} actions={statusBadge}>
-      <PhaseTimeline phases={campaign.phases} />
+      <PhaseTimeline phases={campaign.phases} battlefieldId={id} />
       {controls}
     </PageWrapper>
   );

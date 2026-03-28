@@ -92,7 +92,8 @@ export async function escalate(params: {
       }).where(eq(notifications.id, id)).run();
 
     } catch (err) {
-      console.error('[Escalation] Telegram send failed:', err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[Escalation] Telegram send failed for "${params.title}":`, errMsg);
     }
   }
 }
@@ -127,9 +128,13 @@ export async function handleTelegramCallback(
       case 'retry': {
         if (entityType === 'mission') {
           // Dynamic import to avoid circular deps
-          const { redeployMission } = await import('@/actions/mission');
-          await redeployMission(entityId);
-          await editMessage(messageId, '\ud83d\udd04 *Commander ordered redeployment.* Mission re-queued.');
+          const { getMission } = await import('@/actions/mission');
+          const { tacticalOverride } = await import('@/actions/campaign');
+          const mission = await getMission(entityId);
+          if (mission) {
+            await tacticalOverride(entityId, mission.briefing);
+            await editMessage(messageId, '\ud83d\udd04 *Commander ordered tactical override.* Mission re-queued.');
+          }
         }
         break;
       }

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { cn, formatDuration } from '@/lib/utils';
 import { TacBadge } from '@/components/ui/tac-badge';
 import { CampaignMissionCard } from '@/components/campaign/mission-card';
@@ -23,6 +24,7 @@ interface PhaseTimelineProps {
       costOutput: number | null;
     }>;
   }>;
+  battlefieldId?: string;
   readOnly?: boolean;
 }
 
@@ -46,7 +48,7 @@ function formatTokenCount(tokens: number): string {
   return `${tokens} tokens`;
 }
 
-export function PhaseTimeline({ phases, readOnly: _readOnly }: PhaseTimelineProps) {
+export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: PhaseTimelineProps) {
   if (phases.length === 0) {
     return (
       <div className="text-dr-dim font-tactical text-sm py-8 text-center">
@@ -109,18 +111,32 @@ export function PhaseTimeline({ phases, readOnly: _readOnly }: PhaseTimelineProp
               {/* Mission cards */}
               {phase.missions.length > 0 ? (
                 <div className="flex flex-wrap gap-3">
-                  {phase.missions.map((mission) => (
-                    <CampaignMissionCard
-                      key={mission.id}
-                      title={mission.title ?? 'Untitled Mission'}
-                      assetCodename={mission.assetCodename}
-                      status={mission.status}
-                      priority={mission.priority}
-                      durationMs={mission.durationMs}
-                      costInput={mission.costInput}
-                      costOutput={mission.costOutput}
-                    />
-                  ))}
+                  {phase.missions.map((mission) => {
+                    const card = (
+                      <CampaignMissionCard
+                        key={mission.id}
+                        title={mission.title ?? 'Untitled Mission'}
+                        assetCodename={mission.assetCodename}
+                        status={mission.status}
+                        priority={mission.priority}
+                        durationMs={mission.durationMs}
+                        costInput={mission.costInput}
+                        costOutput={mission.costOutput}
+                      />
+                    );
+                    if (battlefieldId) {
+                      return (
+                        <Link
+                          key={mission.id}
+                          href={`/battlefields/${battlefieldId}/missions/${mission.id}`}
+                          className="hover:opacity-80 transition-opacity"
+                        >
+                          {card}
+                        </Link>
+                      );
+                    }
+                    return card;
+                  })}
                 </div>
               ) : (
                 <p className="font-tactical text-xs text-dr-dim">

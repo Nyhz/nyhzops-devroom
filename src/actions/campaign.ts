@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { eq, desc, and, inArray } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { campaigns, phases, missions, missionLogs, assets, battlefields } from '@/lib/db/schema';
@@ -297,11 +298,16 @@ export async function deleteCampaign(id: string): Promise<void> {
     );
   }
 
-  // FK-safe cascade: logs → missions → phases → campaign
+  const battlefieldId = campaign.battlefieldId;
+
+  // FK-safe cascade: briefing → logs → missions → phases → campaign
+  const { deleteBriefingData } = await import('@/lib/briefing/briefing-engine');
+  deleteBriefingData(id);
   deletePlanData(id);
   db.delete(campaigns).where(eq(campaigns.id, id)).run();
 
-  revalidateCampaignPaths(campaign.battlefieldId);
+  revalidateCampaignPaths(battlefieldId);
+  redirect(`/battlefields/${battlefieldId}/campaigns`);
 }
 
 // ---------------------------------------------------------------------------
@@ -856,10 +862,10 @@ export async function tacticalOverride(
     updatedAt: now,
   }).where(eq(missions.id, missionId)).run();
 
-  // If campaign is compromised, move back to active
+  // If campaign is not active, move back to active
   if (mission.campaignId) {
     const campaign = db.select().from(campaigns).where(eq(campaigns.id, mission.campaignId)).get();
-    if (campaign && campaign.status === 'compromised') {
+    if (campaign && campaign.status !== 'active') {
       db.update(campaigns).set({
         status: 'active',
         updatedAt: now,
@@ -872,7 +878,58 @@ export async function tacticalOverride(
 }
 
 // ---------------------------------------------------------------------------
-// 18. skipMission
+// 18. commanderOverride — Commander approves a compromised mission, overriding Captain
+// ---------------------------------------------------------------------------
+
+export async function commanderOverride(missionId: string): Promise<void> {
+  const db = getDatabase();
+  const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
+  if (!mission) throw new Error('Mission not found');
+  if (mission.status !== 'compromised') throw new Error('Can only override compromised missions');
+
+  const now = Date.now();
+
+  db.update(missions).set({
+    status: 'accomplished',
+    completedAt: now,
+    updatedAt: now,
+  }).where(eq(missions.id, missionId)).run();
+
+  // If campaign is not active, move back to active
+  if (mission.campaignId) {
+    const campaign = db.select().from(campaigns).where(eq(campaigns.id, mission.campaignId)).get();
+    if (campaign && campaign.status !== 'active') {
+      db.update(campaigns).set({
+        status: 'active',
+        updatedAt: now,
+      }).where(eq(campaigns.id, mission.campaignId)).run();
+    }
+
+    // Notify campaign executor to check dependencies and phase completion
+    // Auto-register executor if missing (e.g. after server restart)
+    let executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
+    if (!executor && globalThis.orchestrator) {
+      const { CampaignExecutor } = await import('@/lib/orchestrator/campaign-executor');
+      executor = new CampaignExecutor(mission.campaignId, globalThis.io!);
+      globalThis.orchestrator.activeCampaigns.set(mission.campaignId, executor);
+    }
+    if (executor) {
+      executor.onCampaignMissionComplete(missionId).catch(console.error);
+    }
+  }
+
+  // Emit status change via socket
+  if (globalThis.io) {
+    globalThis.io.to(`mission:${missionId}`).emit('mission:status', {
+      missionId, status: 'accomplished', timestamp: now,
+    });
+  }
+
+  revalidatePath(`/battlefields/${mission.battlefieldId}`);
+}
+
+// ---------------------------------------------------------------------------
+// 19. skipMission
 // ---------------------------------------------------------------------------
 
 export async function skipMission(missionId: string): Promise<void> {
@@ -916,18 +973,26 @@ export async function skipMission(missionId: string): Promise<void> {
     }
   }
 
-  // If campaign is compromised, move back to active
+  // If campaign is not active, move back to active
   if (mission.campaignId) {
     const campaign = db.select().from(campaigns).where(eq(campaigns.id, mission.campaignId)).get();
-    if (campaign && campaign.status === 'compromised') {
+    if (campaign && campaign.status !== 'active') {
       db.update(campaigns).set({
         status: 'active',
         updatedAt: now,
       }).where(eq(campaigns.id, mission.campaignId)).run();
+    }
 
-      // Notify campaign executor to check phase completion
-      const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
-      if (executor && mission.phaseId) {
+    // Notify campaign executor to check phase completion
+    // Auto-register executor if missing (e.g. after server restart)
+    if (mission.phaseId) {
+      let executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
+      if (!executor && globalThis.orchestrator) {
+        const { CampaignExecutor } = await import('@/lib/orchestrator/campaign-executor');
+        executor = new CampaignExecutor(mission.campaignId, globalThis.io!);
+        globalThis.orchestrator.activeCampaigns.set(mission.campaignId, executor);
+      }
+      if (executor) {
         executor.onCampaignMissionComplete(missionId).catch(console.error);
       }
     }

@@ -52,15 +52,26 @@ let lastUpdateOffset = 0;
 // Helpers
 // ---------------------------------------------------------------------------
 
+function getBotToken(): string {
+  return process.env.DEVROOM_TELEGRAM_BOT_TOKEN || config.telegramBotToken;
+}
+
+function getChatId(): string {
+  return process.env.DEVROOM_TELEGRAM_CHAT_ID || config.telegramChatId;
+}
+
 function apiUrl(method: string): string {
-  return `https://api.telegram.org/bot${config.telegramBotToken}/${method}`;
+  return `https://api.telegram.org/bot${getBotToken()}/${method}`;
 }
 
 /**
  * Check if Telegram integration is properly configured and enabled.
  */
 export function isEnabled(): boolean {
-  return !!(config.telegramEnabled && config.telegramBotToken && config.telegramChatId);
+  const enabled = process.env.DEVROOM_TELEGRAM_ENABLED === 'true' || config.telegramEnabled;
+  const token = getBotToken();
+  const chatId = getChatId();
+  return !!(enabled && token && chatId);
 }
 
 // ---------------------------------------------------------------------------
@@ -76,7 +87,7 @@ export async function sendMessage(
   replyMarkup?: InlineKeyboard,
 ): Promise<number> {
   const body: Record<string, unknown> = {
-    chat_id: config.telegramChatId,
+    chat_id: getChatId(),
     text,
     parse_mode: 'Markdown',
   };
@@ -138,7 +149,7 @@ export async function editMessage(messageId: number, text: string): Promise<void
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      chat_id: config.telegramChatId,
+      chat_id: getChatId(),
       message_id: messageId,
       text,
       parse_mode: 'Markdown',

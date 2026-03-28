@@ -96,7 +96,7 @@ export async function sendBriefingMessage(
     .values({
       id: generateId(),
       briefingId: session.id,
-      role: 'user',
+      role: 'commander',
       content: message,
       timestamp: now,
     })
@@ -115,8 +115,11 @@ export async function sendBriefingMessage(
   const isFirstMessage = !session.sessionId;
   const cliArgs: string[] = [
     '--print',
+    '--verbose',
+    '--output-format', 'stream-json',
+    '--include-partial-messages',
     '--dangerously-skip-permissions',
-    '--max-turns', '1',
+    '--max-turns', '3',
     '--model', generalModel,
   ];
 
@@ -153,16 +156,50 @@ export async function sendBriefingMessage(
 
   const room = `briefing:${campaignId}`;
   let fullResponse = '';
-  let stderrOutput = '';
+  let extractedSessionId: string | null = null;
+  let lineBuffer = '';
 
-  // Stream stdout chunks
+  // Parse stream-json output line by line
   proc.stdout.on('data', (chunk: Buffer) => {
-    const text = chunk.toString();
-    fullResponse += text;
-    io.to(room).emit('briefing:chunk', { campaignId, chunk: text });
+    lineBuffer += chunk.toString();
+    const lines = lineBuffer.split('\n');
+    lineBuffer = lines.pop() ?? '';
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const event = JSON.parse(line);
+
+        // Extract session ID from any event that has it
+        if (event.session_id && !extractedSessionId) {
+          extractedSessionId = event.session_id;
+        }
+
+        // Stream deltas from stream_event wrapper (real-time token streaming)
+        if (event.type === 'stream_event' && event.event) {
+          const inner = event.event;
+          if (inner.type === 'content_block_delta' && inner.delta?.type === 'text_delta' && inner.delta.text) {
+            fullResponse += inner.delta.text;
+            io.to(room).emit('briefing:chunk', { campaignId, content: inner.delta.text });
+          }
+        }
+
+        // Result event — capture session ID and final text fallback
+        if (event.type === 'result') {
+          if (event.session_id) extractedSessionId = event.session_id;
+          if (!fullResponse && event.result && typeof event.result === 'string') {
+            fullResponse = event.result;
+            io.to(room).emit('briefing:chunk', { campaignId, content: event.result });
+          }
+        }
+      } catch {
+        // Not valid JSON — ignore
+      }
+    }
   });
 
-  // Capture stderr (session ID comes from here)
+  // Capture stderr for debugging
+  let stderrOutput = '';
   proc.stderr.on('data', (chunk: Buffer) => {
     stderrOutput += chunk.toString();
   });
@@ -176,13 +213,24 @@ export async function sendBriefingMessage(
     proc.on('close', (code) => {
       activeProcesses.delete(campaignId);
 
-      // Extract session ID from stderr if present
-      const sessionMatch = stderrOutput.match(/session_id:\s*(\S+)/i)
-        || stderrOutput.match(/"session_id"\s*:\s*"([^"]+)"/);
-      const extractedSessionId = sessionMatch?.[1] || null;
+      // Process any remaining buffered line
+      if (lineBuffer.trim()) {
+        try {
+          const event = JSON.parse(lineBuffer);
+          if (event.session_id && !extractedSessionId) {
+            extractedSessionId = event.session_id;
+          }
+          if (event.type === 'result') {
+            if (event.session_id) extractedSessionId = event.session_id;
+            if (!fullResponse && event.result && typeof event.result === 'string') {
+              fullResponse = event.result;
+            }
+          }
+        } catch { /* ignore */ }
+      }
 
-      // Update session with Claude session ID if found
-      if (extractedSessionId && isFirstMessage) {
+      // Update session with Claude session ID
+      if (extractedSessionId) {
         db.update(briefingSessions)
           .set({
             sessionId: extractedSessionId,
@@ -193,7 +241,7 @@ export async function sendBriefingMessage(
       }
 
       if (code !== 0 && code !== null) {
-        const errorMsg = `GENERAL process exited with code ${code}: ${stderrOutput}`;
+        const errorMsg = `GENERAL process exited with code ${code}: ${stderrOutput.slice(0, 500)}`;
         io.to(room).emit('briefing:error', { campaignId, error: errorMsg });
         reject(new Error(errorMsg));
         return;
@@ -202,17 +250,18 @@ export async function sendBriefingMessage(
       const responseText = fullResponse.trim();
 
       // Store GENERAL's response
+      const msgId = generateId();
       db.insert(briefingMessages)
         .values({
-          id: generateId(),
+          id: msgId,
           briefingId: session!.id,
-          role: 'assistant',
+          role: 'general',
           content: responseText,
           timestamp: Date.now(),
         })
         .run();
 
-      io.to(room).emit('briefing:complete', { campaignId });
+      io.to(room).emit('briefing:complete', { campaignId, messageId: msgId, content: responseText });
 
       // Check if Commander requested plan generation
       const normalizedMessage = message.trim().toUpperCase();

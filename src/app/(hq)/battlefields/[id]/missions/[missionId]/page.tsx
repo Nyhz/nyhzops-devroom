@@ -84,6 +84,8 @@ export default async function MissionDetailPage({
         battlefieldId={id}
         initialSessionId={mission.sessionId || null}
         initialWorktreeBranch={mission.worktreeBranch || null}
+        campaignId={mission.campaignId}
+        briefing={mission.briefing}
       />
 
       {/* Captain's Log */}

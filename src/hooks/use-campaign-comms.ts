@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react';
 import { useSocket } from '@/hooks/use-socket';
 import type { CampaignStatus, PhaseStatus, MissionStatus } from '@/types';
 
-export function useCampaignComms(campaignId: string, initialStatus: string) {
+export function useCampaignComms(
+  campaignId: string,
+  initialStatus: string,
+  missionIds: string[] = [],
+) {
   const socket = useSocket();
   const [status, setStatus] = useState<CampaignStatus>(initialStatus as CampaignStatus);
   const [phaseStatuses, setPhaseStatuses] = useState<Record<string, PhaseStatus>>({});
@@ -15,7 +19,12 @@ export function useCampaignComms(campaignId: string, initialStatus: string) {
     if (!socket) return;
     socket.emit('campaign:subscribe', campaignId);
 
-    // Listen for 4 event types, filter by campaignId
+    // Subscribe to each mission's room for real-time status updates
+    for (const mid of missionIds) {
+      socket.emit('mission:subscribe', mid);
+    }
+
+    // Campaign-level events
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onStatus = (d: any) => { if (d.campaignId === campaignId) setStatus(d.status); };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,21 +32,34 @@ export function useCampaignComms(campaignId: string, initialStatus: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onPhaseDebrief = (d: any) => { if (d.campaignId === campaignId) setPhaseDebriefs(p => ({ ...p, [d.phaseId]: d.debrief })); };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onMissionStatus = (d: any) => { if (d.campaignId === campaignId) setMissionStatuses(p => ({ ...p, [d.missionId]: d.status })); };
+    const onCampaignMissionStatus = (d: any) => { if (d.campaignId === campaignId) setMissionStatuses(p => ({ ...p, [d.missionId]: d.status })); };
+
+    // Mission-level status events (emitted by executor and review handler)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const onMissionStatus = (d: any) => {
+      if (d.missionId && missionIds.includes(d.missionId)) {
+        setMissionStatuses(p => ({ ...p, [d.missionId]: d.status }));
+      }
+    };
 
     socket.on('campaign:status', onStatus);
     socket.on('campaign:phase-status', onPhaseStatus);
     socket.on('campaign:phase-debrief', onPhaseDebrief);
-    socket.on('campaign:mission-status', onMissionStatus);
+    socket.on('campaign:mission-status', onCampaignMissionStatus);
+    socket.on('mission:status', onMissionStatus);
 
     return () => {
       socket.off('campaign:status', onStatus);
       socket.off('campaign:phase-status', onPhaseStatus);
       socket.off('campaign:phase-debrief', onPhaseDebrief);
-      socket.off('campaign:mission-status', onMissionStatus);
+      socket.off('campaign:mission-status', onCampaignMissionStatus);
+      socket.off('mission:status', onMissionStatus);
       socket.emit('campaign:unsubscribe', campaignId);
+      for (const mid of missionIds) {
+        socket.emit('mission:unsubscribe', mid);
+      }
     };
-  }, [socket, campaignId]);
+  }, [socket, campaignId, missionIds.join(',')]);
 
   return { status, phaseStatuses, phaseDebriefs, missionStatuses };
 }

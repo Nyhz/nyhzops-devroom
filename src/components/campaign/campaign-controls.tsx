@@ -9,18 +9,14 @@ import {
   launchCampaign,
   abandonCampaign,
   completeCampaign,
-  redeployCampaign,
   deleteCampaign,
   backToDraft,
-  saveAsTemplate,
-  runTemplate,
 } from '@/actions/campaign';
 
 interface CampaignControlsProps {
   campaignId: string;
   battlefieldId: string;
   status: string;
-  isTemplate?: boolean;
   className?: string;
 }
 
@@ -28,7 +24,6 @@ export function CampaignControls({
   campaignId,
   battlefieldId,
   status,
-  isTemplate = false,
   className,
 }: CampaignControlsProps) {
   const router = useRouter();
@@ -81,21 +76,6 @@ export function CampaignControls({
     await run('complete', () => completeCampaign(campaignId), 'Campaign accomplished');
   }
 
-  async function handleRedeploy() {
-    setLoading('redeploy');
-    setError(null);
-    try {
-      const newCampaign = await redeployCampaign(campaignId);
-      toast.success('Campaign redeployed');
-      router.push(`/battlefields/${battlefieldId}/campaigns/${newCampaign.id}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to redeploy';
-      setError(message);
-      toast.error(message);
-      setLoading(null);
-    }
-  }
-
   async function handleDelete() {
     const result = await confirm({
       title: 'DELETE CAMPAIGN',
@@ -118,146 +98,55 @@ export function CampaignControls({
     }
   }
 
-  async function handleSaveAsTemplate() {
-    await run('saveTemplate', () => saveAsTemplate(campaignId), 'Saved as template');
-  }
-
-  async function handleRunTemplate() {
-    setLoading('runTemplate');
-    setError(null);
-    try {
-      const newCampaign = await runTemplate(campaignId);
-      toast.success('Template deployed');
-      router.push(`/battlefields/${battlefieldId}/campaigns/${newCampaign.id}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to run template';
-      setError(message);
-      toast.error(message);
-      setLoading(null);
-    }
-  }
-
   const disabled = loading !== null;
 
   return (
     <div className={className}>
       <div className="flex items-center gap-3 flex-wrap">
-        {/* Template: show RUN TEMPLATE instead of status-based controls */}
-        {isTemplate && (
-          <TacButton
-            onClick={handleRunTemplate}
-            disabled={disabled}
-            variant="primary"
-          >
-            {loading === 'runTemplate' ? 'DEPLOYING...' : 'RUN TEMPLATE'}
-          </TacButton>
-        )}
-
         {/* DRAFT: DELETE only */}
-        {!isTemplate && status === 'draft' && (
-          <TacButton
-            onClick={handleDelete}
-            disabled={disabled}
-            variant="danger"
-          >
+        {status === 'draft' && (
+          <TacButton onClick={handleDelete} disabled={disabled} variant="danger">
             {loading === 'delete' ? 'DELETING...' : 'DELETE'}
           </TacButton>
         )}
 
         {/* PLANNING: GREEN LIGHT, BACK TO BRIEFING, DELETE */}
-        {!isTemplate && status === 'planning' && (
+        {status === 'planning' && (
           <>
-            <TacButton
-              onClick={handleGreenLight}
-              disabled={disabled}
-              variant="primary"
-            >
+            <TacButton onClick={handleGreenLight} disabled={disabled} variant="primary">
               {loading === 'launch' ? 'LAUNCHING...' : 'GREEN LIGHT'}
             </TacButton>
-            <TacButton
-              onClick={handleBackToDraft}
-              disabled={disabled}
-              variant="ghost"
-            >
+            <TacButton onClick={handleBackToDraft} disabled={disabled} variant="ghost">
               {loading === 'backToDraft' ? 'REVERTING...' : 'BACK TO BRIEFING'}
             </TacButton>
-            <TacButton
-              onClick={handleDelete}
-              disabled={disabled}
-              variant="danger"
-            >
+            <TacButton onClick={handleDelete} disabled={disabled} variant="danger">
               {loading === 'delete' ? 'DELETING...' : 'DELETE'}
             </TacButton>
           </>
         )}
 
         {/* ACTIVE: MISSION ACCOMPLISHED, ABANDON */}
-        {!isTemplate && status === 'active' && (
+        {status === 'active' && (
           <>
-            <TacButton
-              onClick={handleComplete}
-              disabled={disabled}
-              variant="success"
-            >
+            <TacButton onClick={handleComplete} disabled={disabled} variant="success">
               {loading === 'complete' ? 'COMPLETING...' : 'MISSION ACCOMPLISHED'}
             </TacButton>
-            <TacButton
-              onClick={handleAbandon}
-              disabled={disabled}
-              variant="danger"
-            >
+            <TacButton onClick={handleAbandon} disabled={disabled} variant="danger">
               {loading === 'abandon' ? 'ABANDONING...' : 'ABANDON'}
             </TacButton>
           </>
         )}
 
-        {/* COMPROMISED: ABANDON + guidance message */}
-        {!isTemplate && status === 'compromised' && (
-          <>
-            <TacButton
-              onClick={handleAbandon}
-              disabled={disabled}
-              variant="danger"
-            >
-              {loading === 'abandon' ? 'ABANDONING...' : 'ABANDON'}
-            </TacButton>
-          </>
-        )}
-
-        {/* ACCOMPLISHED: REDEPLOY, SAVE AS TEMPLATE */}
-        {!isTemplate && status === 'accomplished' && (
-          <>
-            <TacButton
-              onClick={handleRedeploy}
-              disabled={disabled}
-              variant="ghost"
-            >
-              {loading === 'redeploy' ? 'REDEPLOYING...' : 'REDEPLOY'}
-            </TacButton>
-            <TacButton
-              onClick={handleSaveAsTemplate}
-              disabled={disabled}
-              variant="ghost"
-            >
-              {loading === 'saveTemplate' ? 'SAVING...' : 'SAVE AS TEMPLATE'}
-            </TacButton>
-          </>
-        )}
-
-        {/* ABANDONED: REDEPLOY */}
-        {!isTemplate && status === 'abandoned' && (
-          <TacButton
-            onClick={handleRedeploy}
-            disabled={disabled}
-            variant="ghost"
-          >
-            {loading === 'redeploy' ? 'REDEPLOYING...' : 'REDEPLOY'}
+        {/* COMPROMISED: ABANDON */}
+        {status === 'compromised' && (
+          <TacButton onClick={handleAbandon} disabled={disabled} variant="danger">
+            {loading === 'abandon' ? 'ABANDONING...' : 'ABANDON'}
           </TacButton>
         )}
       </div>
 
-      {/* COMPROMISED guidance — direct Commander to the failed mission */}
-      {!isTemplate && status === 'compromised' && (
+      {/* COMPROMISED guidance */}
+      {status === 'compromised' && (
         <div className="mt-3 font-tactical text-xs text-dr-amber">
           Commander, review the compromised mission below. Use TACTICAL OVERRIDE or SKIP on the failed mission to proceed.
         </div>

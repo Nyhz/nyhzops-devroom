@@ -31,14 +31,15 @@ export function useBriefing(campaignId: string, initialMessages: BriefingMessage
       }
     };
 
-    const handleComplete = (data: { campaignId: string; messageId: string }) => {
+    const handleComplete = (data: { campaignId: string; messageId: string; content?: string }) => {
       if (data.campaignId === campaignId) {
+        const finalContent = streamRef.current || data.content || '';
         setMessages(prev => [
           ...prev,
           {
             id: data.messageId,
             role: 'general',
-            content: streamRef.current,
+            content: finalContent,
             timestamp: Date.now(),
           },
         ]);

@@ -49,7 +49,7 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
   };
 
   return (
-    <div className="flex flex-col h-[600px] border border-dr-border bg-dr-bg">
+    <div className="flex flex-col flex-1 min-h-0 border border-dr-border bg-dr-bg">
       {/* Chat header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-dr-border bg-dr-surface shrink-0">
         <div className="flex items-center gap-3">
