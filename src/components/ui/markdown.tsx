@@ -78,7 +78,7 @@ export function Markdown({ content, className }: MarkdownProps) {
           </ol>
         ),
         li: ({ children }) => (
-          <li className="text-dr-muted mb-0.5">{children}</li>
+          <li className="text-dr-text mb-0.5">{children}</li>
         ),
         table: ({ children }) => (
           <table className="border-collapse border border-dr-border my-2 w-full">

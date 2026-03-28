@@ -25,7 +25,7 @@ export const TacButton = forwardRef<HTMLButtonElement, TacButtonProps>(
       ref={ref}
       className={cn(
         'border font-tactical uppercase tracking-wider transition-all',
-        'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none',
+        'disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:shadow-none',
         variantStyles[variant],
         sizeStyles[size],
         className,

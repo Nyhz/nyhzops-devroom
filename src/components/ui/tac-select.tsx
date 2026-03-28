@@ -26,7 +26,7 @@ export function TacSelectTrigger({
       className={cn(
         'bg-dr-bg border-dr-border text-dr-text font-tactical',
         'focus-visible:border-dr-amber focus-visible:ring-dr-amber/30',
-        'data-placeholder:text-dr-dim',
+        'data-placeholder:text-dr-muted',
         className,
       )}
       {...props}

@@ -121,20 +121,20 @@ export function TacTextareaWithImages({
         disabled={disabled}
         className={cn(
           'w-full bg-dr-bg border border-dr-border text-dr-text font-tactical text-sm',
-          'px-3 py-2 placeholder:text-dr-dim resize-vertical min-h-[80px]',
+          'px-3 py-2 placeholder:text-dr-muted resize-vertical min-h-[80px]',
           'focus:border-dr-amber focus:outline-none',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
+          'disabled:opacity-70 disabled:cursor-not-allowed',
           isDragOver && 'border-dr-amber shadow-glow-amber',
           className,
         )}
         {...props}
       />
       <div className="flex items-center justify-between mt-1">
-        <span className="text-dr-dim font-tactical text-[10px] tracking-wider">
+        <span className="text-dr-muted font-tactical text-xs tracking-wider">
           Paste or drop images
         </span>
         {imageAdded && (
-          <span className="text-dr-green font-tactical text-[10px] tracking-wider animate-pulse">
+          <span className="text-dr-green font-tactical text-xs tracking-wider animate-pulse">
             Image added
           </span>
         )}
