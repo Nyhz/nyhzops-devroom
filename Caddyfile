@@ -1,0 +1,12 @@
+devroom.lan {
+	tls internal
+
+	reverse_proxy devroom:7777
+
+	# Required for Socket.IO WebSocket upgrades
+	@websocket {
+		header Connection *Upgrade*
+		header Upgrade    websocket
+	}
+	reverse_proxy @websocket devroom:7777
+}

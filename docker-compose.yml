@@ -1,0 +1,47 @@
+services:
+  devroom:
+    build: .
+    container_name: devroom
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DEVROOM_PORT=7777
+      - DEVROOM_HOST=0.0.0.0
+      - DEVROOM_DB_PATH=/data/devroom.db
+      - DEVROOM_CLAUDE_PATH=claude
+      - DEVROOM_DEV_BASE_PATH=/Users/nyhzdev/battlefields
+      - DEVROOM_MAX_AGENTS=5
+      # Uncomment for Telegram escalations:
+      # - DEVROOM_TELEGRAM_ENABLED=true
+      # - DEVROOM_TELEGRAM_BOT_TOKEN=your-token
+      # - DEVROOM_TELEGRAM_CHAT_ID=your-chat-id
+    volumes:
+      # Persistent database
+      - devroom-data:/data
+
+      # Claude Code auth & config (CLI installed in image via npm)
+      - /Users/nyhzdev/.claude:/root/.claude
+
+      # Battlefields — mounted at the SAME absolute path so DB paths stay valid
+      - /Users/nyhzdev/battlefields:/Users/nyhzdev/battlefields
+    ports:
+      - "7777:7777"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - devroom
+
+volumes:
+  devroom-data:
+  caddy-data:
+  caddy-config:
