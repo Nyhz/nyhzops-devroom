@@ -1,10 +1,10 @@
 # ---------------------------------------------------------------------------
-# DEVROOM — Production Dockerfile
+# DEVROOM — Dockerfile
 # ---------------------------------------------------------------------------
-# Multi-stage build: install deps + build Next.js, then run with minimal layer
+# Targets: dev (hot-reload) and production (optimized build)
 # ---------------------------------------------------------------------------
 
-# -- Stage 1: Dependencies --------------------------------------------------
+# -- Stage: Dependencies ----------------------------------------------------
 FROM node:20-bookworm-slim AS deps
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
@@ -14,10 +14,24 @@ WORKDIR /app
 # Native build tools for better-sqlite3
 RUN apt-get update && apt-get install -y python3 make g++ git && rm -rf /var/lib/apt/lists/*
 
+# Install Claude Code CLI globally (can't mount macOS binary into Linux container)
+RUN npm install -g @anthropic-ai/claude-code
+
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-# -- Stage 2: Build ---------------------------------------------------------
+# -- Target: Dev (hot-reload) ----------------------------------------------
+FROM deps AS dev
+
+ENV DEVROOM_PORT=7777
+ENV DEVROOM_HOST=0.0.0.0
+
+EXPOSE 7777
+
+# Source code is mounted as a volume — node_modules comes from this image
+CMD ["pnpm", "dev"]
+
+# -- Stage: Build -----------------------------------------------------------
 FROM node:20-bookworm-slim AS build
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
@@ -29,7 +43,7 @@ COPY . .
 
 RUN pnpm build
 
-# -- Stage 3: Production ----------------------------------------------------
+# -- Target: Production -----------------------------------------------------
 FROM node:20-bookworm-slim AS production
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
@@ -37,7 +51,7 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 # Git is required at runtime (simple-git, worktree operations)
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code CLI globally (can't mount macOS binary into Linux container)
+# Install Claude Code CLI globally
 RUN npm install -g @anthropic-ai/claude-code
 
 WORKDIR /app

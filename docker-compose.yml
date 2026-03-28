@@ -1,10 +1,11 @@
 services:
   devroom:
-    build: .
+    build:
+      context: .
+      target: dev
     container_name: devroom
     restart: unless-stopped
     environment:
-      - NODE_ENV=production
       - DEVROOM_PORT=7777
       - DEVROOM_HOST=0.0.0.0
       - DEVROOM_DB_PATH=/data/devroom.db
@@ -16,6 +17,12 @@ services:
       # - DEVROOM_TELEGRAM_BOT_TOKEN=your-token
       # - DEVROOM_TELEGRAM_CHAT_ID=your-chat-id
     volumes:
+      # Source code — mounted from host for hot-reload
+      - .:/app
+
+      # Preserve container's node_modules (Linux native bindings, not macOS)
+      - devroom-node-modules:/app/node_modules
+
       # Persistent database
       - devroom-data:/data
 
@@ -43,5 +50,6 @@ services:
 
 volumes:
   devroom-data:
+  devroom-node-modules:
   caddy-data:
   caddy-config:
