@@ -212,3 +212,24 @@ export const commandLogs = sqliteTable('command_logs', {
   output: text('output'),
   createdAt: integer('created_at').notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// General Sessions (standalone GENERAL chat)
+// ---------------------------------------------------------------------------
+export const generalSessions = sqliteTable('general_sessions', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  sessionId: text('session_id'),               // Claude Code resume session ID
+  battlefieldId: text('battlefield_id').references(() => battlefields.id),
+  status: text('status').default('active'),    // 'active' | 'closed'
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
+export const generalMessages = sqliteTable('general_messages', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').notNull().references(() => generalSessions.id),
+  role: text('role').notNull(),                // 'commander' | 'general' | 'system'
+  content: text('content').notNull(),
+  timestamp: integer('timestamp').notNull(),
+});

@@ -57,6 +57,13 @@
       "when": 1774648281580,
       "tag": "0007_yellow_amazoness",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1774732258288,
+      "tag": "0008_secret_tempest",
+      "breakpoints": true
     }
   ]
 }
