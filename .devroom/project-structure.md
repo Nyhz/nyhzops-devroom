@@ -12,6 +12,9 @@ devroom/
 ├── postcss.config.mjs
 ├── eslint.config.mjs
 ├── components.json                    # shadcn/ui configuration
+├── Dockerfile                         # Multi-stage: deps → dev | build → production
+├── docker-compose.yml                 # Dev stack: devroom + caddy reverse proxy
+├── Caddyfile                          # Caddy config — reverse proxy with WebSocket support
 ├── .env.local
 ├── .env.example                       # Environment variable template
 ├── server.ts                          # Custom server (Next.js + Socket.IO)
@@ -22,11 +25,11 @@ devroom/
 │   │   ├── error.tsx                  # Global error boundary
 │   │   ├── warroom/
 │   │   │   └── page.tsx               # Boot sequence animation (first-visit gate)
-│   │   ├── overwatch/
-│   │   │   └── page.tsx               # System metrics dashboard (agents, tokens, uptime)
 │   │   ├── (hq)/                      # Route group — HQ layout shell
 │   │   │   ├── layout.tsx             # HQ layout (sidebar + intel bar + footer)
 │   │   │   ├── page.tsx               # HQ Dashboard — global overview
+│   │   │   ├── general/
+│   │   │   │   └── page.tsx           # GENERAL chat — standalone Claude Code sessions
 │   │   │   ├── assets/
 │   │   │   │   └── page.tsx           # Asset management (global, not per-battlefield)
 │   │   │   ├── captain-log/
@@ -79,8 +82,12 @@ devroom/
 │   ├── lib/
 │   │   ├── db/
 │   │   │   ├── index.ts              # DB connection singleton
-│   │   │   ├── schema.ts             # Drizzle schema
+│   │   │   ├── schema.ts             # Drizzle schema (15 tables)
 │   │   │   └── migrations/
+│   │   ├── general/
+│   │   │   ├── general-engine.ts     # Spawn Claude Code for standalone GENERAL chat sessions
+│   │   │   ├── general-prompt.ts     # System prompt builder with optional battlefield context
+│   │   │   └── general-commands.ts   # Command parser (/clear, /compact)
 │   │   ├── briefing/
 │   │   │   ├── briefing-engine.ts    # Spawn Claude Code (GENERAL) for interactive campaign planning
 │   │   │   └── briefing-prompt.ts    # System prompt builder for GENERAL with campaign context
@@ -119,17 +126,23 @@ devroom/
 │   │   ├── captain.ts                # Server Actions for captain log queries
 │   │   ├── console.ts                # Server Actions for quick commands + dev server
 │   │   ├── dossier.ts                # Server Actions for briefing template CRUD
+│   │   ├── general.ts                # Server Actions for GENERAL session CRUD + messaging
 │   │   ├── git.ts                    # Server Actions for git operations
 │   │   ├── logistics.ts              # Server Actions for token usage + cost tracking
 │   │   ├── mission.ts                # Server Actions for mission CRUD + deploy + abort
 │   │   ├── notification.ts           # Server Actions for notification CRUD + read status
 │   │   └── schedule.ts               # Server Actions for scheduled task CRUD
 │   ├── components/
+│   │   ├── general/
+│   │   │   ├── general-chat.tsx      # Main GENERAL chat UI (tabs, messages, streaming)
+│   │   │   ├── new-session-modal.tsx # Create session dialog (optional battlefield link)
+│   │   │   ├── close-session-modal.tsx # Close session confirmation
+│   │   │   └── command-reference.tsx # Help overlay for /clear, /compact commands
 │   │   ├── layout/
 │   │   │   ├── app-shell.tsx         # Top intel bar + sidebar + content area
 │   │   │   ├── sidebar.tsx           # Left nav — branding + battlefield selector
 │   │   │   ├── sidebar-nav.tsx       # Section navigation links (missions, campaigns, etc.)
-│   │   │   ├── global-nav.tsx        # Top-level nav (HQ, Captain Log, Logistics, Overwatch)
+│   │   │   ├── global-nav.tsx        # Global nav — top: HQ (◉), GENERAL (◇); bottom: CAPTAIN'S LOG (⚓), ASSETS (◎), LOGISTICS (◈)
 │   │   │   ├── battlefield-selector.tsx # Battlefield dropdown selector
 │   │   │   ├── intel-bar.tsx         # Top bar — rotating military quotes
 │   │   │   ├── page-header.tsx       # Reusable page header (codename + section + title)
@@ -177,8 +190,6 @@ devroom/
 │   │   ├── schedule/
 │   │   │   ├── schedule-list.tsx     # List of scheduled tasks
 │   │   │   └── schedule-form.tsx     # Create/edit scheduled task
-│   │   ├── overwatch/
-│   │   │   └── overwatch.tsx         # System metrics display component
 │   │   ├── warroom/
 │   │   │   ├── boot-gate.tsx         # First-visit boot animation gate
 │   │   │   └── boot-sequence.tsx     # Tactical boot animation sequence
@@ -193,6 +204,7 @@ devroom/
 │   │       ├── tac-card.tsx          # Dark card with optional status border
 │   │       ├── tac-badge.tsx         # Status badge (● ACCOMPLISHED, etc.)
 │   │       ├── tac-select.tsx        # Styled dropdown
+│   │       ├── tac-tooltip.tsx       # Tactical tooltip
 │   │       ├── search-input.tsx      # Search with monospace placeholder
 │   │       ├── markdown.tsx          # Markdown renderer (react-markdown + remark-gfm)
 │   │       ├── modal.tsx
@@ -206,6 +218,7 @@ devroom/
 │   │       └── tooltip.tsx           # shadcn tooltip
 │   ├── hooks/
 │   │   ├── use-socket.ts             # Socket.IO connection hook
+│   │   ├── use-general.ts            # GENERAL chat session — stream chunks, send messages
 │   │   ├── use-mission-comms.ts      # Mission log stream subscription
 │   │   ├── use-campaign-comms.ts     # Campaign progress stream subscription
 │   │   ├── use-activity-feed.ts      # HQ activity feed subscription

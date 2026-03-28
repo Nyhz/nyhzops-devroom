@@ -45,6 +45,50 @@
 
 ---
 
+## Docker Deployment
+
+### Dockerfile
+
+Multi-stage build with two usable targets:
+
+| Target       | Purpose                          | Notes                                                      |
+|--------------|----------------------------------|------------------------------------------------------------|
+| `dev`        | Hot-reload development           | Source mounted as volume, node_modules from image           |
+| `production` | Optimized runtime                | Full `next build`, git + Claude CLI installed               |
+
+Both targets install `@anthropic-ai/claude-code` globally via npm and include git + native build tools for `better-sqlite3`.
+
+### docker-compose.yml
+
+Two services:
+
+- **devroom** (port `7777`): Main app. Mounts source code, persistent DB volume (`/data/devroom.db`), Claude auth (`~/.claude`), and battlefield directories.
+- **caddy** (ports `80`/`443`): Reverse proxy with auto TLS and WebSocket upgrade support. Config in `Caddyfile` (default domain: `devroom.lan`).
+
+Key volume mounts:
+```yaml
+volumes:
+  - .:/app                                    # Source code (hot-reload)
+  - devroom-node-modules:/app/node_modules    # Linux-native node_modules
+  - devroom-data:/data                        # Persistent SQLite DB
+  - ~/.claude:/root/.claude                   # Claude Code auth
+  - /path/to/battlefields:/path/to/battlefields  # Battlefield repos (same absolute path)
+```
+
+**Important**: Battlefield paths must be mounted at the **same absolute path** as on the host so that DB-stored paths remain valid inside the container.
+
+### Running
+
+```bash
+# Development (hot-reload)
+docker compose up
+
+# Production build
+docker compose -f docker-compose.yml up --build -t production
+```
+
+---
+
 ## Environment Variables
 
 `.env.local` — all optional with sane defaults:
