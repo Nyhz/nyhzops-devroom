@@ -43,7 +43,8 @@ The interface follows a tactical operations center aesthetic. Dark backgrounds, 
 devroom/
 ├── CLAUDE.md
 ├── SPEC.md
-├── package.json
+├── package.json                       # pnpm as package manager
+├── pnpm-workspace.yaml
 ├── tsconfig.json
 ├── next.config.ts
 ├── drizzle.config.ts
@@ -51,6 +52,7 @@ devroom/
 ├── eslint.config.mjs
 ├── components.json                    # shadcn/ui configuration
 ├── .env.local
+├── .env.example                       # Environment variable template
 ├── server.ts                          # Custom server (Next.js + Socket.IO)
 ├── src/
 │   ├── app/
@@ -64,6 +66,8 @@ devroom/
 │   │   ├── (hq)/                      # Route group — HQ layout shell
 │   │   │   ├── layout.tsx             # HQ layout (sidebar + intel bar + footer)
 │   │   │   ├── page.tsx               # HQ Dashboard — global overview
+│   │   │   ├── assets/
+│   │   │   │   └── page.tsx           # Asset management (global, not per-battlefield)
 │   │   │   ├── captain-log/
 │   │   │   │   └── page.tsx           # Captain AI decision log viewer
 │   │   │   ├── logistics/
@@ -83,13 +87,11 @@ devroom/
 │   │   │           │   ├── page.tsx       # Campaigns list
 │   │   │           │   ├── loading.tsx
 │   │   │           │   ├── new/
-│   │   │           │   │   ├── page.tsx   # Create new campaign
-│   │   │           │   │   └── form.tsx   # Campaign creation form (client)
+│   │   │           │   │   └── page.tsx   # Create new campaign
 │   │   │           │   └── [campaignId]/
 │   │   │           │       ├── page.tsx   # Campaign detail + phase view
 │   │   │           │       └── loading.tsx
 │   │   │           ├── assets/
-│   │   │           │   ├── page.tsx       # Asset management
 │   │   │           │   └── loading.tsx
 │   │   │           ├── git/
 │   │   │           │   ├── page.tsx       # Git dashboard
@@ -116,13 +118,15 @@ devroom/
 │   ├── lib/
 │   │   ├── db/
 │   │   │   ├── index.ts              # DB connection singleton
-│   │   │   ├── schema.ts             # Drizzle schema (13 tables)
+│   │   │   ├── schema.ts             # Drizzle schema
 │   │   │   └── migrations/
+│   │   ├── briefing/
+│   │   │   ├── briefing-engine.ts    # Spawn Claude Code (GENERAL) for interactive campaign planning
+│   │   │   └── briefing-prompt.ts    # System prompt builder for GENERAL with campaign context
 │   │   ├── orchestrator/
 │   │   │   ├── orchestrator.ts       # Core engine — queue loop, concurrency
 │   │   │   ├── executor.ts           # Claude Code spawn + stream management
 │   │   │   ├── campaign-executor.ts  # Multi-phase campaign orchestration
-│   │   │   ├── plan-generator.ts     # AI battle plan generation from objective
 │   │   │   ├── stream-parser.ts      # Parse Claude Code stream-json output
 │   │   │   ├── worktree.ts           # Git worktree lifecycle
 │   │   │   ├── merger.ts             # Branch merge + conflict resolution
@@ -147,15 +151,16 @@ devroom/
 │   │   ├── config.ts
 │   │   └── utils.ts                  # ULID generation, time formatting, etc.
 │   ├── actions/
-│   │   ├── battlefield.ts            # Server Actions for battlefield CRUD + scaffold
-│   │   ├── mission.ts                # Server Actions for mission CRUD + deploy + abort
-│   │   ├── campaign.ts               # Server Actions for campaign CRUD + plan + launch
 │   │   ├── asset.ts                  # Server Actions for asset CRUD
+│   │   ├── battlefield.ts            # Server Actions for battlefield CRUD + scaffold
+│   │   ├── briefing.ts               # Server Actions for briefing session queries
+│   │   ├── campaign.ts               # Server Actions for campaign CRUD + plan + launch
 │   │   ├── captain.ts                # Server Actions for captain log queries
 │   │   ├── console.ts                # Server Actions for quick commands + dev server
 │   │   ├── dossier.ts                # Server Actions for briefing template CRUD
 │   │   ├── git.ts                    # Server Actions for git operations
 │   │   ├── logistics.ts              # Server Actions for token usage + cost tracking
+│   │   ├── mission.ts                # Server Actions for mission CRUD + deploy + abort
 │   │   ├── notification.ts           # Server Actions for notification CRUD + read status
 │   │   └── schedule.ts               # Server Actions for scheduled task CRUD
 │   ├── components/
@@ -166,6 +171,7 @@ devroom/
 │   │   │   ├── global-nav.tsx        # Top-level nav (HQ, Captain Log, Logistics, Overwatch)
 │   │   │   ├── battlefield-selector.tsx # Battlefield dropdown selector
 │   │   │   ├── intel-bar.tsx         # Top bar — rotating military quotes
+│   │   │   ├── page-header.tsx       # Reusable page header (codename + section + title)
 │   │   │   ├── page-wrapper.tsx      # Consistent page padding + title wrapper
 │   │   │   └── status-footer.tsx     # Bottom bar — system status + LAN warning
 │   │   ├── dashboard/
@@ -183,11 +189,13 @@ devroom/
 │   │   │   └── scaffold-retry.tsx    # Scaffold failure retry UI
 │   │   ├── mission/
 │   │   │   ├── mission-comms.tsx     # Live terminal log stream
-│   │   │   └── mission-actions.tsx   # Continue / Redeploy / Abandon buttons
+│   │   │   ├── mission-actions.tsx   # Continue / Redeploy / Abandon buttons
+│   │   │   └── live-status-badge.tsx # Real-time status badge via Socket.IO
 │   │   ├── campaign/
+│   │   │   ├── briefing-chat.tsx     # Interactive campaign planning chat with GENERAL
 │   │   │   ├── campaign-controls.tsx # MISSION ACCOMPLISHED | REDEPLOY | ABANDON
 │   │   │   ├── campaign-live-view.tsx # Real-time campaign progress viewer
-│   │   │   ├── generate-plan-button.tsx # AI battle plan generation trigger
+│   │   │   ├── campaign-results.tsx  # Campaign completion metrics (cost, tokens, duration)
 │   │   │   ├── mission-card.tsx      # Campaign-specific mission card
 │   │   │   ├── phase-timeline.tsx    # Phase container with nested mission cards
 │   │   │   └── plan-editor.tsx       # Editable plan viewer (reorder phases/missions)
@@ -240,6 +248,8 @@ devroom/
 │   │   ├── use-mission-comms.ts      # Mission log stream subscription
 │   │   ├── use-campaign-comms.ts     # Campaign progress stream subscription
 │   │   ├── use-activity-feed.ts      # HQ activity feed subscription
+│   │   ├── use-briefing.ts           # Briefing session Socket.IO hook
+│   │   ├── use-confirm.tsx           # Confirmation dialog hook (returns promise)
 │   │   ├── use-notifications.ts      # Notification stream subscription
 │   │   ├── use-dev-server.ts         # Dev server status + log stream
 │   │   └── use-command-output.ts     # Streaming command output
@@ -249,7 +259,8 @@ devroom/
 │   ├── sounds/
 │   └── img/
 └── scripts/
-    └── seed.ts                       # Seed default assets
+    ├── seed.ts                       # Seed default assets
+    └── rerun-review.ts               # CLI script for re-running Captain debrief review
 ```
 
 ---
@@ -274,6 +285,7 @@ devroom/
 | Alert         | **Notification**  | In-app + Telegram alert for events and escalations.            |
 | Monitoring    | **OVERWATCH**     | System metrics dashboard (agents, tokens, uptime).             |
 | Startup       | **War Room**      | Boot sequence animation shown on first visit.                  |
+| Planning Chat | **Briefing**      | Interactive campaign planning chat with GENERAL asset.         |
 | Cost Tracking | **Logistics**     | Token usage, rate limits, and cost tracking dashboard.         |
 
 ### Status Terms
@@ -350,7 +362,7 @@ devroom/
 - battlefieldId   TEXT NOT NULL REFERENCES battlefields(id)
 - name            TEXT NOT NULL            -- e.g. "Operation Clean Sweep"
 - objective       TEXT NOT NULL
-- status          TEXT DEFAULT 'draft'     -- draft|planning|active|paused|accomplished|compromised
+- status          TEXT DEFAULT 'draft'     -- draft|planning|active|accomplished|compromised|abandoned
 - worktreeMode    TEXT DEFAULT 'phase'     -- none|phase|mission
 - currentPhase    INTEGER DEFAULT 0
 - isTemplate      INTEGER DEFAULT 0
@@ -372,6 +384,30 @@ devroom/
 - totalTokens     INTEGER DEFAULT 0
 - durationMs      INTEGER DEFAULT 0
 - createdAt       INTEGER NOT NULL
+```
+
+### BriefingSession
+
+Interactive campaign planning sessions with GENERAL asset.
+
+```
+- id              TEXT PRIMARY KEY (ULID)
+- campaignId      TEXT NOT NULL REFERENCES campaigns(id)
+- sessionId       TEXT                     -- Claude Code session ID
+- assetId         TEXT REFERENCES assets(id)
+- status          TEXT DEFAULT 'open'      -- open | closed
+- createdAt       INTEGER NOT NULL
+- updatedAt       INTEGER NOT NULL
+```
+
+### BriefingMessage
+
+```
+- id              TEXT PRIMARY KEY (ULID)
+- briefingId      TEXT NOT NULL REFERENCES briefingSessions(id)
+- role            TEXT NOT NULL             -- 'user' | 'assistant'
+- content         TEXT NOT NULL
+- timestamp       INTEGER NOT NULL
 ```
 
 ### Asset
@@ -403,7 +439,7 @@ devroom/
 - id              TEXT PRIMARY KEY (ULID)
 - battlefieldId   TEXT NOT NULL REFERENCES battlefields(id)
 - name            TEXT NOT NULL             -- e.g. "Nightly test suite"
-- type            TEXT NOT NULL             -- mission | campaign | maintenance
+- type            TEXT NOT NULL             -- mission | campaign
 - cron            TEXT NOT NULL             -- cron expression (e.g. "0 3 * * *")
 - enabled         INTEGER DEFAULT 1        -- boolean
 - missionTemplate TEXT                     -- JSON: { title, briefing, assetId, priority, useWorktree }
@@ -560,9 +596,9 @@ Target 90%+ cache hit rate.
 ### Socket.IO
 
 - Attached to custom `server.ts`.
-- Rooms: `mission:{id}` per mission, `campaign:{id}` per campaign, `hq:activity` for global, `devserver:{battlefieldId}` for dev server logs, `console:{battlefieldId}` for command output.
-- Server → Client: `mission:log`, `mission:status`, `mission:debrief`, `mission:tokens`, `campaign:status`, `campaign:phase`, `activity:event`, `devserver:log`, `devserver:status`, `console:output`, `console:exit`, `notification`.
-- Client → Server: `mission:subscribe`, `mission:unsubscribe`, `campaign:subscribe`, `campaign:unsubscribe`, `hq:subscribe`, `hq:unsubscribe`, `devserver:subscribe`, `devserver:unsubscribe`, `console:subscribe`, `console:unsubscribe`.
+- Rooms: `mission:{id}` per mission, `campaign:{id}` per campaign, `briefing:{campaignId}` per briefing session, `hq:activity` for global, `devserver:{battlefieldId}` for dev server logs, `console:{battlefieldId}` for command output.
+- Server → Client: `mission:log`, `mission:status`, `mission:debrief`, `mission:tokens`, `campaign:status`, `campaign:phase`, `briefing:chunk`, `briefing:complete`, `briefing:error`, `briefing:plan-ready`, `activity:event`, `devserver:log`, `devserver:status`, `console:output`, `console:exit`, `notification`.
+- Client → Server: `mission:subscribe`, `mission:unsubscribe`, `campaign:subscribe`, `campaign:unsubscribe`, `briefing:subscribe`, `briefing:unsubscribe`, `briefing:send`, `hq:subscribe`, `hq:unsubscribe`, `devserver:subscribe`, `devserver:unsubscribe`, `console:subscribe`, `console:unsubscribe`.
 
 ---
 
@@ -846,6 +882,7 @@ Phase        = Campaign step (parallel missions)
 Mission      = Single task (one Claude Code process)
 Asset        = Agent profile (specialty + system prompt)
 Dossier      = Reusable mission briefing template
+Briefing     = Interactive campaign planning chat with GENERAL
 Captain      = AI decision layer (autonomous judgment + escalation)
 Debrief      = Post-mission report to Commander
 Comms        = Real-time log stream
@@ -862,4 +899,4 @@ Notification = In-app + Telegram alert
 
 **Phases:** `STANDBY → ACTIVE → SECURED / COMPROMISED`
 
-**Campaigns:** `DRAFT → PLANNING → ACTIVE → ACCOMPLISHED / COMPROMISED` (can pause/resume)
+**Campaigns:** `DRAFT → PLANNING → ACTIVE → ACCOMPLISHED / COMPROMISED / ABANDONED`
