@@ -9,7 +9,7 @@ export function PageHeader({ codename, section, title, children }: PageHeaderPro
   return (
     <div className="flex items-center justify-between">
       <div>
-        <div className="text-dr-dim font-tactical text-xs tracking-wider uppercase mb-1">
+        <div className="text-dr-dim font-tactical text-sm tracking-wider uppercase mb-1">
           {codename} // {section}
         </div>
         <h1 className="text-dr-amber font-tactical text-lg tracking-wider uppercase">

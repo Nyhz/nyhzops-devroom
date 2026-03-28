@@ -77,7 +77,7 @@ export function SidebarNav({ missionCounts, campaignCounts }: SidebarNavProps) {
             <span className="w-6 text-center text-base">{item.icon}</span>
             <span className="flex-1">{item.label}</span>
             {itemCount !== undefined && itemCount > 0 && (
-              <span className="text-dr-dim text-xs">{itemCount}</span>
+              <span className="text-dr-dim text-sm">{itemCount}</span>
             )}
           </Link>
         );
