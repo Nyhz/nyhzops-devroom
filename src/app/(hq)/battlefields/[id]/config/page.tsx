@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
 import { PageWrapper } from '@/components/layout/page-wrapper';
-import { PageHeader } from '@/components/layout/page-header';
 import { getBattlefield } from '@/actions/battlefield';
 import { ConfigForm } from '@/components/config/config-form';
 
@@ -17,8 +16,10 @@ export default async function ConfigPage({
   }
 
   return (
-    <PageWrapper>
-      <PageHeader codename={battlefield.codename} section="CONFIG" title="Config" />
+    <PageWrapper
+      breadcrumb={[battlefield.codename, 'CONFIG']}
+      title="CONFIG"
+    >
 
       <ConfigForm
         id={battlefield.id}

@@ -9,15 +9,10 @@ export default async function AssetsPage() {
   const allAssets = db.select().from(assets).all() as Asset[];
 
   return (
-    <PageWrapper>
-      <div>
-        <div className="text-dr-dim font-tactical text-xs tracking-wider uppercase mb-1">
-          NYHZ OPS // ASSETS
-        </div>
-        <h1 className="text-dr-amber font-tactical text-lg tracking-wider uppercase">
-          Agent Roster
-        </h1>
-      </div>
+    <PageWrapper
+      breadcrumb={['NYHZ OPS', 'ASSETS']}
+      title="AGENT ROSTER"
+    >
       <AssetList assets={allAssets} />
     </PageWrapper>
   );

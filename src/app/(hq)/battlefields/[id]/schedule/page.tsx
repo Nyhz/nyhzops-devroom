@@ -4,7 +4,6 @@ import { assets, battlefields, campaigns } from '@/lib/db/schema';
 import { listScheduledTasks } from '@/actions/schedule';
 import { ScheduleList } from '@/components/schedule/schedule-list';
 import { PageWrapper } from '@/components/layout/page-wrapper';
-import { PageHeader } from '@/components/layout/page-header';
 import type { Asset, Campaign } from '@/types';
 
 export default async function SchedulePage({
@@ -26,8 +25,10 @@ export default async function SchedulePage({
     .all() as Campaign[];
 
   return (
-    <PageWrapper>
-      <PageHeader codename={bf?.codename ?? ''} section="SCHEDULE" title="Schedule" />
+    <PageWrapper
+      breadcrumb={[bf?.codename ?? '', 'SCHEDULE']}
+      title="SCHEDULE"
+    >
       <ScheduleList
         tasks={tasks}
         battlefieldId={battlefieldId}
