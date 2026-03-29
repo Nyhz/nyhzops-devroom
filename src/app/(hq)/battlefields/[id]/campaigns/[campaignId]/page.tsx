@@ -46,7 +46,7 @@ export default async function CampaignDetailPage({
     const briefingMessages = await getBriefingMessages(campaignId);
 
     return (
-      <div className="flex flex-col h-full p-8 gap-6">
+      <div className="flex flex-col h-full p-4 md:p-8 gap-4 md:gap-6">
         <PageHeader codename={bf?.codename ?? ''} section="CAMPAIGNS" title={campaign.name} />
         <BriefingChat campaignId={campaignId} initialMessages={briefingMessages} />
         {controls}

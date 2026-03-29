@@ -65,7 +65,7 @@ export function SortableMissionItem({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'bg-dr-elevated border border-dr-border p-3 min-w-[240px] max-w-[320px] flex flex-col gap-2 shrink-0',
+        'bg-dr-elevated border border-dr-border p-3 w-full md:min-w-[240px] md:max-w-[320px] flex flex-col gap-2 md:shrink-0',
         isDragging && 'shadow-glow-amber opacity-90 z-50',
       )}
     >

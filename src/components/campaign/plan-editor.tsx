@@ -292,7 +292,7 @@ export function PlanEditor({
   return (
     <div className="flex flex-col gap-4">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 md:gap-4">
         <div className="flex items-center gap-3">
           <h2 className="font-tactical text-sm text-dr-amber uppercase tracking-wider">
             BATTLE PLAN EDITOR
@@ -344,7 +344,7 @@ export function PlanEditor({
         onDragEnd={handleDragEnd}
       >
         <SortableContext items={phaseIds} strategy={verticalListSortingStrategy}>
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 touch-manipulation">
             {plan.phases.map((phase, pi) => (
               <SortablePhaseItem
                 key={phaseId(pi)}

@@ -52,7 +52,7 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
   return (
     <div className="flex flex-col flex-1 min-h-0 border border-dr-border bg-dr-bg">
       {/* Chat header */}
-      <div className="flex items-center justify-between px-3 py-2 md:px-4 md:py-3 border-b border-dr-border bg-dr-surface shrink-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-3 py-2 md:px-4 md:py-3 border-b border-dr-border bg-dr-surface shrink-0">
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <span className="text-dr-green text-xs">●</span>
           <span className="text-dr-amber font-tactical text-xs md:text-sm tracking-wider truncate">
@@ -64,7 +64,7 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
           size="sm"
           onClick={handleGeneratePlan}
           disabled={isLoading || messages.length < 2}
-          className="w-full md:w-auto mt-0 shrink-0"
+          className="w-full sm:w-auto shrink-0"
         >
           GENERATE PLAN
         </TacButton>
@@ -116,7 +116,7 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
             className={cn(
-              'px-3 py-3 md:px-4 font-tactical text-xs tracking-widest transition-colors shrink-0 min-h-[44px] min-w-[44px]',
+              'min-w-[44px] min-h-[44px] px-3 py-3 md:px-4 font-tactical text-xs tracking-widest transition-colors shrink-0',
               input.trim() && !isLoading
                 ? 'text-dr-green hover:bg-dr-green/10'
                 : 'text-dr-dim cursor-not-allowed',

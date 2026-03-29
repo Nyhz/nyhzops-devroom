@@ -89,7 +89,7 @@ export function PhaseTimeline({ phases, battlefieldId }: PhaseTimelineProps) {
 
               {/* Mission cards */}
               {phase.missions.length > 0 ? (
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-col md:flex-row md:flex-wrap gap-3">
                   {phase.missions.map((mission) => {
                     const card = (
                       <CampaignMissionCard

@@ -134,7 +134,7 @@ export function SortablePhaseItem({
       {/* Missions — horizontal layout */}
       <div className="p-4">
         <SortableContext items={missionIds} strategy={horizontalListSortingStrategy}>
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          <div className="flex flex-col md:flex-row gap-3 md:overflow-x-auto pb-2 touch-manipulation">
             {phase.missions.map((mission, mi) => (
               <SortableMissionItem
                 key={missionId(phaseIndex, mi)}
