@@ -63,10 +63,8 @@ export default async function MissionDetailPage({
           </h2>
           <div className="h-px bg-dr-border" />
         </div>
-        <TacCard className="p-4 font-data text-sm leading-relaxed">
-          {mission.briefing.split('\n').filter(Boolean).map((paragraph, i) => (
-            <p key={i} className="text-dr-text mb-2 last:mb-0">{paragraph}</p>
-          ))}
+        <TacCard className="p-4">
+          <Markdown content={mission.briefing} className="text-sm" />
         </TacCard>
       </div>
 

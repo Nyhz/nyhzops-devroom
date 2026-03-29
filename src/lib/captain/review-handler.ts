@@ -1,10 +1,13 @@
 import fs from 'fs';
+import path from 'path';
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { missions, battlefields } from '@/lib/db/schema';
 import { reviewDebrief, type DebriefReview } from './debrief-reviewer';
 import { storeCaptainLog } from './captain-db';
 import { escalate } from './escalation';
+import { mergeBranch } from '@/lib/orchestrator/merger';
+import { removeWorktree } from '@/lib/orchestrator/worktree';
 import type { Mission } from '@/types';
 
 // Max retries: 2 for reviewing (successful missions), 1 for compromised (failed missions)
@@ -25,10 +28,23 @@ export async function runCaptainReview(missionId: string): Promise<void> {
   }
 
   if (!mission.debrief) {
-    console.warn(`[Captain] Review: mission ${missionId} has no debrief, auto-accepting`);
-    if (mission.status === 'reviewing') {
-      promoteMission(missionId, 'accomplished');
-    }
+    console.warn(`[Captain] Review: mission ${missionId} has no debrief — marking compromised and escalating`);
+    db.update(missions).set({
+      status: 'compromised',
+      debrief: '## Mission Compromised\n\nAgent produced no debrief. The process may have crashed or exited without completing work.',
+      completedAt: Date.now(),
+      updatedAt: Date.now(),
+    }).where(eq(missions.id, missionId)).run();
+    emitStatusChange(missionId, 'compromised');
+    await escalate({
+      level: 'critical',
+      title: `No debrief: ${mission.title}`,
+      detail: `Mission ${missionId} reached review with no debrief. Marked compromised. The agent may have crashed without producing output.`,
+      entityType: 'mission',
+      entityId: mission.id,
+      battlefieldId: mission.battlefieldId,
+      campaignId: mission.campaignId,
+    });
     return;
   }
 
@@ -60,10 +76,16 @@ export async function runCaptainReview(missionId: string): Promise<void> {
     });
   } catch (err) {
     console.error(`[Captain] Review failed for mission ${missionId}:`, err);
-    // On review failure, auto-accept to avoid blocking
-    if (mission.status === 'reviewing') {
-      promoteMission(missionId, 'accomplished');
-    }
+    // On review failure, escalate — never auto-accept
+    await escalate({
+      level: 'warning',
+      title: `Captain review failed: ${mission.title}`,
+      detail: `The Captain could not review this debrief: ${err instanceof Error ? err.message : String(err)}. Mission remains in ${mission.status} status.`,
+      entityType: 'mission',
+      entityId: mission.id,
+      battlefieldId: mission.battlefieldId,
+      campaignId: mission.campaignId,
+    });
     return;
   }
 
@@ -87,8 +109,8 @@ export async function runCaptainReview(missionId: string): Promise<void> {
 
   // Handle the captain's recommendation
   if (review.recommendation === 'accept' || (review.satisfactory && review.recommendation !== 'escalate')) {
-    // Captain approves
-    promoteMission(missionId, 'accomplished');
+    // Captain approves — merge + promote
+    await promoteMission(missionId, 'accomplished');
 
     if (review.concerns.length > 0) {
       // Satisfactory but with concerns — info notification
@@ -141,7 +163,7 @@ export async function runCaptainReview(missionId: string): Promise<void> {
   }
 }
 
-function promoteMission(missionId: string, status: 'accomplished'): void {
+async function promoteMission(missionId: string, status: 'accomplished'): Promise<void> {
   const db = getDatabase();
 
   const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
@@ -152,6 +174,46 @@ function promoteMission(missionId: string, status: 'accomplished'): void {
     return;
   }
 
+  // Merge worktree branch BEFORE promoting — only merge Captain-approved work
+  if (mission.worktreeBranch) {
+    const battlefield = db.select().from(battlefields)
+      .where(eq(battlefields.id, mission.battlefieldId)).get();
+
+    if (battlefield) {
+      const worktreePath = path.join(
+        battlefield.repoPath, '.worktrees',
+        mission.worktreeBranch.replace(/\//g, '-'),
+      );
+
+      console.log(`[Captain] Merging ${mission.worktreeBranch} into ${battlefield.defaultBranch || 'main'}...`);
+
+      const mergeResult = await mergeBranch(
+        battlefield.repoPath,
+        mission.worktreeBranch,
+        battlefield.defaultBranch || 'main',
+        mission as Mission,
+        battlefield.claudeMdPath,
+      );
+
+      if (mergeResult.success) {
+        await removeWorktree(battlefield.repoPath, worktreePath, mission.worktreeBranch);
+        console.log(`[Captain] Merge complete${mergeResult.conflictResolved ? ' (conflicts auto-resolved)' : ''}. Worktree cleaned up.`);
+      } else {
+        // Merge failed — mark compromised instead of accomplished
+        console.error(`[Captain] Merge failed for ${missionId}: ${mergeResult.error}`);
+        db.update(missions).set({
+          status: 'compromised',
+          debrief: (mission.debrief || '') + `\n\n---\n\nMERGE FAILED: ${mergeResult.error}\nBranch \`${mission.worktreeBranch}\` preserved for inspection.`,
+          completedAt: Date.now(),
+          updatedAt: Date.now(),
+        }).where(eq(missions.id, missionId)).run();
+        emitStatusChange(missionId, 'compromised');
+        return;
+      }
+    }
+  }
+
+  // Promote to accomplished
   db.update(missions).set({
     status,
     completedAt: Date.now(),
@@ -167,7 +229,7 @@ function promoteMission(missionId: string, status: 'accomplished'): void {
   } catch { /* best effort */ }
 
   // Notify campaign executor if this is a campaign mission
-  if (mission?.campaignId) {
+  if (mission.campaignId) {
     const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
     if (executor) {
       executor.onCampaignMissionComplete(missionId).catch(err => {

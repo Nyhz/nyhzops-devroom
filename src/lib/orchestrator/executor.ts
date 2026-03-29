@@ -11,7 +11,6 @@ import { config } from '@/lib/config';
 import { buildPrompt } from './prompt-builder';
 import { StreamParser } from './stream-parser';
 import { createWorktree, removeWorktree } from './worktree';
-import { mergeBranch } from './merger';
 import { askCaptain } from '@/lib/captain/captain';
 import { storeCaptainLog, getRecentCaptainLogs } from '@/lib/captain/captain-db';
 import { escalate } from '@/lib/captain/escalation';
@@ -200,15 +199,30 @@ export async function executeMission(
     ];
 
     // Isolate Claude config per mission to prevent concurrent write corruption
+    // and session ID collisions. Each mission gets its own HOME.
+    // Fresh missions: only auth + settings (no shared sessions).
+    // Continued missions: also symlink sessions so they can resume context.
     const missionHome = `/tmp/claude-config/${mission.id}`;
-    fs.mkdirSync(missionHome, { recursive: true });
+    const missionClaudeDir = path.join(missionHome, '.claude');
+    fs.mkdirSync(missionClaudeDir, { recursive: true });
     const realHome = process.env.HOME || '/home/devroom';
     try {
       fs.copyFileSync(path.join(realHome, '.claude.json'), path.join(missionHome, '.claude.json'));
     } catch { /* no .claude.json — fine */ }
-    try {
-      fs.symlinkSync(path.join(realHome, '.claude'), path.join(missionHome, '.claude'));
-    } catch { /* already exists or no .claude dir */ }
+    // Copy auth and settings
+    for (const file of ['.credentials.json', 'settings.json']) {
+      try {
+        fs.copyFileSync(path.join(realHome, '.claude', file), path.join(missionClaudeDir, file));
+      } catch { /* skip missing files */ }
+    }
+    // For continued missions (resuming a session), symlink session storage
+    if (mission.sessionId) {
+      for (const dir of ['sessions', 'session-env']) {
+        try {
+          fs.symlinkSync(path.join(realHome, '.claude', dir), path.join(missionClaudeDir, dir));
+        } catch { /* skip if missing or already exists */ }
+      }
+    }
 
     const proc = spawn(config.claudePath, args, {
       cwd: workingDirectory,
@@ -488,50 +502,10 @@ export async function executeMission(
       }
 
       // Captain review — async, non-blocking
+      // Merge happens AFTER Captain approves (in promoteMission), not here.
       runCaptainReview(mission.id).catch(err => {
         console.error('[Captain] Review handler failed:', err);
       });
-
-      // Merge worktree branch back to default branch
-      if (worktreeBranch && worktreePath && finalStatus === 'reviewing') {
-        storeLog('status', `Merging ${worktreeBranch} into ${battlefield.defaultBranch || 'main'}...`);
-        io.to(room).emit('mission:log', {
-          missionId: mission.id,
-          timestamp: Date.now(),
-          type: 'status',
-          content: `Merging ${worktreeBranch} into ${battlefield.defaultBranch || 'main'}...\n`,
-        });
-
-        const mergeResult = await mergeBranch(
-          battlefield.repoPath,
-          worktreeBranch,
-          battlefield.defaultBranch || 'main',
-          { ...mission, debrief: r.result } as Mission,
-          battlefield.claudeMdPath,
-        );
-
-        if (mergeResult.success) {
-          // Clean up worktree and isolated config
-          await removeWorktree(battlefield.repoPath, worktreePath, worktreeBranch);
-          cleanupMissionHome(mission.id);
-          storeLog('status', mergeResult.conflictResolved
-            ? 'Merge complete (conflicts auto-resolved). Worktree cleaned up.'
-            : 'Merge complete. Worktree cleaned up.');
-        } else {
-          // Merge failed — downgrade to compromised
-          db.update(missions).set({
-            status: 'compromised',
-            debrief: r.result + `\n\n---\n\nMERGE FAILED: ${mergeResult.error}\nBranch \`${worktreeBranch}\` preserved for inspection.`,
-            updatedAt: Date.now(),
-          }).where(eq(missions.id, mission.id)).run();
-
-          io.to(room).emit('mission:status', {
-            missionId: mission.id, status: 'compromised', timestamp: Date.now(),
-          });
-          storeLog('error', `Merge failed: ${mergeResult.error}. Branch preserved.`);
-          emitActivity('mission:compromised', `Mission compromised (merge failed): ${mission.title}`);
-        }
-      }
     } else {
       // No result message — process exited without proper completion
       const compromisedDebrief = `Process exited with code ${exitCode}. ${stderrOutput ? 'Stderr: ' + stderrOutput.slice(0, 500) : 'No output captured.'}`;

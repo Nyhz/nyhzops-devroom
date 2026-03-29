@@ -79,6 +79,7 @@ export function MissionComms({
   // Build terminal logs
   const isPreDeploy = PRE_DEPLOY_STATUSES.includes(liveStatus);
   const isReviewing = liveStatus === 'reviewing';
+  const isTerminal = TERMINAL_STATUSES.includes(liveStatus);
   const terminalLogs = isPreDeploy
     ? [
         {
@@ -89,11 +90,29 @@ export function MissionComms({
         },
       ]
     : [
-        ...logs.map((log) => ({
-          timestamp: log.timestamp,
-          type: (log.type as 'log' | 'status' | 'error') ?? 'log',
-          content: log.content,
-        })),
+        ...logs
+          .filter((log) => {
+            // Hide the raw debrief text from comms — it's shown formatted below
+            // Only filter when mission is terminal (not while still running)
+            if (isTerminal && liveDebrief && log.type === 'log' && liveDebrief.startsWith(log.content.slice(0, 100))) {
+              return false;
+            }
+            return true;
+          })
+          .map((log) => ({
+            timestamp: log.timestamp,
+            type: (log.type as 'log' | 'status' | 'error') ?? 'log',
+            content: log.content,
+          })),
+        ...(isTerminal && liveDebrief
+          ? [
+              {
+                timestamp: Date.now(),
+                type: 'status' as const,
+                content: 'Debrief submitted. See report below.',
+              },
+            ]
+          : []),
         ...(isReviewing
           ? [
               {
