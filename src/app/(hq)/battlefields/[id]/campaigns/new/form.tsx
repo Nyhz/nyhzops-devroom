@@ -5,15 +5,18 @@ import { useRouter } from 'next/navigation';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacInput, TacTextarea } from '@/components/ui/tac-input';
 import { createCampaign } from '@/actions/campaign';
+import { linkNotesToCampaign } from '@/actions/intel';
 
 interface NewCampaignFormProps {
   battlefieldId: string;
+  initialObjective?: string;
+  noteIds?: string;
 }
 
-export function NewCampaignForm({ battlefieldId }: NewCampaignFormProps) {
+export function NewCampaignForm({ battlefieldId, initialObjective, noteIds }: NewCampaignFormProps) {
   const router = useRouter();
   const [name, setName] = useState('');
-  const [objective, setObjective] = useState('');
+  const [objective, setObjective] = useState(initialObjective ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,6 +28,12 @@ export function NewCampaignForm({ battlefieldId }: NewCampaignFormProps) {
     setError(null);
     try {
       const campaign = await createCampaign(battlefieldId, name.trim(), objective.trim());
+      if (noteIds) {
+        const ids = noteIds.split(',').filter(Boolean);
+        if (ids.length > 0) {
+          await linkNotesToCampaign(ids, campaign.id);
+        }
+      }
       router.push(`/battlefields/${battlefieldId}/campaigns/${campaign.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create campaign');
