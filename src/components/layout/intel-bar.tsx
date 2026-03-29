@@ -196,16 +196,25 @@ export function IntelBar() {
               )}
             </div>
 
-            {notifications.length > 0 && (
-              <div className="px-3 py-2 border-t border-dr-border">
+            <div className="px-3 py-2 border-t border-dr-border flex items-center justify-between gap-2">
+              {notifications.length > 0 ? (
                 <button
                   onClick={handleMarkAllRead}
-                  className="text-xs text-dr-amber hover:text-dr-green transition-colors font-bold w-full text-center"
+                  className="text-xs text-dr-amber hover:text-dr-green transition-colors font-bold"
                 >
                   [ MARK ALL READ ]
                 </button>
-              </div>
-            )}
+              ) : (
+                <span />
+              )}
+              <Link
+                href="/notifications"
+                onClick={() => setDropdownOpen(false)}
+                className="text-xs text-dr-muted hover:text-dr-amber transition-colors font-bold"
+              >
+                [ ALL NOTIFICATIONS ]
+              </Link>
+            </div>
           </div>
         )}
       </div>
