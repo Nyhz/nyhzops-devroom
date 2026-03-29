@@ -231,7 +231,7 @@ export async function executeMission(
       '--output-format', 'stream-json',
       '--include-partial-messages',
       '--dangerously-skip-permissions',
-      '--max-turns', '50',
+      '--max-turns', '100',
       fullPrompt,
     ];
 
