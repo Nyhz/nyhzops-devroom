@@ -35,8 +35,8 @@ export default async function BattlefieldLayout({
         {children}
       </div>
 
-      {/* Right sidebar — asset deployment */}
-      <aside className="w-[300px] border-l border-dr-border bg-dr-surface flex flex-col overflow-y-auto shrink-0">
+      {/* Right sidebar — asset deployment (hidden on mobile) */}
+      <aside className="hidden md:flex w-[300px] border-l border-dr-border bg-dr-surface flex-col overflow-y-auto shrink-0">
         <AssetDeployment initialData={initialDeployment} />
       </aside>
     </div>
