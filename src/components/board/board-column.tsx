@@ -1,9 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { cn } from '@/lib/utils';
 import { BoardCard } from './board-card';
 import type { IntelNoteWithMission } from '@/types';
+
+const COLLAPSED_LIMIT = 10;
+const COLLAPSIBLE_COLUMNS = new Set(['accomplished', 'compromised']);
 
 // ---------------------------------------------------------------------------
 // Props
@@ -36,6 +40,12 @@ export function BoardColumn({
   onCardClick,
   className,
 }: BoardColumnProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  const isCollapsible = COLLAPSIBLE_COLUMNS.has(columnKey) && cards.length > COLLAPSED_LIMIT;
+  const visibleCards = isCollapsible && !expanded ? cards.slice(0, COLLAPSED_LIMIT) : cards;
+  const hiddenCount = cards.length - COLLAPSED_LIMIT;
+
   return (
     <div className={cn('flex-shrink-0 w-72 flex flex-col min-h-0', className)}>
       {/* Column header */}
@@ -59,7 +69,7 @@ export function BoardColumn({
               snapshot.isDraggingOver && acceptsDrop && 'border-dr-amber/20 bg-dr-amber/[0.03]',
             )}
           >
-            {cards.map((note, index) => {
+            {visibleCards.map((note, index) => {
               const isLinked = note.missionId !== null;
 
               if (isLinked) {
@@ -96,6 +106,26 @@ export function BoardColumn({
                 </Draggable>
               );
             })}
+
+            {isCollapsible && !expanded && (
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                className="text-dr-dim hover:text-dr-muted text-[11px] font-tactical py-2 text-center transition-colors"
+              >
+                SHOW ALL (+{hiddenCount})
+              </button>
+            )}
+
+            {isCollapsible && expanded && (
+              <button
+                type="button"
+                onClick={() => setExpanded(false)}
+                className="text-dr-dim hover:text-dr-muted text-[11px] font-tactical py-2 text-center transition-colors"
+              >
+                SHOW RECENT
+              </button>
+            )}
 
             {provided.placeholder}
           </div>
