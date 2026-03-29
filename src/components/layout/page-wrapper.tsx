@@ -25,7 +25,7 @@ export function PageWrapper({ children, className, maxWidth, breadcrumb, title, 
       {(breadcrumbText || title) && (
         <div className="space-y-1">
           {breadcrumbText && (
-            <p className="text-xs font-tactical tracking-wider uppercase text-dr-dim">
+            <p className="text-sm font-tactical tracking-wider uppercase text-dr-dim">
               {breadcrumbText}
             </p>
           )}

@@ -81,7 +81,7 @@ export function Sidebar() {
 
       {/* Intel Briefing */}
       <div className="border-t border-dr-border px-5 py-4">
-        <span className="text-dr-dim text-xs tracking-widest uppercase">
+        <span className="text-dr-dim text-sm tracking-widest uppercase">
           Intel Briefing
         </span>
         <div className="mt-2 flex items-center gap-2">
@@ -90,7 +90,7 @@ export function Sidebar() {
         </div>
         <div className="mt-1.5 flex items-center gap-2">
           <span className="text-dr-dim text-sm">●</span>
-          <span className="text-dr-dim text-sm">
+          <span className="text-dr-muted text-sm">
             {globalThis.orchestrator?.getActiveCount() ?? 0}/{config.maxAgents} assets deployed
           </span>
         </div>

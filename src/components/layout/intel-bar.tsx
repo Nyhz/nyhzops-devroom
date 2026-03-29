@@ -155,13 +155,13 @@ export function IntelBar() {
             <div className="px-3 py-2 border-b border-dr-border flex items-center justify-between">
               <span className="text-dr-amber text-xs font-bold">NOTIFICATIONS</span>
               {unreadCount > 0 && (
-                <span className="text-dr-dim text-xs">{unreadCount} UNREAD</span>
+                <span className="text-dr-muted text-sm">{unreadCount} UNREAD</span>
               )}
             </div>
 
             <div className="overflow-y-auto flex-1">
               {notifications.length === 0 ? (
-                <div className="px-3 py-6 text-center text-dr-dim text-xs">
+                <div className="px-3 py-6 text-center text-dr-muted text-sm">
                   No notifications
                 </div>
               ) : (
@@ -183,13 +183,13 @@ export function IntelBar() {
                             {n.title}
                           </span>
                           {!n.read && (
-                            <span className="w-1.5 h-1.5 bg-dr-amber rounded-full flex-shrink-0" />
+                            <span className="w-2 h-2 bg-dr-amber rounded-full flex-shrink-0" />
                           )}
                         </div>
                         <p className="text-xs text-dr-muted truncate mt-0.5">
                           {n.detail}
                         </p>
-                        <span className="text-[10px] text-dr-dim mt-0.5 block">
+                        <span className="text-xs text-dr-dim mt-0.5 block">
                           {formatRelativeTime(n.createdAt)}
                         </span>
                       </div>
@@ -217,7 +217,7 @@ export function IntelBar() {
         href="/logistics"
         className="flex items-center gap-1.5 text-xs whitespace-nowrap hover:opacity-80 transition-opacity"
       >
-        <span className="text-dr-dim">LOGISTICS</span>
+        <span className="text-dr-muted">LOGISTICS</span>
         <span className="text-sm text-dr-green">{'\u25CF'}</span>
       </Link>
     </header>

@@ -25,7 +25,7 @@ export function BattlefieldSelector({ battlefields }: BattlefieldSelectorProps) 
 
   if (battlefields.length === 0) {
     return (
-      <div className="text-dr-dim text-xs px-1 py-1">No battlefields</div>
+      <div className="text-dr-muted text-sm px-1 py-1">No battlefields</div>
     );
   }
 
@@ -34,12 +34,12 @@ export function BattlefieldSelector({ battlefields }: BattlefieldSelectorProps) 
       value={currentId ?? ""}
       onValueChange={(id) => router.push(`/battlefields/${id}`)}
     >
-      <TacSelectTrigger className="w-full text-xs h-8">
+      <TacSelectTrigger className="w-full text-sm h-9">
         <TacSelectValue placeholder="Select battlefield" />
       </TacSelectTrigger>
       <TacSelectContent>
         {battlefields.map((bf) => (
-          <TacSelectItem key={bf.id} value={bf.id} className="text-xs">
+          <TacSelectItem key={bf.id} value={bf.id} className="text-sm">
             {bf.codename}
           </TacSelectItem>
         ))}
