@@ -1,7 +1,6 @@
-import { spawn } from 'child_process';
 import { eq, and, like } from 'drizzle-orm';
-import { config } from '@/lib/config';
 import { getDatabase } from '@/lib/db/index';
+import { runClaudePrint } from '@/lib/process/claude-print';
 import { captainLogs } from '@/lib/db/schema';
 import type { Campaign, Phase, Mission } from '@/types';
 
@@ -148,42 +147,19 @@ export async function handlePhaseFailure(params: {
 
   const prompt = buildPhaseFailurePrompt(params);
 
-  return new Promise<PhaseFailureDecision>((resolve) => {
-    const proc = spawn(config.claudePath, [
-      '--print',
-      '--dangerously-skip-permissions',
-      '--max-turns', '1',
-    ], { cwd: '/tmp' });
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
-    proc.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); });
-
-    proc.stdin?.write(prompt);
-    proc.stdin?.end();
-
-    proc.on('close', (code) => {
-      if (code === 0 && stdout.trim()) {
-        const decision = parseDecision(stdout);
-        if (decision.decision === 'retry' && retryCount >= 2) {
-          resolve({
-            decision: 'escalate',
-            reasoning: `Captain recommended retry but limit reached (${retryCount}). Escalating.`,
-          });
-        } else {
-          resolve(decision);
-        }
-      } else {
-        console.warn(`[Captain] Phase failure handler exited with code ${code}. stderr: ${stderr.slice(0, 200)}`);
-        resolve(FALLBACK_DECISION);
-      }
-    });
-
-    proc.on('error', (err) => {
-      console.error(`[Captain] Phase failure handler spawn error:`, err.message);
-      resolve(FALLBACK_DECISION);
-    });
-  });
+  try {
+    const stdout = await runClaudePrint(prompt);
+    const decision = parseDecision(stdout);
+    if (decision.decision === 'retry' && retryCount >= 2) {
+      return {
+        decision: 'escalate',
+        reasoning: `Captain recommended retry but limit reached (${retryCount}). Escalating.`,
+      };
+    }
+    return decision;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Captain] Phase failure handler failed: ${msg}`);
+    return FALLBACK_DECISION;
+  }
 }

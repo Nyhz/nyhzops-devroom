@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { eq, desc, and, inArray } from 'drizzle-orm';
-import { getDatabase } from '@/lib/db/index';
+import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { campaigns, phases, missions, missionLogs, assets, battlefields } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import type { Campaign, CampaignWithPlan, PlanJSON, Phase, Mission } from '@/types';
@@ -12,10 +12,100 @@ import type { Campaign, CampaignWithPlan, PlanJSON, Phase, Mission } from '@/typ
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * If a campaign exists and isn't active, move it back to active.
+ */
+function reactivateCampaignIfNeeded(campaignId: string) {
+  const db = getDatabase();
+  const campaign = db.select().from(campaigns).where(eq(campaigns.id, campaignId)).get();
+  if (campaign && campaign.status !== 'active') {
+    db.update(campaigns).set({
+      status: 'active',
+      updatedAt: Date.now(),
+    }).where(eq(campaigns.id, campaignId)).run();
+  }
+}
+
+/**
+ * Ensure a CampaignExecutor is registered and notify it of mission completion.
+ * Auto-registers executor if missing (e.g. after server restart).
+ */
+async function notifyCampaignExecutor(campaignId: string, missionId: string) {
+  let executor = globalThis.orchestrator?.activeCampaigns.get(campaignId);
+  if (!executor && globalThis.orchestrator) {
+    const { CampaignExecutor } = await import('@/lib/orchestrator/campaign-executor');
+    executor = new CampaignExecutor(campaignId, globalThis.io!);
+    globalThis.orchestrator.activeCampaigns.set(campaignId, executor);
+  }
+  if (executor) {
+    executor.onCampaignMissionComplete(missionId).catch(console.error);
+  }
+}
+
 function revalidateCampaignPaths(battlefieldId: string, campaignId?: string) {
   revalidatePath(`/battlefields/${battlefieldId}/campaigns`);
   if (campaignId) {
     revalidatePath(`/battlefields/${battlefieldId}/campaigns/${campaignId}`);
+  }
+}
+
+/**
+ * Clone all phases and missions from one campaign to another.
+ * Used by redeployCampaign and runTemplate.
+ */
+function cloneCampaignPlan(
+  sourceCampaignId: string,
+  targetCampaignId: string,
+  targetBattlefieldId: string,
+) {
+  const db = getDatabase();
+  const now = Date.now();
+
+  const originalPhases = db
+    .select()
+    .from(phases)
+    .where(eq(phases.campaignId, sourceCampaignId))
+    .orderBy(phases.phaseNumber)
+    .all();
+
+  for (const originalPhase of originalPhases) {
+    const newPhaseId = generateId();
+
+    db.insert(phases).values({
+      id: newPhaseId,
+      campaignId: targetCampaignId,
+      phaseNumber: originalPhase.phaseNumber,
+      name: originalPhase.name,
+      objective: originalPhase.objective,
+      status: 'standby',
+      createdAt: now,
+    }).run();
+
+    const originalMissions = db
+      .select()
+      .from(missions)
+      .where(eq(missions.phaseId, originalPhase.id))
+      .all();
+
+    for (const originalMission of originalMissions) {
+      const newMissionId = generateId();
+
+      db.insert(missions).values({
+        id: newMissionId,
+        battlefieldId: targetBattlefieldId,
+        campaignId: targetCampaignId,
+        phaseId: newPhaseId,
+        type: originalMission.type,
+        title: originalMission.title,
+        briefing: originalMission.briefing,
+        status: 'standby',
+        priority: originalMission.priority,
+        assetId: originalMission.assetId,
+        dependsOn: originalMission.dependsOn ?? null,
+        createdAt: now,
+        updatedAt: now,
+      }).run();
+    }
   }
 }
 
@@ -254,13 +344,7 @@ export async function updateCampaign(
 ): Promise<void> {
   const db = getDatabase();
 
-  const campaign = db
-    .select()
-    .from(campaigns)
-    .where(eq(campaigns.id, id))
-    .get();
-
-  if (!campaign) throw new Error(`updateCampaign: campaign ${id} not found`);
+  const campaign = getOrThrow(campaigns, id, 'updateCampaign');
   if (campaign.status !== 'draft' && campaign.status !== 'planning') {
     throw new Error(
       `updateCampaign: can only update draft or planning campaigns (current: ${campaign.status})`,
@@ -285,13 +369,7 @@ export async function updateCampaign(
 export async function deleteCampaign(id: string): Promise<void> {
   const db = getDatabase();
 
-  const campaign = db
-    .select()
-    .from(campaigns)
-    .where(eq(campaigns.id, id))
-    .get();
-
-  if (!campaign) throw new Error(`deleteCampaign: campaign ${id} not found`);
+  const campaign = getOrThrow(campaigns, id, 'deleteCampaign');
   if (campaign.status !== 'draft' && campaign.status !== 'planning') {
     throw new Error(
       `deleteCampaign: can only delete draft or planning campaigns (current: ${campaign.status})`,
@@ -316,9 +394,8 @@ export async function deleteCampaign(id: string): Promise<void> {
 
 export async function backToDraft(campaignId: string): Promise<void> {
   const db = getDatabase();
-  const campaign = db.select().from(campaigns).where(eq(campaigns.id, campaignId)).get();
-  if (!campaign) throw new Error('Campaign not found');
-  if (campaign.status !== 'planning') throw new Error('Can only go back to draft from planning');
+  const campaign = getOrThrow(campaigns, campaignId, 'backToDraft');
+  if (campaign.status !== 'planning') throw new Error('backToDraft: can only go back to draft from planning');
 
   db.update(campaigns).set({
     status: 'draft',
@@ -338,15 +415,7 @@ export async function updateBattlePlan(
 ): Promise<void> {
   const db = getDatabase();
 
-  const campaign = db
-    .select()
-    .from(campaigns)
-    .where(eq(campaigns.id, campaignId))
-    .get();
-
-  if (!campaign) {
-    throw new Error(`updateBattlePlan: campaign ${campaignId} not found`);
-  }
+  const campaign = getOrThrow(campaigns, campaignId, 'updateBattlePlan');
   if (campaign.status !== 'planning') {
     throw new Error(
       `updateBattlePlan: can only update plan for planning campaigns (current: ${campaign.status})`,
@@ -377,15 +446,7 @@ export async function launchCampaign(
 ): Promise<void> {
   const db = getDatabase();
 
-  const campaign = db
-    .select()
-    .from(campaigns)
-    .where(eq(campaigns.id, campaignId))
-    .get();
-
-  if (!campaign) {
-    throw new Error(`launchCampaign: campaign ${campaignId} not found`);
-  }
+  const campaign = getOrThrow(campaigns, campaignId, 'launchCampaign');
 
   // Validate has phases with missions
   const campaignPhases = db
@@ -453,13 +514,7 @@ export async function launchCampaign(
 export async function completeCampaign(id: string): Promise<void> {
   const db = getDatabase();
 
-  const campaign = db
-    .select()
-    .from(campaigns)
-    .where(eq(campaigns.id, id))
-    .get();
-
-  if (!campaign) throw new Error(`completeCampaign: campaign ${id} not found`);
+  const campaign = getOrThrow(campaigns, id, 'completeCampaign');
 
   db.update(campaigns)
     .set({
@@ -479,13 +534,7 @@ export async function completeCampaign(id: string): Promise<void> {
 export async function abandonCampaign(id: string): Promise<void> {
   const db = getDatabase();
 
-  const campaign = db
-    .select()
-    .from(campaigns)
-    .where(eq(campaigns.id, id))
-    .get();
-
-  if (!campaign) throw new Error(`abandonCampaign: campaign ${id} not found`);
+  const campaign = getOrThrow(campaigns, id, 'abandonCampaign');
 
   // Abort all running missions via orchestrator
   globalThis.orchestrator?.abortCampaign(id);
@@ -541,13 +590,7 @@ export async function abandonCampaign(id: string): Promise<void> {
 export async function redeployCampaign(id: string): Promise<Campaign> {
   const db = getDatabase();
 
-  const campaign = db
-    .select()
-    .from(campaigns)
-    .where(eq(campaigns.id, id))
-    .get();
-
-  if (!campaign) throw new Error(`redeployCampaign: campaign ${id} not found`);
+  const campaign = getOrThrow(campaigns, id, 'redeployCampaign');
 
   const now = Date.now();
   const newCampaignId = generateId();
@@ -567,54 +610,7 @@ export async function redeployCampaign(id: string): Promise<Campaign> {
     updatedAt: now,
   }).run();
 
-  // Clone phases and missions
-  const originalPhases = db
-    .select()
-    .from(phases)
-    .where(eq(phases.campaignId, id))
-    .orderBy(phases.phaseNumber)
-    .all();
-
-  for (const originalPhase of originalPhases) {
-    const newPhaseId = generateId();
-
-    db.insert(phases).values({
-      id: newPhaseId,
-      campaignId: newCampaignId,
-      phaseNumber: originalPhase.phaseNumber,
-      name: originalPhase.name,
-      objective: originalPhase.objective,
-      status: 'standby',
-      createdAt: now,
-    }).run();
-
-    // Clone missions for this phase
-    const originalMissions = db
-      .select()
-      .from(missions)
-      .where(eq(missions.phaseId, originalPhase.id))
-      .all();
-
-    for (const originalMission of originalMissions) {
-      const newMissionId = generateId();
-
-      db.insert(missions).values({
-        id: newMissionId,
-        battlefieldId: campaign.battlefieldId,
-        campaignId: newCampaignId,
-        phaseId: newPhaseId,
-        type: originalMission.type,
-        title: originalMission.title,
-        briefing: originalMission.briefing,
-        status: 'standby',
-        priority: originalMission.priority,
-        assetId: originalMission.assetId,
-        dependsOn: originalMission.dependsOn ?? null,
-        createdAt: now,
-        updatedAt: now,
-      }).run();
-    }
-  }
+  cloneCampaignPlan(id, newCampaignId, campaign.battlefieldId);
 
   const newCampaign = db
     .select()
@@ -639,13 +635,7 @@ export async function redeployCampaign(id: string): Promise<Campaign> {
 export async function saveAsTemplate(campaignId: string): Promise<void> {
   const db = getDatabase();
 
-  const campaign = db
-    .select()
-    .from(campaigns)
-    .where(eq(campaigns.id, campaignId))
-    .get();
-
-  if (!campaign) throw new Error(`saveAsTemplate: campaign ${campaignId} not found`);
+  const campaign = getOrThrow(campaigns, campaignId, 'saveAsTemplate');
   if (campaign.status !== 'accomplished' && campaign.status !== 'planning') {
     throw new Error(
       `saveAsTemplate: can only save accomplished or planning campaigns as templates (current: ${campaign.status})`,
@@ -667,13 +657,7 @@ export async function saveAsTemplate(campaignId: string): Promise<void> {
 export async function runTemplate(templateId: string): Promise<Campaign> {
   const db = getDatabase();
 
-  const template = db
-    .select()
-    .from(campaigns)
-    .where(eq(campaigns.id, templateId))
-    .get();
-
-  if (!template) throw new Error(`runTemplate: template ${templateId} not found`);
+  const template = getOrThrow(campaigns, templateId, 'runTemplate');
   if (!template.isTemplate) {
     throw new Error(`runTemplate: campaign ${templateId} is not a template`);
   }
@@ -696,54 +680,7 @@ export async function runTemplate(templateId: string): Promise<Campaign> {
     updatedAt: now,
   }).run();
 
-  // Clone phases
-  const originalPhases = db
-    .select()
-    .from(phases)
-    .where(eq(phases.campaignId, templateId))
-    .orderBy(phases.phaseNumber)
-    .all();
-
-  for (const originalPhase of originalPhases) {
-    const newPhaseId = generateId();
-
-    db.insert(phases).values({
-      id: newPhaseId,
-      campaignId: newCampaignId,
-      phaseNumber: originalPhase.phaseNumber,
-      name: originalPhase.name,
-      objective: originalPhase.objective,
-      status: 'standby',
-      createdAt: now,
-    }).run();
-
-    // Clone missions for this phase
-    const originalMissions = db
-      .select()
-      .from(missions)
-      .where(eq(missions.phaseId, originalPhase.id))
-      .all();
-
-    for (const originalMission of originalMissions) {
-      const newMissionId = generateId();
-
-      db.insert(missions).values({
-        id: newMissionId,
-        battlefieldId: template.battlefieldId,
-        campaignId: newCampaignId,
-        phaseId: newPhaseId,
-        type: originalMission.type,
-        title: originalMission.title,
-        briefing: originalMission.briefing,
-        status: 'standby',
-        priority: originalMission.priority,
-        assetId: originalMission.assetId,
-        dependsOn: originalMission.dependsOn ?? null,
-        createdAt: now,
-        updatedAt: now,
-      }).run();
-    }
-  }
+  cloneCampaignPlan(templateId, newCampaignId, template.battlefieldId);
 
   const newCampaign = db
     .select()
@@ -781,15 +718,7 @@ export async function listTemplates(battlefieldId: string): Promise<Campaign[]> 
 export async function resumeCampaign(campaignId: string): Promise<void> {
   const db = getDatabase();
 
-  const campaign = db
-    .select()
-    .from(campaigns)
-    .where(eq(campaigns.id, campaignId))
-    .get();
-
-  if (!campaign) {
-    throw new Error(`resumeCampaign: campaign ${campaignId} not found`);
-  }
+  const campaign = getOrThrow(campaigns, campaignId, 'resumeCampaign');
   if (campaign.status !== 'paused') {
     throw new Error(
       `resumeCampaign: campaign must be paused to resume (current: ${campaign.status})`,
@@ -815,17 +744,7 @@ export async function skipAndContinueCampaign(
 ): Promise<void> {
   const db = getDatabase();
 
-  const campaign = db
-    .select()
-    .from(campaigns)
-    .where(eq(campaigns.id, campaignId))
-    .get();
-
-  if (!campaign) {
-    throw new Error(
-      `skipAndContinueCampaign: campaign ${campaignId} not found`,
-    );
-  }
+  const campaign = getOrThrow(campaigns, campaignId, 'skipAndContinueCampaign');
   if (campaign.status !== 'paused') {
     throw new Error(
       `skipAndContinueCampaign: campaign must be paused to skip (current: ${campaign.status})`,
@@ -846,9 +765,8 @@ export async function tacticalOverride(
   newBriefing: string,
 ): Promise<void> {
   const db = getDatabase();
-  const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
-  if (!mission) throw new Error('Mission not found');
-  if (mission.status !== 'compromised') throw new Error('Can only override compromised missions');
+  const mission = getOrThrow(missions, missionId, 'tacticalOverride');
+  if (mission.status !== 'compromised') throw new Error('tacticalOverride: can only override compromised missions');
 
   const now = Date.now();
 
@@ -863,15 +781,8 @@ export async function tacticalOverride(
     updatedAt: now,
   }).where(eq(missions.id, missionId)).run();
 
-  // If campaign is not active, move back to active
   if (mission.campaignId) {
-    const campaign = db.select().from(campaigns).where(eq(campaigns.id, mission.campaignId)).get();
-    if (campaign && campaign.status !== 'active') {
-      db.update(campaigns).set({
-        status: 'active',
-        updatedAt: now,
-      }).where(eq(campaigns.id, mission.campaignId)).run();
-    }
+    reactivateCampaignIfNeeded(mission.campaignId);
   }
 
   revalidatePath(`/battlefields/${mission.battlefieldId}`);
@@ -884,9 +795,8 @@ export async function tacticalOverride(
 
 export async function commanderOverride(missionId: string): Promise<void> {
   const db = getDatabase();
-  const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
-  if (!mission) throw new Error('Mission not found');
-  if (mission.status !== 'compromised') throw new Error('Can only override compromised missions');
+  const mission = getOrThrow(missions, missionId, 'commanderOverride');
+  if (mission.status !== 'compromised') throw new Error('commanderOverride: can only override compromised missions');
 
   const now = Date.now();
 
@@ -896,27 +806,9 @@ export async function commanderOverride(missionId: string): Promise<void> {
     updatedAt: now,
   }).where(eq(missions.id, missionId)).run();
 
-  // If campaign is not active, move back to active
   if (mission.campaignId) {
-    const campaign = db.select().from(campaigns).where(eq(campaigns.id, mission.campaignId)).get();
-    if (campaign && campaign.status !== 'active') {
-      db.update(campaigns).set({
-        status: 'active',
-        updatedAt: now,
-      }).where(eq(campaigns.id, mission.campaignId)).run();
-    }
-
-    // Notify campaign executor to check dependencies and phase completion
-    // Auto-register executor if missing (e.g. after server restart)
-    let executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
-    if (!executor && globalThis.orchestrator) {
-      const { CampaignExecutor } = await import('@/lib/orchestrator/campaign-executor');
-      executor = new CampaignExecutor(mission.campaignId, globalThis.io!);
-      globalThis.orchestrator.activeCampaigns.set(mission.campaignId, executor);
-    }
-    if (executor) {
-      executor.onCampaignMissionComplete(missionId).catch(console.error);
-    }
+    reactivateCampaignIfNeeded(mission.campaignId);
+    await notifyCampaignExecutor(mission.campaignId, missionId);
   }
 
   // Emit status change via socket
@@ -935,9 +827,8 @@ export async function commanderOverride(missionId: string): Promise<void> {
 
 export async function skipMission(missionId: string): Promise<void> {
   const db = getDatabase();
-  const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
-  if (!mission) throw new Error('Mission not found');
-  if (mission.status !== 'compromised') throw new Error('Can only skip compromised missions');
+  const mission = getOrThrow(missions, missionId, 'skipMission');
+  if (mission.status !== 'compromised') throw new Error('skipMission: can only skip compromised missions');
 
   const now = Date.now();
 
@@ -974,28 +865,10 @@ export async function skipMission(missionId: string): Promise<void> {
     }
   }
 
-  // If campaign is not active, move back to active
   if (mission.campaignId) {
-    const campaign = db.select().from(campaigns).where(eq(campaigns.id, mission.campaignId)).get();
-    if (campaign && campaign.status !== 'active') {
-      db.update(campaigns).set({
-        status: 'active',
-        updatedAt: now,
-      }).where(eq(campaigns.id, mission.campaignId)).run();
-    }
-
-    // Notify campaign executor to check phase completion
-    // Auto-register executor if missing (e.g. after server restart)
+    reactivateCampaignIfNeeded(mission.campaignId);
     if (mission.phaseId) {
-      let executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
-      if (!executor && globalThis.orchestrator) {
-        const { CampaignExecutor } = await import('@/lib/orchestrator/campaign-executor');
-        executor = new CampaignExecutor(mission.campaignId, globalThis.io!);
-        globalThis.orchestrator.activeCampaigns.set(mission.campaignId, executor);
-      }
-      if (executor) {
-        executor.onCampaignMissionComplete(missionId).catch(console.error);
-      }
+      await notifyCampaignExecutor(mission.campaignId, missionId);
     }
   }
 

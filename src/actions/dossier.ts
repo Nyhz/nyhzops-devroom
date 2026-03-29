@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { eq, asc } from 'drizzle-orm';
-import { getDatabase } from '@/lib/db/index';
+import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { dossiers } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import type { Dossier, DossierVariable } from '@/types';
@@ -95,10 +95,7 @@ export async function updateDossier(
 ): Promise<void> {
   const db = getDatabase();
 
-  const existing = db.select().from(dossiers).where(eq(dossiers.id, id)).get();
-  if (!existing) {
-    throw new Error(`Dossier ${id} not found`);
-  }
+  const existing = getOrThrow(dossiers, id, 'updateDossier');
 
   const updates: Record<string, unknown> = { updatedAt: Date.now() };
 
@@ -158,11 +155,7 @@ export async function updateDossier(
 // ---------------------------------------------------------------------------
 export async function deleteDossier(id: string): Promise<void> {
   const db = getDatabase();
-
-  const existing = db.select().from(dossiers).where(eq(dossiers.id, id)).get();
-  if (!existing) {
-    throw new Error(`Dossier ${id} not found`);
-  }
+  getOrThrow(dossiers, id, 'deleteDossier');
 
   db.delete(dossiers).where(eq(dossiers.id, id)).run();
 
@@ -178,10 +171,7 @@ export async function resolveDossier(
 ): Promise<{ briefing: string; assetCodename: string | null }> {
   const db = getDatabase();
 
-  const dossier = db.select().from(dossiers).where(eq(dossiers.id, id)).get();
-  if (!dossier) {
-    throw new Error(`Dossier ${id} not found`);
-  }
+  const dossier = getOrThrow(dossiers, id, 'resolveDossier');
 
   let briefing = dossier.briefingTemplate;
 

@@ -1,5 +1,4 @@
-import { spawn } from 'child_process';
-import { config } from '@/lib/config';
+import { runClaudePrint } from '@/lib/process/claude-print';
 
 export interface DebriefReview {
   satisfactory: boolean;
@@ -73,35 +72,10 @@ Rules:
 }
 
 function spawnReview(prompt: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(config.claudePath, [
-      '--print',
-      '--output-format', 'json',
-      '--dangerously-skip-permissions',
-      '--max-turns', '5',
-      '--json-schema', REVIEW_JSON_SCHEMA,
-    ], { cwd: '/tmp' });
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
-    proc.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); });
-
-    proc.stdin?.write(prompt);
-    proc.stdin?.end();
-
-    proc.on('close', (code) => {
-      if (code === 0 && stdout.trim()) {
-        resolve(stdout);
-      } else {
-        reject(new Error(`Review process exited with code ${code}. stderr: ${stderr.slice(0, 500)}`));
-      }
-    });
-
-    proc.on('error', (err) => {
-      reject(err);
-    });
+  return runClaudePrint(prompt, {
+    maxTurns: 5,
+    outputFormat: 'json',
+    jsonSchema: REVIEW_JSON_SCHEMA,
   });
 }
 
