@@ -43,7 +43,6 @@ export async function runCaptainReview(missionId: string): Promise<void> {
       entityType: 'mission',
       entityId: mission.id,
       battlefieldId: mission.battlefieldId,
-      campaignId: mission.campaignId,
     });
     return;
   }
@@ -84,7 +83,6 @@ export async function runCaptainReview(missionId: string): Promise<void> {
       entityType: 'mission',
       entityId: mission.id,
       battlefieldId: mission.battlefieldId,
-      campaignId: mission.campaignId,
     });
     return;
   }
