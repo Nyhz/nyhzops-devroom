@@ -22,7 +22,7 @@ export function ChatMessage({ role, content, isStreaming, className }: ChatMessa
 
   return (
     <div className={cn('flex', isCommander ? 'justify-end' : 'justify-start', className)}>
-      <div className="max-w-[80%] space-y-1">
+      <div className="max-w-[90%] md:max-w-[80%] space-y-1 min-w-0">
         <div
           className={cn(
             'font-tactical text-[10px] tracking-widest',

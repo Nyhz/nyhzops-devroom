@@ -237,25 +237,26 @@ export function GeneralChat({
     <div className="flex flex-col h-full relative">
       {/* Tab bar */}
       <div className="flex items-center border-b border-dr-border bg-dr-surface shrink-0">
-        <div className="flex-1 flex items-center overflow-x-auto">
+        <div className="flex-1 flex items-center overflow-x-auto scrollbar-none relative">
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-dr-surface to-transparent md:hidden z-10" />
           {sessions.map((session) => (
             <button
               key={session.id}
               onClick={() => handleSwitchSession(session.id)}
               className={cn(
-                'flex items-center gap-2 px-4 py-2.5 font-tactical text-xs tracking-wider border-b-2 transition-colors shrink-0',
+                'flex items-center gap-2 px-3 md:px-4 min-h-[44px] font-tactical text-xs tracking-wider border-b-2 transition-colors shrink-0',
                 session.id === activeSessionId
                   ? 'border-dr-green text-dr-green bg-dr-elevated'
                   : 'border-transparent text-dr-muted hover:text-dr-text hover:bg-dr-elevated',
               )}
             >
-              <span className="truncate max-w-[160px]">{session.name}</span>
+              <span className="truncate max-w-[120px] md:max-w-[160px]">{session.name}</span>
               <span
                 onClick={(e) => {
                   e.stopPropagation();
                   setCloseTarget(session);
                 }}
-                className="text-dr-dim hover:text-dr-red ml-1 text-[10px]"
+                className="text-dr-dim hover:text-dr-red ml-1 text-[10px] min-w-[20px] min-h-[20px] flex items-center justify-center"
               >
                 ✕
               </span>
@@ -263,7 +264,7 @@ export function GeneralChat({
           ))}
           <button
             onClick={() => setShowNewModal(true)}
-            className="px-4 py-2.5 text-dr-dim hover:text-dr-amber font-mono text-sm transition-colors shrink-0"
+            className="px-3 md:px-4 min-h-[44px] text-dr-dim hover:text-dr-amber font-mono text-sm transition-colors shrink-0"
           >
             +
           </button>
@@ -271,7 +272,7 @@ export function GeneralChat({
         <button
           onClick={() => setShowCommands((v) => !v)}
           className={cn(
-            'px-4 py-2.5 font-mono text-sm transition-colors shrink-0',
+            'px-3 md:px-4 min-h-[44px] font-mono text-sm transition-colors shrink-0',
             showCommands ? 'text-dr-amber' : 'text-dr-dim hover:text-dr-amber',
           )}
         >
@@ -281,8 +282,8 @@ export function GeneralChat({
 
       {/* Chat header */}
       {activeSession && (
-        <div className="flex items-center justify-between px-4 py-2 border-b border-dr-border bg-dr-surface shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between px-3 py-2 md:px-4 gap-2 border-b border-dr-border bg-dr-surface shrink-0">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
             {editingName ? (
               <input
                 type="text"
@@ -293,7 +294,7 @@ export function GeneralChat({
                   if (e.key === 'Enter') handleRename();
                   if (e.key === 'Escape') setEditingName(false);
                 }}
-                className="bg-dr-bg border border-dr-amber text-dr-text font-tactical text-sm px-2 py-1 focus:outline-none"
+                className="bg-dr-bg border border-dr-amber text-dr-text font-tactical text-sm px-2 py-1 focus:outline-none w-full md:w-auto"
                 autoFocus
               />
             ) : (
@@ -302,23 +303,24 @@ export function GeneralChat({
                   setEditName(activeSession.name);
                   setEditingName(true);
                 }}
-                className="text-dr-text font-tactical text-sm hover:text-dr-amber transition-colors"
+                className="text-dr-text font-tactical text-sm hover:text-dr-amber transition-colors truncate"
               >
                 {activeSession.name}
               </button>
             )}
             {activeSession.battlefieldId && (
-              <span className="text-dr-dim font-mono text-[10px]">
+              <span className="text-dr-dim font-mono text-[10px] shrink-0">
                 BATTLEFIELD LINKED
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <TacButton
               variant="ghost"
               size="sm"
               onClick={() => sendMessage('/clear')}
               disabled={isLoading}
+              className="hidden md:inline-flex"
             >
               CLEAR CONTEXT
             </TacButton>
@@ -327,22 +329,41 @@ export function GeneralChat({
               size="sm"
               onClick={() => sendMessage('/compact')}
               disabled={isLoading}
+              className="hidden md:inline-flex"
             >
               COMPACT
+            </TacButton>
+            <TacButton
+              variant="ghost"
+              size="sm"
+              onClick={() => sendMessage('/clear')}
+              disabled={isLoading}
+              className="md:hidden"
+            >
+              CLR
+            </TacButton>
+            <TacButton
+              variant="ghost"
+              size="sm"
+              onClick={() => sendMessage('/compact')}
+              disabled={isLoading}
+              className="md:hidden"
+            >
+              CMP
             </TacButton>
             <TacButton
               variant="danger"
               size="sm"
               onClick={() => setCloseTarget(activeSession)}
             >
-              END SESSION
+              END
             </TacButton>
           </div>
         </div>
       )}
 
       {/* Chat body */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 relative">
+      <div className="flex-1 overflow-y-auto px-3 py-3 md:px-4 md:py-4 space-y-4 relative">
         {messages.map((msg) => (
           <ChatMessage key={msg.id} role={msg.role} content={msg.content} />
         ))}
@@ -370,7 +391,7 @@ export function GeneralChat({
 
       {/* Input */}
       {activeSession && (
-        <div className="relative border-t border-dr-border shrink-0 bg-dr-surface">
+        <div className="relative border-t border-dr-border shrink-0 bg-dr-surface sticky bottom-0">
           {/* Slash command autocomplete */}
           {slashMenuOpen && filteredCommands.length > 0 && (
             <div
@@ -385,7 +406,7 @@ export function GeneralChat({
                     selectSlashCommand(cmd.name);
                   }}
                   className={cn(
-                    'w-full flex items-center gap-3 px-4 py-2 text-left transition-colors',
+                    'w-full flex items-center gap-3 px-3 md:px-4 py-2 text-left transition-colors min-h-[44px]',
                     i === slashMenuIndex
                       ? 'bg-dr-green/10'
                       : 'hover:bg-dr-surface',
@@ -408,7 +429,7 @@ export function GeneralChat({
               disabled={isLoading}
               className={cn(
                 'flex-1 bg-transparent text-dr-text font-mono text-sm',
-                'px-4 py-3 placeholder:text-dr-dim resize-none',
+                'px-3 py-3 md:px-4 placeholder:text-dr-dim resize-none',
                 'focus:outline-none',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
               )}
@@ -417,7 +438,7 @@ export function GeneralChat({
               onClick={handleSend}
               disabled={isLoading || !input.trim()}
               className={cn(
-                'px-4 py-3 font-tactical text-xs tracking-widest transition-colors shrink-0',
+                'px-3 py-3 md:px-4 font-tactical text-xs tracking-widest transition-colors shrink-0 min-h-[44px] min-w-[44px]',
                 input.trim() && !isLoading
                   ? 'text-dr-green hover:bg-dr-green/10'
                   : 'text-dr-dim cursor-not-allowed',

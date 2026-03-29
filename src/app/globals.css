@@ -148,6 +148,15 @@
     scrollbar-width: thin;
     scrollbar-color: #2a2a32 #0a0a0c;
   }
+
+  /* Hide scrollbar utility */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* ── GENERAL chat markdown ── */
@@ -218,6 +227,8 @@
   border-collapse: collapse;
   margin: 0.75em 0;
   font-size: 14px;
+  display: block;
+  overflow-x: auto;
 }
 
 .general-markdown thead th {
