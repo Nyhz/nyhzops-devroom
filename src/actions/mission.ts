@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { eq, desc, count, like, sql, and } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
-import { missions, assets, battlefields, missionLogs, captainLogs } from '@/lib/db/schema';
+import { missions, assets, battlefields, missionLogs, captainLogs, intelNotes } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import type {
   Mission,
@@ -52,6 +52,22 @@ async function _createMission(
     })
     .returning()
     .get();
+
+  // Auto-create intel note for board visibility
+  db.insert(intelNotes)
+    .values({
+      id: generateId(),
+      battlefieldId: data.battlefieldId,
+      title,
+      description: null,
+      missionId: id,
+      campaignId: null,
+      column: 'backlog',
+      position: 0,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
 
   // Emit Socket.IO activity event
   if (globalThis.io) {
@@ -372,6 +388,22 @@ export async function continueMission(
 
   db.insert(missions).values(newMission).run();
 
+  // Auto-create intel note for board visibility
+  db.insert(intelNotes)
+    .values({
+      id: generateId(),
+      battlefieldId: original.battlefieldId,
+      title,
+      description: null,
+      missionId: id,
+      campaignId: null,
+      column: 'backlog',
+      position: 0,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
+
   // Emit activity
   const bf = db
     .select({ codename: battlefields.codename })
@@ -410,6 +442,7 @@ export async function removeMission(id: string): Promise<{ battlefieldId: string
   const battlefieldId = mission.battlefieldId;
 
   // Delete related records first (no cascade in SQLite by default)
+  db.delete(intelNotes).where(eq(intelNotes.missionId, id)).run();
   db.delete(missionLogs).where(eq(missionLogs.missionId, id)).run();
   db.delete(captainLogs).where(eq(captainLogs.missionId, id)).run();
 

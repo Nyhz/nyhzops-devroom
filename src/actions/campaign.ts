@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { eq, desc, and, inArray } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
-import { campaigns, phases, missions, missionLogs, assets } from '@/lib/db/schema';
+import { campaigns, phases, missions, missionLogs, assets, intelNotes } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import type { Campaign, CampaignWithPlan, PlanJSON } from '@/types';
 
@@ -105,6 +105,21 @@ function cloneCampaignPlan(
         createdAt: now,
         updatedAt: now,
       }).run();
+
+      db.insert(intelNotes)
+        .values({
+          id: generateId(),
+          battlefieldId: targetBattlefieldId,
+          title: originalMission.title,
+          description: null,
+          missionId: newMissionId,
+          campaignId: targetCampaignId,
+          column: 'backlog',
+          position: 0,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
     }
   }
 }
@@ -160,6 +175,21 @@ function insertPlanFromJSON(
         createdAt: now,
         updatedAt: now,
       }).run();
+
+      db.insert(intelNotes)
+        .values({
+          id: generateId(),
+          battlefieldId,
+          title: planMission.title,
+          description: null,
+          missionId,
+          campaignId,
+          column: 'backlog',
+          position: 0,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
     }
   }
 }
