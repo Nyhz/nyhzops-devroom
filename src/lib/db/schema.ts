@@ -233,3 +233,19 @@ export const generalMessages = sqliteTable('general_messages', {
   content: text('content').notNull(),
   timestamp: integer('timestamp').notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// Intel Notes (Board cards)
+// ---------------------------------------------------------------------------
+export const intelNotes = sqliteTable('intel_notes', {
+  id: text('id').primaryKey(),
+  battlefieldId: text('battlefield_id').notNull().references(() => battlefields.id),
+  title: text('title').notNull(),
+  description: text('description'),              // markdown, may contain base64 images
+  column: text('column').default('backlog'),      // 'backlog' | 'planned'
+  position: integer('position').default(0),
+  missionId: text('mission_id').references(() => missions.id),
+  campaignId: text('campaign_id').references(() => campaigns.id),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});

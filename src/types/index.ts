@@ -13,6 +13,7 @@ import type {
   notifications,
   briefingSessions,
   briefingMessages,
+  intelNotes,
 } from '../lib/db/schema';
 
 // ---------------------------------------------------------------------------
@@ -45,6 +46,22 @@ export type CaptainLog = InferSelectModel<typeof captainLogs>;
 export type Notification = InferSelectModel<typeof notifications>;
 export type BriefingSession = InferSelectModel<typeof briefingSessions>;
 export type BriefingMessage = InferSelectModel<typeof briefingMessages>;
+export type IntelNote = InferSelectModel<typeof intelNotes>;
+export type IntelNoteColumn = 'backlog' | 'planned';
+
+export interface IntelNoteWithMission extends IntelNote {
+  missionStatus: MissionStatus | null;
+  missionAssetCodename: string | null;
+  missionCreatedAt: number | null;
+}
+
+export interface BoardColumn {
+  key: string;
+  label: string;
+  color: string;         // tailwind color token
+  acceptsDrop: boolean;  // only backlog + planned accept drops
+}
+
 export type NotificationLevel = 'info' | 'warning' | 'critical';
 export type NotificationEntityType = 'mission' | 'campaign' | 'phase';
 export type CaptainConfidence = 'high' | 'medium' | 'low';

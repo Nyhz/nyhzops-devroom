@@ -64,6 +64,13 @@
       "when": 1774732258288,
       "tag": "0008_secret_tempest",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1774788998341,
+      "tag": "0009_majestic_madelyne_pryor",
+      "breakpoints": true
     }
   ]
 }
