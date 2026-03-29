@@ -57,7 +57,10 @@ export function useBoard(
     };
 
     socket.on('mission:status', handleMissionStatus);
-    return () => { socket.off('mission:status', handleMissionStatus); };
+    return () => {
+      socket.off('mission:status', handleMissionStatus);
+      socket.emit('battlefield:unsubscribe', battlefieldId);
+    };
   }, [socket, battlefieldId, reconnectKey]);
 
   // Build column map

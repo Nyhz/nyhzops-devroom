@@ -233,9 +233,15 @@ export class Orchestrator {
         debrief: `Mission compromised: rate limit exceeded after 5 retries. Last limit type: ${err.rateLimitType}`,
       }).where(eq(missions.id, missionId)).run();
 
+      const rateLimitMission = db.select().from(missions).where(eq(missions.id, missionId)).get();
       this.io.to(`mission:${missionId}`).emit('mission:status', {
         missionId, status: 'compromised', timestamp: Date.now(),
       });
+      if (rateLimitMission) {
+        this.io.to(`battlefield:${rateLimitMission.battlefieldId}`).emit('mission:status', {
+          missionId, status: 'compromised', timestamp: Date.now(),
+        });
+      }
       this.retryCount.delete(missionId);
       console.log(`[Orchestrator] Mission ${missionId} compromised after 5 rate limit retries`);
       return;

@@ -36,13 +36,14 @@ interface BoardCardProps {
   isSelected: boolean;
   onSelect: (noteId: string) => void;
   onClick: (note: IntelNoteWithMission) => void;
+  className?: string;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function BoardCard({ note, isSelected, onSelect, onClick }: BoardCardProps) {
+export function BoardCard({ note, isSelected, onSelect, onClick, className }: BoardCardProps) {
   const isLinked = note.missionId !== null;
   const isCampaignOnly = !isLinked && note.campaignId !== null;
   const isInCombat = note.missionStatus === 'in_combat';
@@ -60,6 +61,7 @@ export function BoardCard({ note, isSelected, onSelect, onClick }: BoardCardProp
         'group relative bg-dr-surface/50 border border-dr-border/50 border-l-2 px-3 py-2 cursor-pointer',
         'hover:bg-dr-surface/70 transition-colors',
         borderColor,
+        className,
       )}
       onClick={() => onClick(note)}
     >

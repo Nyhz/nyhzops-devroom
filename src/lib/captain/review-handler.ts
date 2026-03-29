@@ -54,7 +54,7 @@ export async function runCaptainReview(missionId: string): Promise<void> {
       completedAt: Date.now(),
       updatedAt: Date.now(),
     }).where(eq(missions.id, missionId)).run();
-    emitStatusChange(missionId, 'compromised');
+    emitStatusChange(missionId, 'compromised', mission.battlefieldId);
     await escalate({
       level: 'critical',
       title: `No debrief: ${mission.title}`,
@@ -157,7 +157,7 @@ export async function runCaptainReview(missionId: string): Promise<void> {
       }).where(eq(missions.id, missionId)).run();
     }
 
-    emitStatusChange(missionId, isReviewing ? 'compromised' : mission.status!);
+    emitStatusChange(missionId, isReviewing ? 'compromised' : mission.status!, mission.battlefieldId);
 
     await escalate({
       level: 'warning',
@@ -228,7 +228,7 @@ async function promoteMission(missionId: string, status: 'accomplished'): Promis
           completedAt: Date.now(),
           updatedAt: Date.now(),
         }).where(eq(missions.id, missionId)).run();
-        emitStatusChange(missionId, 'compromised');
+        emitStatusChange(missionId, 'compromised', mission.battlefieldId);
         return;
       }
     }
@@ -241,7 +241,7 @@ async function promoteMission(missionId: string, status: 'accomplished'): Promis
     updatedAt: Date.now(),
   }).where(eq(missions.id, missionId)).run();
 
-  emitStatusChange(missionId, status);
+  emitStatusChange(missionId, status, mission.battlefieldId);
   emitMissionLog(missionId, `[CAPTAIN] Mission approved and promoted to ACCOMPLISHED.`);
   console.log(`[Captain] Mission ${missionId} → ${status}`);
 
@@ -276,7 +276,7 @@ async function requeueMissionWithFeedback(
     updatedAt: now,
   }).where(eq(missions.id, mission.id)).run();
 
-  emitStatusChange(mission.id, 'queued');
+  emitStatusChange(mission.id, 'queued', mission.battlefieldId);
 
   console.log(`[Captain] Mission ${mission.id} re-queued (attempt ${(mission.reviewAttempts ?? 0) + 1}). Concerns: ${review.concerns.join(', ')}`);
 
@@ -309,7 +309,7 @@ function exhaustRetries(mission: Mission, review: DebriefReview): void {
     }).where(eq(missions.id, mission.id)).run();
   }
 
-  emitStatusChange(mission.id, 'compromised');
+  emitStatusChange(mission.id, 'compromised', mission.battlefieldId);
 
   escalate({
     level: 'warning',
@@ -333,12 +333,12 @@ function exhaustRetries(mission: Mission, review: DebriefReview): void {
   }
 }
 
-function emitStatusChange(missionId: string, status: string): void {
+function emitStatusChange(missionId: string, status: string, battlefieldId?: string): void {
   if (globalThis.io) {
-    globalThis.io.to(`mission:${missionId}`).emit('mission:status', {
-      missionId,
-      status,
-      timestamp: Date.now(),
-    });
+    const payload = { missionId, status, timestamp: Date.now() };
+    globalThis.io.to(`mission:${missionId}`).emit('mission:status', payload);
+    if (battlefieldId) {
+      globalThis.io.to(`battlefield:${battlefieldId}`).emit('mission:status', payload);
+    }
   }
 }

@@ -18,6 +18,7 @@ interface NotePanelProps {
   onDeleted: (noteId: string) => void;
   onPromoteMission: (note: IntelNoteWithMission) => void;
   onPromoteCampaign: (notes: IntelNoteWithMission[]) => void;
+  className?: string;
 }
 
 export function NotePanel({
@@ -29,6 +30,7 @@ export function NotePanel({
   onDeleted,
   onPromoteMission,
   onPromoteCampaign,
+  className,
 }: NotePanelProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -127,7 +129,7 @@ export function NotePanel({
 
       {/* Panel */}
       <div
-        className="fixed top-0 right-0 h-full w-[400px] bg-dr-bg border-l border-dr-border z-50 flex flex-col"
+        className={cn('fixed top-0 right-0 h-full w-[400px] bg-dr-bg border-l border-dr-border z-50 flex flex-col', className)}
         role="dialog"
         aria-modal="true"
         aria-label={headerLabel}

@@ -62,7 +62,7 @@ export async function createNote(
   const id = generateId();
   const now = Date.now();
 
-  // Shift existing backlog notes down to make room at position 0
+  // Shift existing backlog notes down to make room at position 0 (unpromoted only)
   db.update(intelNotes)
     .set({
       position: sql`${intelNotes.position} + 1`,
@@ -72,6 +72,7 @@ export async function createNote(
       and(
         eq(intelNotes.battlefieldId, battlefieldId),
         eq(intelNotes.column, 'backlog'),
+        isNull(intelNotes.missionId),
       ),
     )
     .run();

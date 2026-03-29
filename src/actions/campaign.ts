@@ -218,10 +218,13 @@ function deletePlanData(campaignId: string) {
       .all();
     const missionIds = campaignMissions.map((m) => m.id);
 
-    // FK-safe cascade: logs → missions → phases
+    // FK-safe cascade: logs → intel notes → missions → phases
     if (missionIds.length > 0) {
       db.delete(missionLogs)
         .where(inArray(missionLogs.missionId, missionIds))
+        .run();
+      db.delete(intelNotes)
+        .where(inArray(intelNotes.missionId, missionIds))
         .run();
       db.delete(missions)
         .where(inArray(missions.id, missionIds))
@@ -408,9 +411,10 @@ export async function deleteCampaign(id: string): Promise<void> {
 
   const battlefieldId = campaign.battlefieldId;
 
-  // FK-safe cascade: briefing → logs → missions → phases → campaign
+  // FK-safe cascade: briefing → intel notes → logs → missions → phases → campaign
   const { deleteBriefingData } = await import('@/lib/briefing/briefing-engine');
   deleteBriefingData(id);
+  db.delete(intelNotes).where(eq(intelNotes.campaignId, id)).run();
   deletePlanData(id);
   db.delete(campaigns).where(eq(campaigns.id, id)).run();
 
@@ -841,9 +845,9 @@ export async function commanderOverride(missionId: string): Promise<void> {
 
   // Emit status change via socket
   if (globalThis.io) {
-    globalThis.io.to(`mission:${missionId}`).emit('mission:status', {
-      missionId, status: 'accomplished', timestamp: now,
-    });
+    const statusPayload = { missionId, status: 'accomplished', timestamp: now };
+    globalThis.io.to(`mission:${missionId}`).emit('mission:status', statusPayload);
+    globalThis.io.to(`battlefield:${mission.battlefieldId}`).emit('mission:status', statusPayload);
   }
 
   revalidatePath(`/battlefields/${mission.battlefieldId}`);

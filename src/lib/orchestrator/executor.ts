@@ -57,6 +57,7 @@ export async function executeMission(
       .where(eq(missions.id, mission.id))
       .run();
     io.to(room).emit('mission:status', { missionId: mission.id, status, timestamp: Date.now() });
+    io.to(`battlefield:${mission.battlefieldId}`).emit('mission:status', { missionId: mission.id, status, timestamp: Date.now() });
   };
 
   // Helper: store a mission log
@@ -508,6 +509,9 @@ export async function executeMission(
       io.to(room).emit('mission:status', {
         missionId: mission.id, status: finalStatus, timestamp: Date.now(),
       });
+      io.to(`battlefield:${mission.battlefieldId}`).emit('mission:status', {
+        missionId: mission.id, status: finalStatus, timestamp: Date.now(),
+      });
       io.to(room).emit('mission:debrief', {
         missionId: mission.id, debrief: r.result,
       });
@@ -575,6 +579,9 @@ export async function executeMission(
     }).where(eq(missions.id, mission.id)).run();
 
     io.to(room).emit('mission:status', {
+      missionId: mission.id, status, timestamp: Date.now(),
+    });
+    io.to(`battlefield:${mission.battlefieldId}`).emit('mission:status', {
       missionId: mission.id, status, timestamp: Date.now(),
     });
     emitActivity(`mission:${status}`, `Mission ${status}: ${mission.title}`);

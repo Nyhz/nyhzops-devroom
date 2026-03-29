@@ -44,6 +44,14 @@ export function setupSocketIO(io: SocketIOServer) {
       socket.leave(`campaign:${campaignId}`);
     });
 
+    socket.on('battlefield:subscribe', (battlefieldId: string) => {
+      socket.join(`battlefield:${battlefieldId}`);
+    });
+
+    socket.on('battlefield:unsubscribe', (battlefieldId: string) => {
+      socket.leave(`battlefield:${battlefieldId}`);
+    });
+
     socket.on('briefing:subscribe', (campaignId: string) => {
       socket.join(`briefing:${campaignId}`);
     });
