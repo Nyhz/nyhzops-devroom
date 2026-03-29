@@ -31,6 +31,9 @@ services:
       - /Users/nyhzdev/.claude:/home/devroom/.claude
       - /Users/nyhzdev/.claude.json:/seed/.claude.json:ro
 
+      # Host-synced Claude credentials (extracted from macOS Keychain by scripts/sync-claude-credentials.sh)
+      - /Users/nyhzdev/.devroom/claude-credentials.json:/host-credentials/claude-credentials.json:rw
+
       # Battlefields — mounted at the SAME absolute path so DB paths stay valid
       - /Users/nyhzdev/devroom/battlefields:/Users/nyhzdev/devroom/battlefields
     ports:
