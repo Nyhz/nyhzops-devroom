@@ -148,7 +148,7 @@ export function IntelBar() {
 
         {/* Dropdown Panel */}
         {dropdownOpen && (
-          <div className="absolute right-0 top-full mt-1 w-[380px] bg-dr-surface border border-dr-border shadow-lg z-50 max-h-[420px] flex flex-col">
+          <div className="absolute right-0 top-full mt-1 w-[calc(100vw-2rem)] sm:w-[380px] bg-dr-surface border border-dr-border shadow-lg z-50 max-h-[420px] flex flex-col">
             <div className="px-3 py-2 border-b border-dr-border flex items-center justify-between">
               <span className="text-dr-amber text-xs font-bold">NOTIFICATIONS</span>
               {unreadCount > 0 && (
