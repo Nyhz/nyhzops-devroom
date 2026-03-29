@@ -59,7 +59,7 @@ function entityLink(n: Notification): string | null {
 }
 
 export function IntelBar() {
-  const [index, setIndex] = useState(() => Math.floor(Math.random() * INTEL_QUOTES.length));
+  const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -68,6 +68,9 @@ export function IntelBar() {
   const { notifications, unreadCount, markAsRead, markAllRead } = useNotifications();
 
   useEffect(() => {
+    // Randomize on mount to avoid hydration mismatch
+    setIndex(Math.floor(Math.random() * INTEL_QUOTES.length));
+
     const interval = setInterval(() => {
       // Fade out
       setVisible(false);
