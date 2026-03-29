@@ -19,6 +19,8 @@ export class Orchestrator {
   private retryCount: Map<string, number> = new Map();
   private io: SocketIOServer;
   private maxAgents: number;
+  public paused: boolean = false;
+  public pauseReason: string | null = null;
 
   constructor(io: SocketIOServer) {
     this.io = io;
@@ -36,7 +38,27 @@ export class Orchestrator {
     this.drainQueue();
   }
 
+  pause(reason: string): void {
+    this.paused = true;
+    this.pauseReason = reason;
+    console.log(`[Orchestrator] PAUSED: ${reason}`);
+    this.io.to('hq:activity').emit('orchestrator:paused', { paused: true, reason });
+  }
+
+  unpause(): void {
+    console.log(`[Orchestrator] UNPAUSED (was: ${this.pauseReason})`);
+    this.paused = false;
+    this.pauseReason = null;
+    this.io.to('hq:activity').emit('orchestrator:resumed', { paused: false });
+    this.drainQueue();
+  }
+
   async onMissionQueued(missionId: string): Promise<void> {
+    if (this.paused) {
+      console.log(`[Orchestrator] Queue paused (${this.pauseReason}). Mission ${missionId} stays queued.`);
+      return;
+    }
+
     // Check capacity
     if (this.activeJobs.size >= this.maxAgents) {
       console.log(`[Orchestrator] All ${this.maxAgents} slots full. Mission ${missionId} stays queued.`);
@@ -166,6 +188,8 @@ export class Orchestrator {
   }
 
   async drainQueue(): Promise<void> {
+    if (this.paused) return;
+
     const slots = this.maxAgents - this.activeJobs.size;
     if (slots <= 0) return;
 
