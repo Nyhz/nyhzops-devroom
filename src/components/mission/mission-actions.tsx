@@ -104,10 +104,15 @@ export function MissionActions({
     try {
       const newMission = await continueMission(missionId, continueBriefing.trim());
       toast.success('Continued mission deployed');
-      window.location.href = `/battlefields/${battlefieldId}/missions/${newMission.id}`;
-      return; // skip setIsPending — page is navigating away
+      setIsPending(false);
+      setShowContinue(false);
+      setContinueBriefing('');
+      router.push(`/battlefields/${battlefieldId}/missions/${newMission.id}`);
+      router.refresh();
+      return;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to continue mission');
+    } finally {
       setIsPending(false);
     }
   };
