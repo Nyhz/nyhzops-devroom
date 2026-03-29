@@ -4,6 +4,7 @@
 devroom/
 ├── CLAUDE.md
 ├── SPEC.md
+├── README.md
 ├── package.json                       # pnpm as package manager
 ├── pnpm-workspace.yaml
 ├── tsconfig.json
@@ -15,7 +16,6 @@ devroom/
 ├── Dockerfile                         # Multi-stage: deps → dev | build → production
 ├── docker-compose.yml                 # Dev stack: devroom + caddy reverse proxy
 ├── Caddyfile                          # Caddy config — reverse proxy with WebSocket support
-├── .env.local
 ├── .env.example                       # Environment variable template
 ├── server.ts                          # Custom server (Next.js + Socket.IO)
 ├── src/
@@ -23,6 +23,8 @@ devroom/
 │   │   ├── layout.tsx                 # Root layout — tactical shell
 │   │   ├── loading.tsx                # Root loading skeleton
 │   │   ├── error.tsx                  # Global error boundary
+│   │   ├── global-error.tsx           # Next.js global error fallback
+│   │   ├── not-found.tsx              # 404 page
 │   │   ├── warroom/
 │   │   │   └── page.tsx               # Boot sequence animation (first-visit gate)
 │   │   ├── (hq)/                      # Route group — HQ layout shell
@@ -36,6 +38,8 @@ devroom/
 │   │   │   │   └── page.tsx           # Captain AI decision log viewer
 │   │   │   ├── logistics/
 │   │   │   │   └── page.tsx           # Token usage & rate limit dashboard
+│   │   │   ├── notifications/
+│   │   │   │   └── page.tsx           # Notification center
 │   │   │   └── battlefields/
 │   │   │       ├── page.tsx           # Battlefield selector
 │   │   │       ├── new/
@@ -44,6 +48,9 @@ devroom/
 │   │   │           ├── layout.tsx     # Battlefield layout (sidebar nav)
 │   │   │           ├── loading.tsx    # Battlefield loading skeleton
 │   │   │           ├── page.tsx       # Battlefield overview — missions tab
+│   │   │           ├── board/
+│   │   │           │   ├── page.tsx       # Intel board — planning/tracking cards
+│   │   │           │   └── loading.tsx
 │   │   │           ├── missions/
 │   │   │           │   └── [missionId]/
 │   │   │           │       └── page.tsx   # Mission detail + live comms
@@ -51,7 +58,8 @@ devroom/
 │   │   │           │   ├── page.tsx       # Campaigns list
 │   │   │           │   ├── loading.tsx
 │   │   │           │   ├── new/
-│   │   │           │   │   └── page.tsx   # Create new campaign
+│   │   │           │   │   ├── page.tsx   # Create new campaign
+│   │   │           │   │   └── form.tsx   # Campaign creation form
 │   │   │           │   └── [campaignId]/
 │   │   │           │       ├── page.tsx   # Campaign detail + phase view
 │   │   │           │       └── loading.tsx
@@ -82,7 +90,7 @@ devroom/
 │   ├── lib/
 │   │   ├── db/
 │   │   │   ├── index.ts              # DB connection singleton
-│   │   │   ├── schema.ts             # Drizzle schema (15 tables)
+│   │   │   ├── schema.ts             # Drizzle schema (16 tables)
 │   │   │   └── migrations/
 │   │   ├── general/
 │   │   │   ├── general-engine.ts     # Spawn Claude Code for standalone GENERAL chat sessions
@@ -98,7 +106,8 @@ devroom/
 │   │   │   ├── stream-parser.ts      # Parse Claude Code stream-json output
 │   │   │   ├── worktree.ts           # Git worktree lifecycle
 │   │   │   ├── merger.ts             # Branch merge + conflict resolution
-│   │   │   └── prompt-builder.ts     # Prompt assembly + cache optimization
+│   │   │   ├── prompt-builder.ts     # Prompt assembly + cache optimization
+│   │   │   └── auth-check.ts         # Claude Code auth verification
 │   │   ├── captain/
 │   │   │   ├── captain.ts            # AI decision layer — autonomous judgment calls
 │   │   │   ├── captain-db.ts         # Captain decision persistence
@@ -108,7 +117,8 @@ devroom/
 │   │   │   └── review-handler.ts     # Captain review runner — post-completion review with retry/escalation
 │   │   ├── process/
 │   │   │   ├── dev-server.ts         # Dev server lifecycle (start/stop/restart, port tracking)
-│   │   │   └── command-runner.ts     # Quick command execution + streaming output
+│   │   │   ├── command-runner.ts     # Quick command execution + streaming output
+│   │   │   └── claude-print.ts       # Claude Code output formatting
 │   │   ├── scheduler/
 │   │   │   ├── scheduler.ts          # Cron engine — evaluate schedules, trigger missions/campaigns
 │   │   │   └── cron.ts               # Cron expression parsing + next-run calculation
@@ -128,6 +138,7 @@ devroom/
 │   │   ├── dossier.ts                # Server Actions for briefing template CRUD
 │   │   ├── general.ts                # Server Actions for GENERAL session CRUD + messaging
 │   │   ├── git.ts                    # Server Actions for git operations
+│   │   ├── intel.ts                  # Server Actions for intel board note CRUD
 │   │   ├── logistics.ts              # Server Actions for token usage + cost tracking
 │   │   ├── mission.ts                # Server Actions for mission CRUD + deploy + abort
 │   │   ├── notification.ts           # Server Actions for notification CRUD + read status
@@ -140,8 +151,13 @@ devroom/
 │   │   │   └── command-reference.tsx # Help overlay for /clear, /compact commands
 │   │   ├── layout/
 │   │   │   ├── app-shell.tsx         # Top intel bar + sidebar + content area
+│   │   │   ├── app-shell-client.tsx  # Client-side shell wrapper (Socket.IO, responsive)
 │   │   │   ├── sidebar.tsx           # Left nav — branding + battlefield selector
+│   │   │   ├── sidebar-content.tsx   # Sidebar inner content (nav sections)
 │   │   │   ├── sidebar-nav.tsx       # Section navigation links (missions, campaigns, etc.)
+│   │   │   ├── collapsible-sidebar.tsx # Desktop collapsible sidebar
+│   │   │   ├── mobile-drawer.tsx     # Mobile sidebar drawer overlay
+│   │   │   ├── mobile-top-bar.tsx    # Mobile top navigation bar
 │   │   │   ├── global-nav.tsx        # Global nav — top: HQ (◉), GENERAL (◇); bottom: CAPTAIN'S LOG (⚓), ASSETS (◎), LOGISTICS (◈)
 │   │   │   ├── battlefield-selector.tsx # Battlefield dropdown selector
 │   │   │   ├── intel-bar.tsx         # Top bar — rotating military quotes
@@ -161,6 +177,11 @@ devroom/
 │   │   │   ├── bootstrap-error.tsx   # Bootstrap failure display + retry
 │   │   │   ├── scaffold-output.tsx   # Scaffold command output viewer
 │   │   │   └── scaffold-retry.tsx    # Scaffold failure retry UI
+│   │   ├── board/
+│   │   │   ├── intel-board.tsx       # Main intel board with drag-and-drop columns
+│   │   │   ├── board-card.tsx        # Individual board card
+│   │   │   ├── board-column.tsx      # Board column container
+│   │   │   └── note-panel.tsx        # Note creation/editing panel
 │   │   ├── mission/
 │   │   │   ├── mission-comms.tsx     # Live terminal log stream
 │   │   │   ├── mission-actions.tsx   # Continue / Redeploy / Abandon buttons
@@ -175,6 +196,7 @@ devroom/
 │   │   │   └── plan-editor.tsx       # Editable plan viewer (reorder phases/missions)
 │   │   ├── asset/
 │   │   │   ├── asset-list.tsx        # Right sidebar asset panel
+│   │   │   ├── asset-deployment.tsx  # Asset deployment status/history
 │   │   │   └── asset-form.tsx        # Create/edit asset form
 │   │   ├── git/
 │   │   │   ├── git-status.tsx        # Working tree status (modified, staged, untracked)
@@ -207,11 +229,12 @@ devroom/
 │   │       ├── tac-tooltip.tsx       # Tactical tooltip
 │   │       ├── search-input.tsx      # Search with monospace placeholder
 │   │       ├── markdown.tsx          # Markdown renderer (react-markdown + remark-gfm)
+│   │       ├── commander-content.tsx # Commander-styled content wrapper
+│   │       ├── chat-message.tsx      # Chat message bubble component
+│   │       ├── responsive-table.tsx  # Responsive table wrapper
 │   │       ├── modal.tsx
 │   │       ├── button.tsx            # shadcn button (restyled)
 │   │       ├── dialog.tsx            # shadcn dialog
-│   │       ├── dropdown-menu.tsx     # shadcn dropdown menu
-│   │       ├── popover.tsx           # shadcn popover
 │   │       ├── scroll-area.tsx       # shadcn scroll area
 │   │       ├── select.tsx            # shadcn select
 │   │       ├── tabs.tsx              # shadcn tabs
@@ -226,13 +249,26 @@ devroom/
 │   │   ├── use-confirm.tsx           # Confirmation dialog hook (returns promise)
 │   │   ├── use-notifications.ts      # Notification stream subscription
 │   │   ├── use-dev-server.ts         # Dev server status + log stream
-│   │   └── use-command-output.ts     # Streaming command output
+│   │   ├── use-command-output.ts     # Streaming command output
+│   │   ├── use-board.ts              # Intel board state + drag-and-drop
+│   │   └── use-streaming-chat.ts     # Generic streaming chat hook
 │   └── types/
 │       └── index.ts
-├── public/
-│   ├── sounds/
-│   └── img/
-└── scripts/
-    ├── seed.ts                       # Seed default assets
-    └── rerun-review.ts               # CLI script for re-running Captain debrief review
+├── scripts/
+│   ├── seed.ts                       # Seed default assets
+│   ├── rerun-review.ts               # CLI script for re-running Captain debrief review
+│   └── sync-claude-credentials.sh    # Sync Claude API credentials
+└── .devroom/                          # Extended documentation
+    ├── project-structure.md
+    ├── database-schema.md
+    ├── ui-theme.md
+    ├── server-and-sockets.md
+    ├── git-and-workflows.md
+    ├── spec-battlefields.md
+    ├── spec-missions.md
+    ├── spec-campaigns.md
+    ├── spec-operations.md
+    ├── spec-prompts.md
+    ├── spec-captain-and-comms.md
+    └── accessibility-audit.md
 ```

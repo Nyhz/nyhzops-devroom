@@ -121,7 +121,7 @@ Detailed docs are split into topic files under `.devroom/`. Reference these when
 | File | Contents |
 |------|----------|
 | `.devroom/project-structure.md` | Full project file tree and directory layout |
-| `.devroom/database-schema.md` | All Drizzle table definitions (Battlefield, Mission, Campaign, Phase, Asset, etc.) |
+| `.devroom/database-schema.md` | All Drizzle table definitions (Battlefield, Mission, Campaign, Phase, Asset, IntelNote, etc.) |
 | `.devroom/ui-theme.md` | Branding, Tailwind theme tokens, layout structure, UI patterns, Commander reporting tone |
 | `.devroom/server-and-sockets.md` | Custom server boot, Socket.IO rooms/events, Claude Code invocation, prompt cache optimization |
 | `.devroom/git-and-workflows.md` | Git/worktree rules, Definition of Done, scripts, environment variables |
@@ -131,6 +131,7 @@ Detailed docs are split into topic files under `.devroom/`. Reference these when
 | `.devroom/spec-operations.md` | Git dashboard, console & dev server, scheduled tasks |
 | `.devroom/spec-prompts.md` | All prompt templates (standard, campaign, conflict, debrief, bootstrap) |
 | `.devroom/spec-captain-and-comms.md` | Captain AI, notifications, Telegram, logistics, War Room |
+| `.devroom/accessibility-audit.md` | Contrast and size violation audit — theme tokens, per-file violations, recommended fixes |
 
 ---
 

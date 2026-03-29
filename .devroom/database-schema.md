@@ -236,3 +236,20 @@ Standalone GENERAL chat sessions — independent of campaigns. Can optionally li
 - content         TEXT NOT NULL
 - timestamp       INTEGER NOT NULL
 ```
+
+### IntelNote
+
+Board cards for battlefield planning and tracking.
+
+```
+- id              TEXT PRIMARY KEY (ULID)
+- battlefieldId   TEXT NOT NULL REFERENCES battlefields(id)
+- title           TEXT NOT NULL
+- description     TEXT                     -- markdown, may contain base64 images
+- column          TEXT DEFAULT 'backlog'   -- 'backlog' | 'planned'
+- position        INTEGER DEFAULT 0
+- missionId       TEXT REFERENCES missions(id)
+- campaignId      TEXT REFERENCES campaigns(id)
+- createdAt       INTEGER NOT NULL
+- updatedAt       INTEGER NOT NULL
+```
