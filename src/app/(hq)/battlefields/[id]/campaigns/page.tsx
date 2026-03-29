@@ -7,19 +7,9 @@ import { battlefields, phases, missions } from '@/lib/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacCard } from '@/components/ui/tac-card';
-import { TacBadge } from '@/components/ui/tac-badge';
-import type { CampaignStatus } from '@/types';
+import { TacBadge, getStatusColor } from '@/components/ui/tac-badge';
 
 const ACTIVE_STATUSES = ['draft', 'planning', 'active', 'compromised'];
-
-const statusCardColor: Record<string, 'green' | 'amber' | 'red' | 'blue' | undefined> = {
-  accomplished: 'green',
-  active: 'amber',
-  planning: 'amber',
-  compromised: 'red',
-  draft: undefined,
-  abandoned: undefined,
-};
 
 export default async function CampaignsPage({
   params,
@@ -65,7 +55,7 @@ export default async function CampaignsPage({
         className="block hover:opacity-90 transition-opacity"
       >
         <TacCard
-          status={statusCardColor[campaign.status as CampaignStatus]}
+          status={getStatusColor(campaign.status ?? 'draft')}
           className="h-full flex flex-col gap-3"
         >
           <div className="font-tactical text-sm text-dr-amber truncate">

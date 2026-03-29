@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 interface TacCardProps {
-  status?: 'green' | 'amber' | 'red' | 'blue';
+  status?: 'green' | 'amber' | 'red' | 'blue' | 'dim';
   className?: string;
   children: ReactNode;
 }
@@ -12,6 +12,7 @@ const statusBorderStyles = {
   amber: 'border-l-2 border-l-dr-amber',
   red: 'border-l-2 border-l-dr-red',
   blue: 'border-l-2 border-l-dr-blue',
+  dim: '',
 } as const;
 
 export function TacCard({ status, className, children }: TacCardProps) {

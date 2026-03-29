@@ -3,7 +3,7 @@ import { count, eq, inArray, desc } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { battlefields, missions, assets } from '@/lib/db/schema';
 import { TacCard } from '@/components/ui/tac-card';
-import { TacBadge } from '@/components/ui/tac-badge';
+import { TacBadge, getStatusColor } from '@/components/ui/tac-badge';
 import { TacButton } from '@/components/ui/tac-button';
 import { StatsBar } from '@/components/dashboard/stats-bar';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
@@ -112,16 +112,12 @@ export default function ProjectsPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {allBattlefields.map((bf) => {
-            const statusColor = bf.status === 'active'
-              ? 'green'
-              : bf.status === 'initializing'
-                ? 'blue'
-                : undefined;
+            const statusColor = getStatusColor(bf.status ?? 'initializing');
 
             return (
               <Link key={bf.id} href={`/battlefields/${bf.id}`}>
                 <TacCard
-                  status={statusColor as 'green' | 'amber' | 'red' | 'blue' | undefined}
+                  status={statusColor}
                   className="hover:border-dr-amber transition-colors cursor-pointer"
                 >
                   <div className="flex items-start justify-between mb-3">
