@@ -37,7 +37,7 @@ export function CampaignMissionCard({
   return (
     <div
       className={cn(
-        'bg-dr-elevated border border-dr-border p-3 min-w-[200px] max-w-[280px] flex flex-col gap-1.5',
+        'bg-dr-elevated border border-dr-border p-3 min-w-[200px] w-full md:max-w-[280px] flex flex-col gap-1.5',
         className,
       )}
     >
