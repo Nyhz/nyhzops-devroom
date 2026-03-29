@@ -2,13 +2,32 @@ import fs from 'fs';
 import path from 'path';
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
-import { missions, battlefields } from '@/lib/db/schema';
+import { missions, battlefields, missionLogs } from '@/lib/db/schema';
+import { generateId } from '@/lib/utils';
 import { reviewDebrief, type DebriefReview } from './debrief-reviewer';
 import { storeCaptainLog } from './captain-db';
 import { escalate } from './escalation';
 import { mergeBranch } from '@/lib/orchestrator/merger';
 import { removeWorktree } from '@/lib/orchestrator/worktree';
 import type { Mission } from '@/types';
+
+function emitMissionLog(missionId: string, content: string) {
+  const db = getDatabase();
+  const now = Date.now();
+  db.insert(missionLogs).values({
+    id: generateId(),
+    missionId,
+    timestamp: now,
+    type: 'status',
+    content,
+  }).run();
+  globalThis.io?.to(`mission:${missionId}`).emit('mission:log', {
+    missionId,
+    timestamp: now,
+    type: 'status',
+    content: content + '\n',
+  });
+}
 
 // Max retries: 2 for reviewing (successful missions), 1 for compromised (failed missions)
 const MAX_REVIEW_RETRIES = 2;
@@ -195,6 +214,10 @@ async function promoteMission(missionId: string, status: 'accomplished'): Promis
 
       if (mergeResult.success) {
         await removeWorktree(battlefield.repoPath, worktreePath, mission.worktreeBranch);
+        const mergeMsg = mergeResult.conflictResolved
+          ? `[CAPTAIN] Merged ${mission.worktreeBranch} into ${battlefield.defaultBranch || 'main'} (conflicts auto-resolved). Worktree cleaned up.`
+          : `[CAPTAIN] Merged ${mission.worktreeBranch} into ${battlefield.defaultBranch || 'main'}. Worktree cleaned up.`;
+        emitMissionLog(missionId, mergeMsg);
         console.log(`[Captain] Merge complete${mergeResult.conflictResolved ? ' (conflicts auto-resolved)' : ''}. Worktree cleaned up.`);
       } else {
         // Merge failed — mark compromised instead of accomplished
@@ -219,6 +242,7 @@ async function promoteMission(missionId: string, status: 'accomplished'): Promis
   }).where(eq(missions.id, missionId)).run();
 
   emitStatusChange(missionId, status);
+  emitMissionLog(missionId, `[CAPTAIN] Mission approved and promoted to ACCOMPLISHED.`);
   console.log(`[Captain] Mission ${missionId} → ${status}`);
 
   // Clean up per-mission Claude config isolation dir
