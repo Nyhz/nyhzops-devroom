@@ -41,23 +41,23 @@ export default async function LogisticsPage() {
 
       {/* Totals Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <TacCard className="p-5">
+        <TacCard className="p-3 sm:p-5">
           <div className="text-dr-dim text-[10px] tracking-widest uppercase">Total Missions</div>
           <div className="text-dr-text text-lg font-tactical mt-1">{stats.totalMissions}</div>
         </TacCard>
-        <TacCard className="p-5">
+        <TacCard className="p-3 sm:p-5">
           <div className="text-dr-dim text-[10px] tracking-widest uppercase">Total Tokens</div>
           <div className="text-dr-text text-lg font-tactical mt-1">
             {formatTokens(stats.totalInputTokens + stats.totalOutputTokens + stats.totalCacheTokens)}
           </div>
         </TacCard>
-        <TacCard className="p-5">
+        <TacCard className="p-3 sm:p-5">
           <div className="text-dr-dim text-[10px] tracking-widest uppercase">Total Cost</div>
           <div className="text-dr-amber text-lg font-tactical mt-1">
             {formatCost(stats.totalCostUsd)}
           </div>
         </TacCard>
-        <TacCard className="p-5">
+        <TacCard className="p-3 sm:p-5">
           <div className="text-dr-dim text-[10px] tracking-widest uppercase">Cache Hit Rate</div>
           <div className="text-dr-green text-lg font-tactical mt-1">
             {stats.cacheHitPercent}%
@@ -72,7 +72,7 @@ export default async function LogisticsPage() {
         </div>
         {rateLimit ? (
           <div className="space-y-2">
-            <div className="flex items-center gap-4 text-xs">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs">
               <div className="flex items-center gap-2">
                 <span
                   className={
@@ -122,28 +122,30 @@ export default async function LogisticsPage() {
           {byBattlefield.length === 0 ? (
             <div className="text-dr-dim text-xs">No battlefield data yet</div>
           ) : (
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-dr-dim border-b border-dr-border">
-                  <th className="text-left py-1.5 font-normal">CODENAME</th>
-                  <th className="text-right py-1.5 font-normal">MISSIONS</th>
-                  <th className="text-right py-1.5 font-normal">TOKENS</th>
-                  <th className="text-right py-1.5 font-normal">COST</th>
-                </tr>
-              </thead>
-              <tbody>
-                {byBattlefield.map((b) => (
-                  <tr key={b.battlefieldId} className="border-b border-dr-border/50">
-                    <td className="py-1.5 text-dr-text">{b.codename}</td>
-                    <td className="py-1.5 text-dr-muted text-right">{b.missionCount}</td>
-                    <td className="py-1.5 text-dr-muted text-right">
-                      {formatTokens(b.totalInputTokens + b.totalOutputTokens + b.totalCacheTokens)}
-                    </td>
-                    <td className="py-1.5 text-dr-amber text-right">{formatCost(b.totalCostUsd)}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-dr-dim border-b border-dr-border">
+                    <th className="text-left py-1.5 font-normal">CODENAME</th>
+                    <th className="text-right py-1.5 font-normal">MISSIONS</th>
+                    <th className="text-right py-1.5 font-normal">TOKENS</th>
+                    <th className="text-right py-1.5 font-normal">COST</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {byBattlefield.map((b) => (
+                    <tr key={b.battlefieldId} className="border-b border-dr-border/50">
+                      <td className="py-1.5 text-dr-text">{b.codename}</td>
+                      <td className="py-1.5 text-dr-muted text-right">{b.missionCount}</td>
+                      <td className="py-1.5 text-dr-muted text-right">
+                        {formatTokens(b.totalInputTokens + b.totalOutputTokens + b.totalCacheTokens)}
+                      </td>
+                      <td className="py-1.5 text-dr-amber text-right">{formatCost(b.totalCostUsd)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </TacCard>
 
@@ -155,28 +157,30 @@ export default async function LogisticsPage() {
           {byAsset.length === 0 ? (
             <div className="text-dr-dim text-xs">No asset data yet</div>
           ) : (
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-dr-dim border-b border-dr-border">
-                  <th className="text-left py-1.5 font-normal">CODENAME</th>
-                  <th className="text-right py-1.5 font-normal">MISSIONS</th>
-                  <th className="text-right py-1.5 font-normal">TOKENS</th>
-                  <th className="text-right py-1.5 font-normal">COST</th>
-                </tr>
-              </thead>
-              <tbody>
-                {byAsset.map((a) => (
-                  <tr key={a.assetId} className="border-b border-dr-border/50">
-                    <td className="py-1.5 text-dr-text">{a.codename}</td>
-                    <td className="py-1.5 text-dr-muted text-right">{a.missionCount}</td>
-                    <td className="py-1.5 text-dr-muted text-right">
-                      {formatTokens(a.totalInputTokens + a.totalOutputTokens + a.totalCacheTokens)}
-                    </td>
-                    <td className="py-1.5 text-dr-amber text-right">{formatCost(a.totalCostUsd)}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-dr-dim border-b border-dr-border">
+                    <th className="text-left py-1.5 font-normal">CODENAME</th>
+                    <th className="text-right py-1.5 font-normal">MISSIONS</th>
+                    <th className="text-right py-1.5 font-normal">TOKENS</th>
+                    <th className="text-right py-1.5 font-normal">COST</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {byAsset.map((a) => (
+                    <tr key={a.assetId} className="border-b border-dr-border/50">
+                      <td className="py-1.5 text-dr-text">{a.codename}</td>
+                      <td className="py-1.5 text-dr-muted text-right">{a.missionCount}</td>
+                      <td className="py-1.5 text-dr-muted text-right">
+                        {formatTokens(a.totalInputTokens + a.totalOutputTokens + a.totalCacheTokens)}
+                      </td>
+                      <td className="py-1.5 text-dr-amber text-right">{formatCost(a.totalCostUsd)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </TacCard>
       </div>
