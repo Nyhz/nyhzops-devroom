@@ -1,7 +1,9 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
+import fs from 'fs';
 import { eq } from 'drizzle-orm';
 import type { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
+import { createAuthenticatedHome } from '@/lib/process/claude-print';
 import {
   briefingSessions,
   briefingMessages,
@@ -144,12 +146,14 @@ export async function sendBriefingMessage(
     stdinContent = message;
   }
 
-  // 8. Spawn Claude process
+  // 8. Spawn Claude process with host-synced credentials
+  const authHome = createAuthenticatedHome();
   const abortController = new AbortController();
   const proc = spawn(config.claudePath, cliArgs, {
     cwd: battlefield.repoPath,
     signal: abortController.signal,
     stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, HOME: authHome },
   });
 
   activeProcesses.set(campaignId, { proc, abort: abortController });
@@ -212,6 +216,7 @@ export async function sendBriefingMessage(
   return new Promise<void>((resolve, reject) => {
     proc.on('close', (code) => {
       activeProcesses.delete(campaignId);
+      try { fs.rmSync(authHome, { recursive: true, force: true }); } catch { /* best effort */ }
 
       // Process any remaining buffered line
       if (lineBuffer.trim()) {

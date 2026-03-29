@@ -14,7 +14,7 @@ interface RunClaudePrintOptions {
  * Set up a temporary HOME with host-synced credentials for a Claude CLI process.
  * Returns the temp HOME path. Caller is responsible for cleanup.
  */
-function createAuthenticatedHome(): string {
+export function createAuthenticatedHome(): string {
   const tempHome = `/tmp/claude-print-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const tempClaudeDir = path.join(tempHome, '.claude');
   fs.mkdirSync(tempClaudeDir, { recursive: true });

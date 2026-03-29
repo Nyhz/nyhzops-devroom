@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import simpleGit from 'simple-git';
 import { config } from '@/lib/config';
+import { createAuthenticatedHome } from '@/lib/process/claude-print';
 import type { Mission, MergeResult } from '@/types';
 
 /**
@@ -142,6 +143,7 @@ async function resolveConflicts(
   // Uses --print (plain text) — this is intentional.
   // Conflict resolution is a synchronous fire-and-forget operation.
   // No streaming, no real-time UI, no token tracking needed.
+  const authHome = createAuthenticatedHome();
   return new Promise<boolean>((resolve) => {
     const proc = spawn(config.claudePath, [
       '--print',
@@ -149,6 +151,7 @@ async function resolveConflicts(
       '--max-turns', '20',
     ], {
       cwd: repoPath,
+      env: { ...process.env, HOME: authHome },
     });
 
     // We don't need stdout — just the exit code tells us if resolution succeeded
@@ -158,6 +161,7 @@ async function resolveConflicts(
     proc.stdin?.end();
 
     proc.on('close', (code) => {
+      try { fs.rmSync(authHome, { recursive: true, force: true }); } catch { /* best effort */ }
       resolve(code === 0);
     });
 
