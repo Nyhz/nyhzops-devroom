@@ -76,11 +76,11 @@ export function AssetList({ assets }: AssetListProps) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase">
           ASSETS // AGENT ROSTER
         </div>
-        <TacButton variant="success" size="sm" onClick={handleCreate}>
+        <TacButton variant="success" size="sm" onClick={handleCreate} className="w-full sm:w-auto min-h-[44px] sm:min-h-0">
           + RECRUIT ASSET
         </TacButton>
       </div>
@@ -142,20 +142,20 @@ export function AssetList({ assets }: AssetListProps) {
               key={asset.id}
               status={asset.status === 'active' ? 'green' : undefined}
             >
-              <div className="flex items-start justify-between mb-2">
-                <div className="text-dr-amber font-tactical text-sm tracking-wider uppercase">
+              <div className="flex items-start justify-between mb-2 gap-2">
+                <div className="text-dr-amber font-tactical text-sm tracking-wider uppercase truncate min-w-0">
                   {asset.codename}
                 </div>
                 <button
                   onClick={() => handleToggle(asset.id)}
                   disabled={isPending}
-                  className="cursor-pointer disabled:cursor-not-allowed"
+                  className="cursor-pointer disabled:cursor-not-allowed min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center shrink-0"
                   title={`Toggle status (currently ${asset.status})`}
                 >
                   <TacBadge status={asset.status ?? 'active'} />
                 </button>
               </div>
-              <div className="text-dr-text font-tactical text-xs mb-1">
+              <div className="text-dr-text font-tactical text-xs mb-1 truncate">
                 {asset.specialty}
               </div>
               <div className="text-dr-muted font-tactical text-xs mb-2">
@@ -175,7 +175,7 @@ export function AssetList({ assets }: AssetListProps) {
                     variant="primary"
                     size="sm"
                     onClick={() => handleEdit(asset)}
-                    className="text-xs px-2 py-0.5"
+                    className="text-xs px-2 py-0.5 min-h-[44px] sm:min-h-0"
                   >
                     EDIT
                   </TacButton>
@@ -183,7 +183,7 @@ export function AssetList({ assets }: AssetListProps) {
                     variant="danger"
                     size="sm"
                     onClick={() => setConfirmDeleteId(asset.id)}
-                    className="text-xs px-2 py-0.5"
+                    className="text-xs px-2 py-0.5 min-h-[44px] sm:min-h-0"
                   >
                     DELETE
                   </TacButton>

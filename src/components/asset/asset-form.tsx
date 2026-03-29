@@ -125,11 +125,11 @@ export function AssetForm({ editAsset, onClose }: AssetFormProps) {
         </TacSelect>
       </div>
 
-      <div className="flex items-center gap-3 pt-2">
-        <TacButton type="submit" variant="success" size="sm" disabled={isPending}>
+      <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:items-center">
+        <TacButton type="submit" variant="success" size="sm" disabled={isPending} className="min-h-[44px] sm:min-h-0">
           {isPending ? 'DEPLOYING...' : editAsset ? 'UPDATE ASSET' : 'RECRUIT'}
         </TacButton>
-        <TacButton type="button" variant="ghost" size="sm" onClick={onClose} disabled={isPending}>
+        <TacButton type="button" variant="ghost" size="sm" onClick={onClose} disabled={isPending} className="min-h-[44px] sm:min-h-0">
           CANCEL
         </TacButton>
       </div>
