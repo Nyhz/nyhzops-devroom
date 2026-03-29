@@ -13,7 +13,7 @@ The default tab. Shows the output of `git status` in a structured UI:
 - **Untracked files**: dim list. Action: `[STAGE]` per file.
 - **Bulk actions**: `[STAGE ALL]`, `[UNSTAGE ALL]`.
 - **Commit form**: message input + `[COMMIT]` button. Only enabled when staged files exist.
-- Auto-refreshes every 5 seconds or on Socket.IO `activity:event` for this battlefield.
+- Auto-refresh on user-triggered actions (stage, unstage, commit). *(Planned: auto-refresh every 5 seconds or on Socket.IO `activity:event` — not yet implemented.)*
 
 All operations via `simple-git` through Server Actions in `actions/git.ts`.
 
@@ -22,21 +22,21 @@ All operations via `simple-git` through Server Actions in `actions/git.ts`.
 Commit history:
 - List of commits: hash (short), message, author, relative time.
 - Branch/tag labels as badges next to relevant commits.
-- Clicking a commit expands to show the full diff.
+- Clicking a commit expands to show metadata (hash, author, date, message). *(Planned: show full commit diff — `getCommitDiff()` action not yet implemented.)*
 - Paginated: load 50 at a time, `[LOAD MORE]` at the bottom.
 
 ### Branches View
 
 - List of local branches. Current branch highlighted with `●`.
-- Remote branches in a separate section (collapsed by default).
 - Actions per branch: `[CHECKOUT]`, `[DELETE]` (with confirmation, not on current branch).
 - `[NEW BRANCH]` button: input for branch name, created from current HEAD.
-- Merge operations: `[MERGE INTO CURRENT]` on non-current branches.
+
+*(Not yet implemented: remote branches section, `[MERGE INTO CURRENT]` button. Only local branches with checkout/delete are available.)*
 
 ### Diff Viewer
 
 When viewing a file diff (from status or log):
-- Side-by-side or unified view toggle.
+- Unified view only. *(Planned: side-by-side toggle — not yet implemented.)*
 - Syntax-highlighted with line numbers.
 - Added lines in green background, removed in red, modified in amber.
 - File path as header.
@@ -147,13 +147,12 @@ Green dot = enabled, gray dot = disabled.
 
 Form fields:
 - **Name**: descriptive name.
-- **Type**: `Mission`, `Campaign`, or `Maintenance` (internal tasks like WORKTREE SWEEP).
+- **Type**: `Mission` or `Campaign`. *(Backend also supports `Maintenance` type for internal tasks like WORKTREE SWEEP, but the UI form only exposes Mission and Campaign.)*
 - **Schedule**: cron expression with human-readable preview (e.g. "Every day at 03:00"). Common presets: hourly, daily, weekly, monthly.
 - **If Mission type**:
   - Briefing (markdown).
   - Asset (dropdown).
   - Priority.
-  - Use worktree (toggle).
 - **If Campaign type**:
   - Select a campaign template to re-run.
 - **Enabled**: toggle (default: on).
@@ -168,7 +167,7 @@ In `lib/scheduler/scheduler.ts`: polls every 60 seconds for due tasks, creates m
 
 ### Execution History
 
-Each scheduled task has a `[VIEW LOG]` that shows its past executions:
+*(Not yet implemented in UI.)* A `getScheduleHistory()` server action exists but the UI does not expose a `[VIEW LOG]` button. Planned:
 - List of missions/campaigns created by this schedule.
 - Status, duration, tokens for each.
 - Click to navigate to the mission/campaign detail.

@@ -12,7 +12,7 @@ STANDBY → QUEUED → DEPLOYING → IN COMBAT → REVIEWING → ACCOMPLISHED
 
 **Quick deploy** (battlefield overview): textarea + asset + SAVE/SAVE & DEPLOY.
 
-**Full form** (modal or page): title, briefing (markdown + image paste), priority, asset, worktree toggle.
+**Full form** (modal or page): title, briefing (markdown + image paste), priority, asset. Worktrees are created automatically by the executor for all non-bootstrap missions — no user toggle.
 
 ## Load Dossier
 
@@ -23,11 +23,11 @@ The `<DossierSelector />` component lets the Commander pick a saved dossier temp
 In `executor.ts` when the orchestrator dequeues a mission:
 
 1. **Status → DEPLOYING**. Emit events.
-2. Worktree setup (if enabled):
+2. Worktree setup (automatic for non-bootstrap missions):
    - Branch: `devroom/{codename}/{mission-id-short}`.
    - Create worktree via simple-git.
    - `cwd` = worktree path.
-3. No worktree: `cwd` = repo root.
+3. Bootstrap missions: `cwd` = repo root (no worktree).
 4. Build prompt via `prompt-builder.ts` (see `.devroom/spec-prompts.md`).
 5. Spawn Claude Code with AbortController.
 6. **Status → IN COMBAT**.
@@ -50,12 +50,12 @@ In `executor.ts` when the orchestrator dequeues a mission:
 ## Session Reuse
 
 Completed missions store `sessionId`. Detail page shows:
-- **[Continue Mission]**: new mission reusing session (context preserved).
-- **[Redeploy]**: re-run same mission (`iterations++`).
+- **[CONTINUE MISSION]**: new mission reusing session (context preserved).
+- **[TACTICAL OVERRIDE]**: edit briefing and redeploy as a new mission with modified parameters.
 
 ## Debrief Generation
 
-Extract summary from Claude Code output. If unclear, spawn a quick process to generate one. Written in Commander-addressed military briefing style.
+The full Claude Code result is stored as the mission debrief. The Captain reviews debrief quality via `debrief-reviewer.ts` but does not generate a separate summary. Written in Commander-addressed military briefing style.
 
 ## Mission Detail — `/battlefields/[id]/missions/[missionId]`
 
@@ -86,7 +86,7 @@ Server Component + Client children for real-time:
 │  │ Duration: 2m 14s                                        │ │
 │  └─────────────────────────────────────────────────────────┘ │
 │                                                              │
-│  [ABANDON]  [CONTINUE MISSION]  [REDEPLOY]                  │
+│  [ABANDON]  [CONTINUE MISSION]  [TACTICAL OVERRIDE]         │
 └──────────────────────────────────────────────────────────────┘
 ```
 
