@@ -85,7 +85,7 @@ export default function ProjectsPage() {
 
   return (
     <BootGate battlefieldCount={allBattlefields.length} inCombatCount={totalInCombat}>
-    <PageWrapper breadcrumb="HQ" title="HEADQUARTERS" className="space-y-8">
+    <PageWrapper breadcrumb="HQ" title="HEADQUARTERS" className="space-y-6 md:space-y-8">
       {/* Global Stats */}
       <div>
         <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase mb-3">
@@ -110,7 +110,7 @@ export default function ProjectsPage() {
             <TacButton size="sm">+ NEW BATTLEFIELD</TacButton>
           </Link>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
           {allBattlefields.map((bf) => {
             const statusColor = getStatusColor(bf.status ?? 'initializing');
 
@@ -142,7 +142,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* Bottom: Activity Feed + Recent Missions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
         {/* Left: Activity Feed */}
         <ActivityFeed />
 

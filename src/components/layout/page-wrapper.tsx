@@ -17,7 +17,7 @@ export function PageWrapper({ children, className, maxWidth, breadcrumb, title, 
   return (
     <div
       className={cn(
-        'p-8 space-y-6',
+        'p-4 md:p-6 lg:p-8 space-y-6',
         maxWidth && 'max-w-3xl',
         className,
       )}
