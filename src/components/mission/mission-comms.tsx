@@ -138,7 +138,7 @@ export function MissionComms({
 
       {/* Token stats */}
       <TacCard className="p-4">
-        <div className="grid grid-cols-5 gap-4 text-xs font-tactical">
+        <div className="grid grid-cols-2 gap-4 text-xs font-tactical md:grid-cols-5">
           <div>
             <div className="text-dr-muted tracking-wider mb-1">INPUT</div>
             <div className="text-dr-text">
