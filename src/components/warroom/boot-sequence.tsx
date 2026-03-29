@@ -53,23 +53,23 @@ export function BootSequence({ battlefieldCount, inCombatCount, onComplete }: Bo
         fading ? 'opacity-0' : 'opacity-100'
       }`}
     >
-      <div className="w-[560px] space-y-8">
+      <div className="w-full max-w-[560px] px-6 md:px-0 space-y-6 md:space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="text-dr-dim font-tactical text-base tracking-[0.4em] uppercase">
+          <div className="text-dr-dim font-tactical text-sm md:text-base tracking-[0.4em] uppercase">
             NYHZ OPS
           </div>
-          <div className="text-dr-amber font-tactical text-5xl tracking-[0.3em] uppercase">
+          <div className="text-dr-amber font-tactical text-3xl md:text-5xl tracking-[0.3em] uppercase">
             DEVROOM
           </div>
-          <div className="text-dr-dim font-tactical text-sm tracking-[0.5em] uppercase">
+          <div className="text-dr-dim font-tactical text-xs md:text-sm tracking-[0.3em] md:tracking-[0.5em] uppercase">
             TACTICAL OPERATIONS CENTER
           </div>
           <div className="mt-4 h-px bg-gradient-to-r from-transparent via-dr-amber/50 to-transparent" />
         </div>
 
         {/* Progress bars */}
-        <div className="space-y-4 mt-10">
+        <div className="space-y-3 md:space-y-4 mt-6 md:mt-10">
           {BOOT_STEPS.map((label, i) => (
             <div
               key={label}
@@ -78,7 +78,7 @@ export function BootSequence({ battlefieldCount, inCombatCount, onComplete }: Bo
               }`}
             >
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-dr-muted font-data text-sm">{label}</span>
+                <span className="text-dr-muted font-data text-xs md:text-sm">{label}</span>
                 <span
                   className={`text-dr-green font-tactical text-sm transition-opacity duration-200 ${
                     i < filledBars ? 'opacity-100' : 'opacity-0'
@@ -88,7 +88,7 @@ export function BootSequence({ battlefieldCount, inCombatCount, onComplete }: Bo
                   &#10003;
                 </span>
               </div>
-              <div className="h-2 w-[200px] bg-dr-elevated overflow-hidden">
+              <div className="h-1.5 md:h-2 w-full max-w-[200px] bg-dr-elevated overflow-hidden">
                 <div
                   className="h-full bg-dr-green transition-all duration-700 ease-linear"
                   style={{
@@ -102,9 +102,9 @@ export function BootSequence({ battlefieldCount, inCombatCount, onComplete }: Bo
         </div>
 
         {/* Status lines */}
-        <div className="space-y-2.5 mt-8">
+        <div className="space-y-2 md:space-y-2.5 mt-6 md:mt-8">
           <div
-            className={`font-tactical text-sm tracking-wider transition-opacity duration-200 ${
+            className={`font-tactical text-xs md:text-sm tracking-wider transition-opacity duration-200 ${
               visibleStatus >= 1 ? 'opacity-100' : 'opacity-0'
             }`}
           >
@@ -112,7 +112,7 @@ export function BootSequence({ battlefieldCount, inCombatCount, onComplete }: Bo
             <span className="text-dr-text ml-3">ALL SYSTEMS OPERATIONAL</span>
           </div>
           <div
-            className={`font-tactical text-sm tracking-wider transition-opacity duration-200 ${
+            className={`font-tactical text-xs md:text-sm tracking-wider transition-opacity duration-200 ${
               visibleStatus >= 2 ? 'opacity-100' : 'opacity-0'
             }`}
           >
@@ -120,7 +120,7 @@ export function BootSequence({ battlefieldCount, inCombatCount, onComplete }: Bo
             <span className="text-dr-text ml-3">{battlefieldCount} BATTLEFIELDS ONLINE</span>
           </div>
           <div
-            className={`font-tactical text-sm tracking-wider transition-opacity duration-200 ${
+            className={`font-tactical text-xs md:text-sm tracking-wider transition-opacity duration-200 ${
               visibleStatus >= 3 ? 'opacity-100' : 'opacity-0'
             }`}
           >
@@ -128,7 +128,7 @@ export function BootSequence({ battlefieldCount, inCombatCount, onComplete }: Bo
             <span className="text-dr-text ml-3">{inCombatCount} MISSIONS IN COMBAT</span>
           </div>
           <div
-            className={`font-tactical text-sm tracking-wider transition-opacity duration-200 ${
+            className={`font-tactical text-xs md:text-sm tracking-wider transition-opacity duration-200 ${
               visibleStatus >= 4 ? 'opacity-100' : 'opacity-0'
             }`}
           >
@@ -138,9 +138,9 @@ export function BootSequence({ battlefieldCount, inCombatCount, onComplete }: Bo
         </div>
 
         {/* Entering command center */}
-        <div className="text-center mt-8">
+        <div className="text-center mt-6 md:mt-8">
           <span
-            className={`text-dr-amber font-tactical text-sm tracking-[0.3em] uppercase animate-pulse transition-opacity duration-300 ${
+            className={`text-dr-amber font-tactical text-xs md:text-sm tracking-[0.2em] md:tracking-[0.3em] uppercase animate-pulse transition-opacity duration-300 ${
               visibleStatus >= 4 ? 'opacity-100' : 'opacity-0'
             }`}
           >
