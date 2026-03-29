@@ -6,13 +6,13 @@ Multi-phase operation. Phases execute sequentially. Within each phase, missions 
 
 ## Creating a Campaign
 
-**Step 1**: Name, objective, worktree mode. Server Action → `draft`.
+**Step 1**: Name and objective. Server Action → `draft`. Worktree mode defaults to `'phase'` (schema field exists but not exposed in UI).
 
-**Step 2**: `[GENERATE BATTLE PLAN]` spawns Claude Code with planning prompt. Response parsed as JSON with phases, missions, recommended assets.
+**Step 2**: `[GENERATE PLAN]` opens the `<BriefingChat />` (GENERAL conversation). Campaign transitions to `planning`.
 
-**Step 3**: `<PlanGenerator />` shows editable plan. Reorder/add/remove phases and missions. Recruit recommended assets. Assign assets.
+**Step 3**: `<PlanEditor />` shows editable plan with drag-and-drop. Reorder/add/remove phases and missions. Recruit recommended assets. Assign assets.
 
-**Step 4**: `[LAUNCH OPERATION]` → `active`. Execution begins.
+**Step 4**: `[GREEN LIGHT]` → `active`. Execution begins.
 
 ## Execution
 
@@ -21,7 +21,7 @@ Multi-phase operation. Phases execute sequentially. Within each phase, missions 
 3. Queue all phase missions. Parallel execution (up to `DEVROOM_MAX_AGENTS`).
 4. All missions terminal:
    - All accomplished → phase `secured`.
-   - Any compromised → phase `compromised`, campaign `paused`. Commander decides.
+   - Any compromised → phase `compromised`, campaign `compromised`. Commander decides (resume, skip, or abandon). Note: `'paused'` is used in some UI/action code but is not in the `CampaignStatus` type union — the actual status set is `'compromised'`.
    - Merge worktrees if applicable.
    - Generate phase debrief.
    - Record `totalTokens`, `durationMs`.
@@ -39,7 +39,7 @@ Multi-phase operation. Phases execute sequentially. Within each phase, missions 
 ┌──────────────────────────────────────────────────────────────┐
 │  Battlefields // Project // Campaigns // Operation Clean Sweep│
 │  OPERATION CLEAN SWEEP                                        │
-│                    [MISSION ACCOMPLISHED] [REDEPLOY] [ABANDON]│
+│                              [MISSION ACCOMPLISHED] [ABANDON] │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌─ Phase 1  Recon ──────────────────────────────── SECURED ┐│
@@ -70,5 +70,6 @@ Phase containers: left border (green=secured, amber=active). Header: `Phase {n}`
 ## Campaign Controls
 
 - **MISSION ACCOMPLISHED** (green outline): manually complete the campaign.
-- **REDEPLOY**: clone and re-run.
 - **ABANDON** (red outline): cancel. Abort in-combat missions. Status → `compromised`.
+
+Note: A `redeployCampaign` server action exists but is not yet exposed in the campaign detail UI.

@@ -46,8 +46,8 @@
 **Objective**: {campaign.objective}
 **Phase**: {phase.name} ({n} of {total})
 
-### Previous Phase Debrief
-{previousPhase.debrief}                            ← SEMI-DYNAMIC
+### Previous Phase Results
+{previousPhaseMissionDebriefs}                     ← SEMI-DYNAMIC
 
 ---
 
@@ -80,7 +80,7 @@
 Branch `{source}` into `{target}`.
 
 ### Context
-{missionDebriefs}
+{mission.debrief}
 
 ### Conflicts
 {gitDiffWithMarkers}
@@ -151,12 +151,7 @@ Analyze the repository at the current working directory. Examine:
 
 ### Orders
 
-Generate TWO documents as a single JSON response:
-
-{
-  "claudeMd": "...(full CLAUDE.md content)...",
-  "specMd": "...(full SPEC.md content)..."
-}
+Create TWO files in the repository root using your Write tool:
 
 **CLAUDE.md** should include:
 - Project overview and purpose
@@ -186,5 +181,17 @@ precise, and specific to this actual codebase — not generic.
 Address the Commander in any commentary. Use military briefing tone in
 meta-commentary only, not in the technical documentation itself.
 
-Respond ONLY with the JSON object. No preamble, no markdown fences.
+Write the files using your Write tool. Do NOT commit them.
 ```
+
+## GENERAL — Briefing Prompt
+
+Used for interactive campaign planning sessions. Implementation: `src/lib/briefing/briefing-prompt.ts`.
+
+The GENERAL briefing persona is a "campaign planning and coordination specialist" that helps the Commander design multi-phase operations. It outputs a JSON plan with phases, missions, dependencies, and asset assignments.
+
+## GENERAL — Admin Prompt
+
+Used for diagnostics, architecture discussion, and system administration queries. Implementation: `src/lib/general/general-prompt.ts`.
+
+A second GENERAL persona: "senior strategic advisor and administrator of NYHZ OPS — DEVROOM." Handles `/sitrep`, `/diagnose`, and general operational queries. Distinct from the briefing prompt.

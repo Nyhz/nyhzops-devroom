@@ -97,7 +97,19 @@ See `.devroom/spec-campaigns.md` for full details on campaign creation, phase ex
 
 ---
 
-## 6. Intel Board
+## 6. GENERAL — Strategic Chat
+
+Standalone Claude Code chat interface at `/general`. Supports multiple independent sessions, each optionally linked to a battlefield for context.
+
+- **Multi-tab sessions**: create, rename, switch between, and close sessions.
+- **Slash commands**: `/sitrep` (situation report), `/diagnose <missionId>` (mission deep-dive), plus native Claude Code commands (`/clear`, `/compact`, `/cost`, `/status`, `/model`, `/memory`).
+- **Briefing mode**: used within campaign creation to plan operations with the GENERAL asset.
+- **Engine**: spawns Claude Code CLI processes via `src/lib/general/general-engine.ts`. Sessions persist via `generalSessions` and `generalMessages` tables.
+- **Prompts**: see `.devroom/spec-prompts.md` for GENERAL briefing and admin prompts.
+
+---
+
+## 7. Intel Board
 
 Kanban-style planning board per battlefield at `/battlefields/[id]/board`. Intel notes flow through columns that mirror the mission lifecycle: `backlog → planned → deploying → in_combat → reviewing → accomplished → compromised`.
 
@@ -109,13 +121,13 @@ Kanban-style planning board per battlefield at `/battlefields/[id]/board`. Intel
 
 ---
 
-## 7. Operations — Git, Console & Scheduler
+## 8. Operations — Git, Console & Scheduler
 
 See `.devroom/spec-operations.md` for full details on the Git dashboard, console & dev server, and scheduled tasks.
 
 ---
 
-## 8. Git Worktree Management
+## 9. Git Worktree Management
 
 See `.devroom/git-and-workflows.md` for branch naming, merge flow, worktree modes, and cleanup rules.
 
@@ -125,7 +137,7 @@ See `.devroom/git-and-workflows.md` for branch naming, merge flow, worktree mode
 
 ---
 
-## 9. Real-Time (Socket.IO)
+## 10. Real-Time (Socket.IO)
 
 See `.devroom/server-and-sockets.md` for full Socket.IO room/event reference and client hook patterns.
 
@@ -133,7 +145,7 @@ Auto-reconnect via Socket.IO. On reconnect: re-join rooms, backfill missed logs 
 
 ---
 
-## 10. Queue & Concurrency
+## 11. Queue & Concurrency
 
 ### Orchestrator Loop
 
@@ -145,13 +157,13 @@ Rate-limit exit → `queued` (not compromised) → exponential backoff (1m, 2m, 
 
 ---
 
-## 11. Prompt Architecture
+## 12. Prompt Architecture
 
-See `.devroom/spec-prompts.md` for all prompt templates: standard mission, campaign mission, conflict resolution, phase debrief generation, and bootstrap.
+See `.devroom/spec-prompts.md` for all prompt templates: standard mission, campaign mission, conflict resolution, phase debrief generation, bootstrap, and GENERAL (briefing + admin) prompts.
 
 ---
 
-## 12. Persistence
+## 13. Persistence
 
 See `.devroom/database-schema.md` for all table definitions.
 
@@ -161,7 +173,7 @@ SQLite with WAL mode, foreign keys, 5s busy timeout. Single file. Schema in `lib
 
 ---
 
-## 13. Error Handling
+## 14. Error Handling
 
 - **Process crashes**: capture partial output → `compromised` → error in debrief. Campaign mission → pause campaign.
 - **Git errors**: simple-git throw → log → `compromised` → git error in debrief → `[RETRY MERGE]` in UI.
@@ -169,13 +181,15 @@ SQLite with WAL mode, foreign keys, 5s busy timeout. Single file. Schema in `lib
 
 ---
 
-## 14. Captain, Notifications, Logistics & War Room
+## 15. Captain, Notifications, Logistics & War Room
 
 See `.devroom/spec-captain-and-comms.md` for full details on the Captain AI decision layer, notification levels & Telegram integration, logistics dashboard, and War Room boot sequence.
 
+**Notifications page** at `/notifications`: lists all notifications with level filtering and "mark all read" action. Accessible via the bell icon in the Intel Bar (not in sidebar nav).
+
 ---
 
-## 15. Future Ops (Backlog)
+## 16. Future Ops (Backlog)
 
 - [ ] Auto-import skills from curated registry.
 - [ ] Cost dashboard with token graphs over time (basic cost tracking exists in Logistics).

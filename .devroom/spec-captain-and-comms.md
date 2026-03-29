@@ -81,17 +81,15 @@ Server Actions in `src/actions/logistics.ts`.
 
 ## War Room — Boot Sequence
 
-### Page — `/warroom`
-
 A cinematic boot animation shown on first visit to DEVROOM. Creates an immersive tactical startup experience.
 
 ### Flow
 
-1. First visit to HQ triggers redirect to `/warroom`.
+1. First visit to HQ shows the `<BootGate>` overlay on top of the dashboard content.
 2. Boot sequence animation plays (typewriter text, system checks, ASCII art).
-3. On completion, redirects to HQ dashboard.
-4. A session flag prevents re-showing on subsequent visits.
+3. On completion, the overlay fades out to reveal the HQ dashboard underneath.
+4. A session storage flag (`devroom-booted`) prevents re-showing on subsequent visits.
 
 Components: `src/components/warroom/boot-gate.tsx`, `src/components/warroom/boot-sequence.tsx`
 
-The HQ root layout uses `<BootGate>` as an overlay — if the boot animation hasn't been seen, it renders on top of the HQ content and fades out on completion. This avoids a flash of content before redirect.
+The HQ page wraps its content with `<BootGate>`, which renders the animation as an overlay. No redirect occurs — the HQ dashboard renders underneath and becomes visible when the animation completes. The `/warroom` route exists only as a redirect to `/` (legacy endpoint).

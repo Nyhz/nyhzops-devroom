@@ -98,7 +98,7 @@ Server Component. The main working screen.
 - Breadcrumb: `Battlefields // {name}`
 - Title: `{codename}` — large, tactical font.
 - Description line.
-- Buttons: `[EDIT]` `[ASSETS]`.
+- Buttons: `[EDIT]` `[ASSETS]`. *(Not yet implemented — header currently has no action buttons. Navigate to config or assets manually.)*
 
 ### Deploy Mission (inline)
 
@@ -132,7 +132,7 @@ Rows (div-based, not `<table>`):
 ### Right Sidebar
 
 **ASSETS** section:
-- Header with `manage` link → `/battlefields/[id]/assets`.
+- Header with `manage` link → `/battlefields/[id]/assets`. *(Route declared but not yet implemented — only `loading.tsx` exists.)*
 - List: green dot (active) / gray (offline) + codename + model dim text.
 
 **ASSET BREAKDOWN** section:
