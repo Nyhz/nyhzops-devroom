@@ -21,18 +21,18 @@ export default async function CaptainLogPage() {
       </p>
 
       {/* Stats bar */}
-      <div className="flex items-center gap-6 text-sm font-tactical border border-dr-border bg-dr-surface px-4 py-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:flex md:items-center md:gap-6 text-sm font-tactical border border-dr-border bg-dr-surface px-3 py-2 md:px-4 md:py-3">
         <div>
           <span className="text-dr-muted">TOTAL DECISIONS</span>{' '}
           <span className="text-dr-green font-bold">{stats.totalDecisions}</span>
         </div>
-        <div className="w-px h-4 bg-dr-border" />
+        <div className="hidden md:block w-px h-4 bg-dr-border" />
         <div>
           <span className="text-dr-muted">ESCALATIONS</span>{' '}
           <span className="text-dr-red font-bold">{stats.escalationCount}</span>
           <span className="text-dr-muted ml-1">({escalationPct}%)</span>
         </div>
-        <div className="w-px h-4 bg-dr-border" />
+        <div className="hidden md:block w-px h-4 bg-dr-border" />
         <div>
           <span className="text-dr-muted">HIGH</span>{' '}
           <span className="text-dr-green">{stats.confidenceDistribution.high}</span>
@@ -62,12 +62,12 @@ export default async function CaptainLogPage() {
           {logs.map((log) => (
             <div
               key={log.id}
-              className={`border bg-dr-surface px-4 py-3 space-y-2 ${
+              className={`border bg-dr-surface px-3 py-2 md:px-4 md:py-3 space-y-2 ${
                 log.escalated ? 'border-dr-red' : 'border-dr-border'
               }`}
             >
               {/* Top row: timestamp, confidence, escalation */}
-              <div className="flex items-center gap-3 text-sm font-tactical">
+              <div className="flex flex-wrap items-center gap-2 md:gap-3 text-sm font-tactical">
                 <span className="text-dr-muted">
                   {formatRelativeTime(log.timestamp)}
                 </span>
@@ -79,7 +79,7 @@ export default async function CaptainLogPage() {
                 ) : null}
                 <Link
                   href={`/battlefields/${log.battlefieldId}/missions/${log.missionId}`}
-                  className="ml-auto text-dr-blue hover:underline"
+                  className="ml-auto text-dr-blue hover:underline truncate max-w-[160px] md:max-w-none"
                 >
                   VIEW MISSION
                 </Link>
