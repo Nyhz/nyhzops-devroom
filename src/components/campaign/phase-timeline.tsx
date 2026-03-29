@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { cn, formatDuration } from '@/lib/utils';
+import { cn, formatDuration, formatTokens } from '@/lib/utils';
 import { TacBadge } from '@/components/ui/tac-badge';
 import { Markdown } from '@/components/ui/markdown';
 import { CampaignMissionCard } from '@/components/campaign/mission-card';
@@ -39,15 +39,6 @@ const statusBorderColor: Record<string, string> = {
   draft: 'border-l-dr-dim',
 };
 
-function formatTokenCount(tokens: number): string {
-  if (tokens >= 1_000_000) {
-    return `${(tokens / 1_000_000).toFixed(1)}M tokens`;
-  }
-  if (tokens >= 1000) {
-    return `${(tokens / 1000).toFixed(1)}K tokens`;
-  }
-  return `${tokens} tokens`;
-}
 
 export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: PhaseTimelineProps) {
   if (phases.length === 0) {
@@ -104,7 +95,7 @@ export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: Ph
                     <span>{formatDuration(phase.durationMs)}</span>
                   )}
                   {phase.totalTokens != null && phase.totalTokens > 0 && (
-                    <span>{formatTokenCount(phase.totalTokens)}</span>
+                    <span>{formatTokens(phase.totalTokens)} tokens</span>
                   )}
                 </div>
               )}

@@ -1,4 +1,4 @@
-import { formatDuration } from '@/lib/utils';
+import { formatDuration, formatTokens, formatCost } from '@/lib/utils';
 import { Markdown } from '@/components/ui/markdown';
 
 interface ResultMission {
@@ -44,12 +44,6 @@ export function CampaignResults({ campaignName, missions, battlefieldId }: Campa
   }
   const phaseList = Array.from(phaseMap.entries()).sort((a, b) => a[0] - b[0]);
 
-  function formatTokens(n: number): string {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return String(n);
-  }
-
   return (
     <div className="space-y-6">
       {/* Summary stats */}
@@ -59,7 +53,7 @@ export function CampaignResults({ campaignName, missions, battlefieldId }: Campa
         <StatCard label="COMPROMISED" value={String(compromised)} color="text-dr-red" />
         <StatCard label="DURATION" value={formatDuration(totalDuration)} />
         <StatCard label="TOKENS" value={formatTokens(totalTokens)} />
-        <StatCard label="COST" value={`$${totalCostUsd.toFixed(2)}`} color="text-dr-amber" />
+        <StatCard label="COST" value={formatCost(totalCostUsd)} color="text-dr-amber" />
       </div>
 
       {/* Cache hit bar */}
