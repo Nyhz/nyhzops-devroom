@@ -22,7 +22,7 @@ New sidebar nav entry: **INTEL BOARD**, sitting between CAMPAIGNS and GIT.
 - id              TEXT PRIMARY KEY (ULID)
 - battlefieldId   TEXT NOT NULL REFERENCES battlefields(id)
 - title           TEXT NOT NULL
-- description     TEXT                     -- markdown body
+- description     TEXT                     -- markdown body, may contain base64 images
 - column          TEXT DEFAULT 'backlog'   -- 'backlog' | 'planned' (manual position, only used when unpromoted)
 - position        INTEGER DEFAULT 0        -- sort order within column
 - missionId       TEXT REFERENCES missions(id)   -- set on promotion → becomes linked card
@@ -77,7 +77,7 @@ Missions with status `abandoned` are hidden by default. Optional toggle to show 
 
 ### Create Note
 
-"+ NEW NOTE" button in header bar opens the side panel in create mode. Title is required, description is optional (markdown). New notes land in BACKLOG at position 0 (top).
+"+ NEW NOTE" button in header bar opens the side panel in create mode. Title is required, description is optional (markdown with image paste/drop support via Cmd+V or drag, stored as base64 — reuses the existing `tac-textarea-with-images` component). New notes land in BACKLOG at position 0 (top).
 
 ### Drag & Drop
 
@@ -167,7 +167,7 @@ Route: `/battlefields/[id]/board`
 Right slide-out panel (overlays board, ~400px wide) for note detail/edit:
 
 - Header: title (editable inline)
-- Body: markdown editor for description
+- Body: markdown editor for description with image support (paste/drop, stored as base64 — same as `tac-textarea-with-images.tsx`)
 - Footer: created date, action buttons
 - Close on Escape or click outside
 
