@@ -31,13 +31,13 @@ export function MissionList({ missions, battlefieldId }: MissionListProps) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <div className="text-dr-amber font-tactical text-sm tracking-widest uppercase">
           MISSIONS
         </div>
         <SearchInput
           placeholder="Search missions..."
-          className="w-64"
+          className="w-full sm:w-64"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -56,7 +56,7 @@ export function MissionList({ missions, battlefieldId }: MissionListProps) {
           {filtered.map((mission) => (
             <div
               key={mission.id}
-              className={`bg-dr-surface border-l-2 ${getStatusBorderColor(mission.status)} flex items-center justify-between px-5 py-4`}
+              className={`bg-dr-surface border-l-2 ${getStatusBorderColor(mission.status)} flex flex-col gap-2 px-3 py-3 md:flex-row md:items-center md:justify-between md:px-5 md:py-4 md:gap-0`}
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-3">
@@ -74,7 +74,7 @@ export function MissionList({ missions, battlefieldId }: MissionListProps) {
                   {formatRelativeTime(mission.createdAt)}
                 </div>
               </div>
-              <div className="flex items-center gap-5 shrink-0 ml-4">
+              <div className="flex items-center gap-3 md:gap-5 shrink-0 md:ml-4">
                 <TacBadge status={mission.status ?? 'standby'} />
                 <Link
                   href={`/battlefields/${battlefieldId}/missions/${mission.id}`}
