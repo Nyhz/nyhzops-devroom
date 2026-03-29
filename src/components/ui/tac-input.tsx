@@ -7,7 +7,7 @@ export const TacInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInp
       ref={ref}
       className={cn(
         'w-full bg-dr-bg border border-dr-border text-dr-text font-tactical text-base',
-        'px-4 py-3 placeholder:text-dr-muted',
+        'px-4 py-3 placeholder:text-dr-muted min-h-[44px]',
         'focus:border-dr-amber focus:outline-none',
         'disabled:opacity-70 disabled:cursor-not-allowed',
         className,
