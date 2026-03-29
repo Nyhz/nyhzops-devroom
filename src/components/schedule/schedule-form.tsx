@@ -194,6 +194,7 @@ export function ScheduleForm({
                 type="button"
                 size="sm"
                 variant="ghost"
+                className="min-h-[44px]"
                 onClick={() => setCron(preset.cron)}
                 disabled={isPending}
               >
@@ -293,13 +294,14 @@ export function ScheduleForm({
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-2 pt-2">
-          <TacButton type="submit" variant="success" disabled={isPending}>
+        <div className="flex flex-wrap items-center gap-2 pt-2">
+          <TacButton type="submit" variant="success" className="min-h-[44px]" disabled={isPending}>
             {isPending ? 'Saving...' : 'Save'}
           </TacButton>
           <TacButton
             type="button"
             variant="ghost"
+            className="min-h-[44px]"
             onClick={onClose}
             disabled={isPending}
           >
