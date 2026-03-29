@@ -23,7 +23,6 @@ interface MissionCommsProps {
   };
   battlefieldId: string;
   initialSessionId: string | null;
-  initialWorktreeBranch: string | null;
   campaignId?: string | null;
   briefing?: string;
 }
@@ -39,7 +38,6 @@ export function MissionComms({
   initialTokens,
   battlefieldId,
   initialSessionId,
-  initialWorktreeBranch,
   campaignId,
   briefing,
 }: MissionCommsProps) {
@@ -80,11 +78,10 @@ export function MissionComms({
   // Build terminal logs
   const isPreDeploy = PRE_DEPLOY_STATUSES.includes(liveStatus);
   const isReviewing = liveStatus === 'reviewing';
-  const isTerminal = TERMINAL_STATUSES.includes(liveStatus);
   const terminalLogs = isPreDeploy
     ? [
         {
-          timestamp: Date.now(),
+          timestamp: 0,
           type: 'status' as const,
           content:
             'Awaiting deployment. Comms will appear here when the mission is in combat.',
@@ -95,6 +92,7 @@ export function MissionComms({
           .filter((log) => {
             // Hide the raw debrief text from comms — it's shown formatted below
             // Only filter when mission is terminal (not while still running)
+            const isTerminal = TERMINAL_STATUSES.includes(liveStatus);
             if (isTerminal && liveDebrief && log.type === 'log' && liveDebrief.startsWith(log.content.slice(0, 100))) {
               return false;
             }
@@ -105,10 +103,10 @@ export function MissionComms({
             type: (log.type as 'log' | 'status' | 'error') ?? 'log',
             content: log.content,
           })),
-        ...(isTerminal && liveDebrief
+        ...(TERMINAL_STATUSES.includes(liveStatus) && liveDebrief
           ? [
               {
-                timestamp: Date.now(),
+                timestamp: 0,
                 type: 'status' as const,
                 content: 'Debrief submitted. See report below.',
               },
@@ -117,7 +115,7 @@ export function MissionComms({
         ...(isReviewing
           ? [
               {
-                timestamp: Date.now(),
+                timestamp: 0,
                 type: 'status' as const,
                 content: 'Agent work complete. Captain reviewing debrief...',
               },
@@ -205,7 +203,6 @@ export function MissionComms({
         status={liveStatus}
         battlefieldId={battlefieldId}
         sessionId={initialSessionId}
-        worktreeBranch={initialWorktreeBranch}
         campaignId={campaignId}
         briefing={briefing}
       />

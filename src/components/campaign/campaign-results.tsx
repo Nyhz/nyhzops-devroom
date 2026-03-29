@@ -17,12 +17,11 @@ interface ResultMission {
 }
 
 interface CampaignResultsProps {
-  campaignName: string;
   missions: ResultMission[];
   battlefieldId?: string;
 }
 
-export function CampaignResults({ campaignName, missions, battlefieldId }: CampaignResultsProps) {
+export function CampaignResults({ missions, battlefieldId }: CampaignResultsProps) {
   const totalDuration = missions.reduce((sum, m) => sum + (m.durationMs || 0), 0);
   const totalInput = missions.reduce((sum, m) => sum + (m.costInput || 0), 0);
   const totalOutput = missions.reduce((sum, m) => sum + (m.costOutput || 0), 0);

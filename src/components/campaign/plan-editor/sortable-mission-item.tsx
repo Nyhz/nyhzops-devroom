@@ -16,7 +16,6 @@ import type { PlanMission, MissionPriority } from '@/types';
 interface SortableMissionItemProps {
   id: string;
   mission: PlanMission;
-  phaseIndex: number;
   missionIndex: number;
   phaseMissions: PlanMission[];
   assets: Array<{ id: string; codename: string; specialty: string }>;
@@ -31,7 +30,6 @@ interface SortableMissionItemProps {
 export function SortableMissionItem({
   id,
   mission,
-  phaseIndex,
   missionIndex,
   phaseMissions,
   assets,

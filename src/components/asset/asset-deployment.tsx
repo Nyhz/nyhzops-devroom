@@ -24,8 +24,7 @@ interface AssetDeploymentProps {
 export function AssetDeployment({ initialData }: AssetDeploymentProps) {
   const socket = useSocket();
   const [data, setData] = useState(initialData);
-  const [peaceMsg, setPeaceMsg] = useState(PEACE_MESSAGES[0]);
-  useEffect(() => { setPeaceMsg(getPeaceMessage()); }, []);
+  const [peaceMsg] = useState(getPeaceMessage);
 
   const refresh = useCallback(async () => {
     try {

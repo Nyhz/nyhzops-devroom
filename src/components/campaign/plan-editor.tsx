@@ -34,7 +34,6 @@ import type { PlanJSON, PlanPhase, PlanMission, MissionPriority } from '@/types'
 
 interface PlanEditorProps {
   campaignId: string;
-  battlefieldId: string;
   initialPlan: PlanJSON;
   assets: Array<{ id: string; codename: string; specialty: string }>;
 }
@@ -45,7 +44,6 @@ interface PlanEditorProps {
 
 export function PlanEditor({
   campaignId,
-  battlefieldId,
   initialPlan,
   assets,
 }: PlanEditorProps) {

@@ -4,7 +4,6 @@ import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacCard } from '@/components/ui/tac-card';
-import { TacBadge } from '@/components/ui/tac-badge';
 import { useConfirm } from '@/hooks/use-confirm';
 import { toggleScheduledTask, deleteScheduledTask } from '@/actions/schedule';
 import { formatCronHuman } from '@/lib/scheduler/cron';

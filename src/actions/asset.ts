@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { eq, count, inArray, desc } from 'drizzle-orm';
+import { eq, count, inArray } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { assets, missions } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
@@ -220,7 +220,7 @@ export async function toggleAssetStatus(id: string) {
 // ---------------------------------------------------------------------------
 export async function deleteAsset(id: string) {
   const db = getDatabase();
-  const asset = getOrThrow(assets, id, 'deleteAsset');
+  getOrThrow(assets, id, 'deleteAsset');
 
   // Check if any missions reference this asset
   const [missionRef] = db

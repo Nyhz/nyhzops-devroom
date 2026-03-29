@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSocket, useReconnectKey } from './use-socket';
 
 export interface ChatMessage {
@@ -55,9 +55,10 @@ export function useStreamingChat({
     isLoadingRef.current = isLoading;
   }, [isLoading]);
 
-  // Memoize extra events reference to avoid re-running the effect
   const extraEventsRef = useRef(extraEvents);
-  extraEventsRef.current = extraEvents;
+  useEffect(() => {
+    extraEventsRef.current = extraEvents;
+  });
 
   useEffect(() => {
     if (!socket || !resourceId) return;

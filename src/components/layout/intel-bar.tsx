@@ -59,10 +59,7 @@ function entityLink(n: Notification): string | null {
 }
 
 export function IntelBar() {
-  const [index, setIndex] = useState(0);
-  useEffect(() => {
-    setIndex(Math.floor(Math.random() * INTEL_QUOTES.length));
-  }, []);
+  const [index, setIndex] = useState(() => Math.floor(Math.random() * INTEL_QUOTES.length));
   const [visible, setVisible] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);

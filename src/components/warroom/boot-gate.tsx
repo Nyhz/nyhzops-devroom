@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { BootSequence } from './boot-sequence';
 
 interface BootGateProps {
@@ -15,15 +15,13 @@ interface BootGateProps {
  * The children render underneath (no flash) — the overlay covers them.
  */
 export function BootGate({ children, battlefieldCount, inCombatCount }: BootGateProps) {
-  const [showOverlay, setShowOverlay] = useState(true);
-  const [alreadyBooted, setAlreadyBooted] = useState(false);
-
-  useEffect(() => {
-    if (sessionStorage.getItem('devroom-booted') === 'true') {
-      setAlreadyBooted(true);
-      setShowOverlay(false);
+  const [alreadyBooted] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('devroom-booted') === 'true';
     }
-  }, []);
+    return false;
+  });
+  const [showOverlay, setShowOverlay] = useState(!alreadyBooted);
 
   const handleBootComplete = useCallback(() => {
     sessionStorage.setItem('devroom-booted', 'true');

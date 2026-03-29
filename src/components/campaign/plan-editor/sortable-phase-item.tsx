@@ -140,7 +140,6 @@ export function SortablePhaseItem({
                 key={missionId(phaseIndex, mi)}
                 id={missionId(phaseIndex, mi)}
                 mission={mission}
-                phaseIndex={phaseIndex}
                 missionIndex={mi}
                 phaseMissions={phase.missions}
                 assets={assets}
