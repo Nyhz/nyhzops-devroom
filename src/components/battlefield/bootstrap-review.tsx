@@ -155,19 +155,20 @@ export function BootstrapReview({
 
         {/* Content */}
         {isEditing ? (
-          <div className="p-4">
+          <div className="p-3 md:p-4">
             <TacTextarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              className="w-full min-h-96 font-data bg-dr-bg text-dr-text"
+              className="w-full min-h-64 md:min-h-96 font-data bg-dr-bg text-dr-text"
               disabled={isPending}
             />
-            <div className="flex gap-3 mt-3">
+            <div className="flex flex-col md:flex-row gap-3 mt-3">
               <TacButton
                 variant="success"
                 size="sm"
                 onClick={handleSaveEdit}
                 disabled={isPending}
+                className="w-full md:w-auto"
               >
                 SAVE
               </TacButton>
@@ -176,14 +177,15 @@ export function BootstrapReview({
                 size="sm"
                 onClick={handleCancelEdit}
                 disabled={isPending}
+                className="w-full md:w-auto"
               >
                 CANCEL
               </TacButton>
             </div>
           </div>
         ) : (
-          <ScrollArea className="max-h-96">
-            <div className="font-data p-4 text-sm">
+          <ScrollArea className="max-h-72 md:max-h-96">
+            <div className="font-data p-3 md:p-4 text-sm">
               <Markdown content={content} />
             </div>
           </ScrollArea>
@@ -225,11 +227,12 @@ export function BootstrapReview({
               className="w-full min-h-48 font-data"
               disabled={isPending}
             />
-            <div className="flex gap-3 mt-3">
+            <div className="flex flex-col md:flex-row gap-3 mt-3">
               <TacButton
                 variant="primary"
                 onClick={handleRegenerate}
                 disabled={isPending}
+                className="w-full md:w-auto"
               >
                 CONFIRM REGENERATE
               </TacButton>
@@ -237,6 +240,7 @@ export function BootstrapReview({
                 variant="ghost"
                 onClick={() => setShowRegenerate(false)}
                 disabled={isPending}
+                className="w-full md:w-auto"
               >
                 CANCEL
               </TacButton>
@@ -246,11 +250,12 @@ export function BootstrapReview({
       )}
 
       {/* Action buttons */}
-      <div className="flex gap-3">
+      <div className="flex flex-col md:flex-row gap-3">
         <TacButton
           variant="success"
           onClick={handleApprove}
           disabled={isPending || editingFile !== null}
+          className="w-full md:w-auto"
         >
           APPROVE & DEPLOY
         </TacButton>
@@ -258,6 +263,7 @@ export function BootstrapReview({
           variant="primary"
           onClick={() => setShowRegenerate(!showRegenerate)}
           disabled={isPending || editingFile !== null}
+          className="w-full md:w-auto"
         >
           REGENERATE
         </TacButton>
@@ -265,6 +271,7 @@ export function BootstrapReview({
           variant="danger"
           onClick={handleAbandon}
           disabled={isPending || editingFile !== null}
+          className="w-full md:w-auto"
         >
           ABANDON
         </TacButton>

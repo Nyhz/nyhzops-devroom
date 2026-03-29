@@ -109,13 +109,13 @@ export function CreateBattlefield({ devBasePath }: CreateBattlefieldProps) {
 
   return (
     <TacCard className="p-0">
-    <form onSubmit={handleSubmit} className="p-6 space-y-5">
+    <form onSubmit={handleSubmit} className="p-4 md:p-6 space-y-5">
       {/* Mode toggle */}
       <div className="flex justify-end">
         <button
           type="button"
           onClick={toggleMode}
-          className="text-dr-amber font-tactical text-xs tracking-wider hover:text-dr-green transition-colors"
+          className="text-dr-amber font-tactical text-xs tracking-wider hover:text-dr-green transition-colors min-h-[44px] flex items-center"
         >
           [{mode === 'new' ? 'Link existing repo' : 'Create new project'}]
         </button>
@@ -274,7 +274,7 @@ export function CreateBattlefield({ devBasePath }: CreateBattlefieldProps) {
 
       {/* Submit */}
       <div className="flex justify-end pt-2">
-        <TacButton type="submit" disabled={submitting}>
+        <TacButton type="submit" disabled={submitting} className="w-full md:w-auto">
           {submitting ? 'DEPLOYING...' : 'CREATE BATTLEFIELD'}
         </TacButton>
       </div>
