@@ -282,6 +282,9 @@ export async function executeMission(
     let lastMessageHadToolUse = false;
     let recentOutputBuffer = '';
 
+    // Track best debrief candidate from assistant turns
+    let bestDebrief: string | null = null;
+
     parser.onDelta((text) => {
       lastActivityTime = Date.now();
       recentOutputBuffer += text;
@@ -301,6 +304,12 @@ export async function executeMission(
       lastAssistantContent = content;
       lastMessageHadToolUse = false;
       storeLog('log', content);
+
+      // Track debrief candidates — assistant messages containing debrief markers
+      const debriefPattern = /\*?\*?DEBRIEF\*?\*?|## What Was Done|## Summary|## Changes Made|## Files (Modified|Changed)/i;
+      if (debriefPattern.test(content) && content.length > (bestDebrief?.length ?? 0)) {
+        bestDebrief = content;
+      }
     });
 
     parser.onToolUse((tool) => {
@@ -494,9 +503,13 @@ export async function executeMission(
       const r = streamResult as StreamResult;
       const finalStatus = r.isError ? 'compromised' : 'reviewing';
 
+      // Prefer a debrief-pattern match from comms over the final result message,
+      // which may be a short ack if the agent kept responding after the debrief.
+      const debrief = bestDebrief ?? r.result;
+
       db.update(missions).set({
         sessionId: r.sessionId,
-        debrief: r.result,
+        debrief,
         costInput: r.usage.inputTokens,
         costOutput: r.usage.outputTokens,
         costCacheHit: r.usage.cacheReadTokens,
@@ -513,7 +526,7 @@ export async function executeMission(
         missionId: mission.id, status: finalStatus, timestamp: Date.now(),
       });
       io.to(room).emit('mission:debrief', {
-        missionId: mission.id, debrief: r.result,
+        missionId: mission.id, debrief,
       });
       io.to(room).emit('mission:tokens', {
         missionId: mission.id,
