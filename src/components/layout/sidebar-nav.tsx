@@ -14,6 +14,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { icon: "■", label: "MISSIONS", segment: "", countKey: "missions" },
   { icon: "✕", label: "CAMPAIGNS", segment: "campaigns", countKey: "campaigns" },
+  { icon: "⊞", label: "INTEL BOARD", segment: "board" },
   { icon: "◆", label: "GIT", segment: "git" },
   { icon: "▶", label: "CONSOLE", segment: "console" },
   { icon: "⏱", label: "SCHEDULE", segment: "schedule" },
