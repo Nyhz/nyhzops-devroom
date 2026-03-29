@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { SearchInput } from '@/components/ui/search-input';
 import { TacBadge, getStatusBorderColor } from '@/components/ui/tac-badge';
+import { TacCard } from '@/components/ui/tac-card';
 import { formatRelativeTime } from '@/lib/utils';
 
 interface MissionListProps {
@@ -43,13 +44,13 @@ export function MissionList({ missions, battlefieldId }: MissionListProps) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-dr-surface border border-dr-border p-8 text-center">
+        <TacCard className="p-8 text-center">
           <div className="text-dr-dim font-tactical text-xs">
             {missions.length === 0
               ? 'No missions deployed yet. Deploy your first mission above.'
               : 'No missions match your search.'}
           </div>
-        </div>
+        </TacCard>
       ) : (
         <div className="space-y-px">
           {filtered.map((mission) => (

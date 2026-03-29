@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { TacButton } from "@/components/ui/tac-button";
+import { TacCard } from "@/components/ui/tac-card";
 import { TacTextarea } from "@/components/ui/tac-input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Markdown } from "@/components/ui/markdown";
@@ -132,8 +133,8 @@ export function BootstrapReview({
     const isEditing = editingFile === filename;
 
     return (
-      <div
-        className={`bg-dr-surface border border-dr-border ${isEditing ? "shadow-glow-amber" : ""}`}
+      <TacCard
+        className={`p-0 ${isEditing ? "shadow-glow-amber" : ""}`}
       >
         {/* Header */}
         <div className="flex items-center justify-between bg-dr-elevated px-4 py-2">
@@ -187,7 +188,7 @@ export function BootstrapReview({
             </div>
           </ScrollArea>
         )}
-      </div>
+      </TacCard>
     );
   }
 
@@ -211,7 +212,7 @@ export function BootstrapReview({
 
       {/* Regenerate section */}
       {showRegenerate && (
-        <div className="bg-dr-surface border border-dr-border">
+        <TacCard className="p-0">
           <div className="bg-dr-elevated px-4 py-2">
             <span className="font-tactical tracking-wider uppercase text-dr-amber text-sm">
               REGENERATE — Edit Briefing
@@ -241,7 +242,7 @@ export function BootstrapReview({
               </TacButton>
             </div>
           </div>
-        </div>
+        </TacCard>
       )}
 
       {/* Action buttons */}

@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { cn, formatDuration, formatTokens } from '@/lib/utils';
-import { TacBadge, getStatusBorderColor } from '@/components/ui/tac-badge';
+import { formatDuration, formatTokens } from '@/lib/utils';
+import { TacBadge, getStatusColor } from '@/components/ui/tac-badge';
+import { TacCard } from '@/components/ui/tac-card';
 import { Markdown } from '@/components/ui/markdown';
 import { CampaignMissionCard } from '@/components/campaign/mission-card';
 
@@ -42,16 +43,14 @@ export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: Ph
   return (
     <div className="flex flex-col gap-4">
       {phases.map((phase) => {
-        const borderColor = getStatusBorderColor(phase.status);
+        const statusColor = phase.status ? getStatusColor(phase.status) : 'dim';
         const hasMetrics = phase.durationMs != null || phase.totalTokens != null;
 
         return (
-          <div
+          <TacCard
             key={phase.id}
-            className={cn(
-              'bg-dr-surface border border-dr-border border-l-2',
-              borderColor,
-            )}
+            status={statusColor}
+            className="p-0"
           >
             {/* Phase header */}
             <div className="bg-dr-elevated px-4 py-2 flex items-center justify-between gap-4">
@@ -137,7 +136,7 @@ export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: Ph
                 </details>
               )}
             </div>
-          </div>
+          </TacCard>
         );
       })}
     </div>

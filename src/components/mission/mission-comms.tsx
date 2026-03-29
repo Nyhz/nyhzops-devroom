@@ -6,6 +6,7 @@ import { useMissionComms } from '@/hooks/use-mission-comms';
 import { Terminal } from '@/components/ui/terminal';
 import { MissionActions } from '@/components/mission/mission-actions';
 import { Markdown } from '@/components/ui/markdown';
+import { TacCard } from '@/components/ui/tac-card';
 import { formatDuration } from '@/lib/utils';
 import type { MissionLog, MissionStatus } from '@/types';
 
@@ -138,7 +139,7 @@ export function MissionComms({
       </div>
 
       {/* Token stats */}
-      <div className="bg-dr-surface border border-dr-border p-4">
+      <TacCard className="p-4">
         <div className="grid grid-cols-5 gap-4 text-xs font-tactical">
           <div>
             <div className="text-dr-muted tracking-wider mb-1">INPUT</div>
@@ -175,7 +176,7 @@ export function MissionComms({
             </div>
           </div>
         </div>
-      </div>
+      </TacCard>
 
       {/* Debrief */}
       {liveDebrief && (

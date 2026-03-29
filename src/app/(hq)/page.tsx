@@ -151,7 +151,7 @@ export default function ProjectsPage() {
           <div className="text-dr-amber font-tactical text-sm tracking-widest uppercase mb-3">
             RECENT MISSIONS
           </div>
-          <div className="bg-dr-surface border border-dr-border">
+          <TacCard className="p-0">
             {recentMissions.length === 0 ? (
               <div className="p-4 text-center text-dr-dim font-tactical text-xs">
                 No missions deployed yet.
@@ -191,7 +191,7 @@ export default function ProjectsPage() {
                 ))}
               </div>
             )}
-          </div>
+          </TacCard>
         </div>
       </div>
     </PageWrapper>

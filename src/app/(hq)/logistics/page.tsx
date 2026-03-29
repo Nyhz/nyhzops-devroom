@@ -6,6 +6,7 @@ import {
   getRateLimitStatus,
 } from '@/actions/logistics';
 import { PageWrapper } from '@/components/layout/page-wrapper';
+import { TacCard } from '@/components/ui/tac-card';
 import { formatTokens, formatCost } from '@/lib/utils';
 
 function formatTime(ms: number): string {
@@ -40,32 +41,32 @@ export default async function LogisticsPage() {
 
       {/* Totals Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-dr-surface border border-dr-border p-5">
+        <TacCard className="p-5">
           <div className="text-dr-dim text-[10px] tracking-widest uppercase">Total Missions</div>
           <div className="text-dr-text text-lg font-tactical mt-1">{stats.totalMissions}</div>
-        </div>
-        <div className="bg-dr-surface border border-dr-border p-5">
+        </TacCard>
+        <TacCard className="p-5">
           <div className="text-dr-dim text-[10px] tracking-widest uppercase">Total Tokens</div>
           <div className="text-dr-text text-lg font-tactical mt-1">
             {formatTokens(stats.totalInputTokens + stats.totalOutputTokens + stats.totalCacheTokens)}
           </div>
-        </div>
-        <div className="bg-dr-surface border border-dr-border p-5">
+        </TacCard>
+        <TacCard className="p-5">
           <div className="text-dr-dim text-[10px] tracking-widest uppercase">Total Cost</div>
           <div className="text-dr-amber text-lg font-tactical mt-1">
             {formatCost(stats.totalCostUsd)}
           </div>
-        </div>
-        <div className="bg-dr-surface border border-dr-border p-5">
+        </TacCard>
+        <TacCard className="p-5">
           <div className="text-dr-dim text-[10px] tracking-widest uppercase">Cache Hit Rate</div>
           <div className="text-dr-green text-lg font-tactical mt-1">
             {stats.cacheHitPercent}%
           </div>
-        </div>
+        </TacCard>
       </div>
 
       {/* Plan Status Card */}
-      <div className="bg-dr-surface border border-dr-border p-4">
+      <TacCard className="p-4">
         <div className="text-dr-amber text-xs tracking-widest uppercase font-bold mb-3">
           RATE LIMIT STATUS
         </div>
@@ -109,12 +110,12 @@ export default async function LogisticsPage() {
             No rate limit data yet — deploy a mission to begin tracking
           </div>
         )}
-      </div>
+      </TacCard>
 
       {/* Cost Breakdown — two columns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Per Battlefield */}
-        <div className="bg-dr-surface border border-dr-border p-4">
+        <TacCard className="p-4">
           <div className="text-dr-amber text-xs tracking-widest uppercase font-bold mb-3">
             COST BY BATTLEFIELD
           </div>
@@ -144,10 +145,10 @@ export default async function LogisticsPage() {
               </tbody>
             </table>
           )}
-        </div>
+        </TacCard>
 
         {/* Per Asset */}
-        <div className="bg-dr-surface border border-dr-border p-4">
+        <TacCard className="p-4">
           <div className="text-dr-amber text-xs tracking-widest uppercase font-bold mb-3">
             COST BY ASSET
           </div>
@@ -177,11 +178,11 @@ export default async function LogisticsPage() {
               </tbody>
             </table>
           )}
-        </div>
+        </TacCard>
       </div>
 
       {/* Usage Over Time */}
-      <div className="bg-dr-surface border border-dr-border p-4">
+      <TacCard className="p-4">
         <div className="text-dr-amber text-xs tracking-widest uppercase font-bold mb-3">
           USAGE — LAST 30 DAYS
         </div>
@@ -243,10 +244,10 @@ export default async function LogisticsPage() {
             </div>
           </div>
         )}
-      </div>
+      </TacCard>
 
       {/* Mission Status Breakdown */}
-      <div className="bg-dr-surface border border-dr-border p-4">
+      <TacCard className="p-4">
         <div className="text-dr-amber text-xs tracking-widest uppercase font-bold mb-3">
           MISSION STATUS BREAKDOWN
         </div>
@@ -272,7 +273,7 @@ export default async function LogisticsPage() {
             <span className="text-dr-text">{stats.standby + stats.queued}</span>
           </div>
         </div>
-      </div>
+      </TacCard>
     </PageWrapper>
   );
 }
