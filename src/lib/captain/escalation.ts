@@ -170,6 +170,17 @@ export async function handleTelegramCallback(
         break;
       }
 
+      case 'unpause': {
+        const orch = globalThis.orchestrator;
+        if (orch) {
+          orch.unpause();
+          await editMessage(messageId, '▶️ *Commander unpaused the queue.* Draining...');
+        } else {
+          await editMessage(messageId, '⚠️ *Orchestrator not available.* Cannot unpause.');
+        }
+        break;
+      }
+
       default:
         console.warn(`[Escalation] Unknown action: ${action}`);
         await editMessage(messageId, `\u2753 Unknown action: ${action}`);
