@@ -110,17 +110,14 @@
     @apply border-border outline-ring/50;
     border-radius: 0 !important;
   }
+  html, body {
+    overflow-x: hidden;
+  }
   body {
     @apply bg-dr-bg text-dr-text font-tactical antialiased;
   }
 
-  /* 1440p scaling — bump all font sizes up ~30% */
-  .text-xs { font-size: 14px !important; line-height: 20px !important; }
-  .text-sm { font-size: 16px !important; line-height: 24px !important; }
-  .text-base { font-size: 18px !important; line-height: 28px !important; }
-  .text-lg { font-size: 22px !important; line-height: 30px !important; }
-  .text-xl { font-size: 26px !important; line-height: 34px !important; }
-  .text-2xl { font-size: 32px !important; line-height: 40px !important; }
+  /* 1440p scaling — bump all font sizes up ~30%, desktop only */
 
   /* Green-tinted text selection */
   ::selection {
@@ -157,6 +154,16 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* 1440p scaling — bump all font sizes up ~30%, desktop only */
+@media (min-width: 1024px) {
+  .text-xs { font-size: 14px !important; line-height: 20px !important; }
+  .text-sm { font-size: 16px !important; line-height: 24px !important; }
+  .text-base { font-size: 18px !important; line-height: 28px !important; }
+  .text-lg { font-size: 22px !important; line-height: 30px !important; }
+  .text-xl { font-size: 26px !important; line-height: 34px !important; }
+  .text-2xl { font-size: 32px !important; line-height: 40px !important; }
 }
 
 /* ── GENERAL chat markdown ── */

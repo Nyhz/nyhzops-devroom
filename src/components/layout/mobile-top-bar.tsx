@@ -17,7 +17,7 @@ export function MobileTopBar({ onMenuToggle, battlefieldName }: MobileTopBarProp
       <button
         type="button"
         onClick={onMenuToggle}
-        className="flex flex-col justify-center gap-1 w-6 h-6 shrink-0"
+        className="flex flex-col justify-center items-center gap-1 w-[44px] h-[44px] shrink-0 -ml-2"
         aria-label="Toggle menu"
       >
         <span className="block w-full h-0.5 bg-dr-text" />
@@ -36,7 +36,7 @@ export function MobileTopBar({ onMenuToggle, battlefieldName }: MobileTopBarProp
       {/* Notification indicator */}
       <Link
         href="/notifications"
-        className="relative shrink-0 p-1"
+        className="relative shrink-0 flex items-center justify-center min-w-[44px] min-h-[44px] -mr-2"
         aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
       >
         <svg

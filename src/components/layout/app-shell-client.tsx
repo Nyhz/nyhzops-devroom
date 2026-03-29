@@ -65,7 +65,7 @@ export function AppShellClient({
           missionCounts={missionCounts}
           campaignCounts={campaignCounts}
         />
-        <main className="overflow-y-auto">{children}</main>
+        <main className="overflow-y-auto overflow-x-hidden">{children}</main>
       </div>
 
       {/* Status Footer */}

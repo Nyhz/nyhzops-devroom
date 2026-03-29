@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Share_Tech_Mono, IBM_Plex_Mono, Courier_Prime } from 'next/font/google';
 import { SocketProvider } from '@/components/providers/socket-provider';
 import { ToastProvider } from '@/components/providers/toast-provider';
@@ -26,6 +26,12 @@ const courierPrime = Courier_Prime({
 export const metadata: Metadata = {
   title: 'NYHZ OPS — DEVROOM',
   description: 'Agent Orchestrator — Tactical Operations Center',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
