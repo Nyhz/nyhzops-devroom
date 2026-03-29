@@ -1,8 +1,36 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSocket } from '@/hooks/use-socket';
 import type { CampaignStatus, PhaseStatus, MissionStatus } from '@/types';
+
+interface CampaignStatusEvent {
+  campaignId: string;
+  status: CampaignStatus;
+}
+
+interface PhaseStatusEvent {
+  campaignId: string;
+  phaseId: string;
+  status: PhaseStatus;
+}
+
+interface PhaseDebriefEvent {
+  campaignId: string;
+  phaseId: string;
+  debrief: string;
+}
+
+interface CampaignMissionStatusEvent {
+  campaignId: string;
+  missionId: string;
+  status: MissionStatus;
+}
+
+interface MissionStatusEvent {
+  missionId: string;
+  status: MissionStatus;
+}
 
 export function useCampaignComms(
   campaignId: string,
@@ -15,29 +43,37 @@ export function useCampaignComms(
   const [phaseDebriefs, setPhaseDebriefs] = useState<Record<string, string>>({});
   const [missionStatuses, setMissionStatuses] = useState<Record<string, MissionStatus>>({});
 
+  // Stabilize missionIds reference using a ref + JSON comparison
+  const missionIdsRef = useRef(missionIds);
+  if (JSON.stringify(missionIdsRef.current) !== JSON.stringify(missionIds)) {
+    missionIdsRef.current = missionIds;
+  }
+  const stableMissionIds = missionIdsRef.current;
+
   useEffect(() => {
     if (!socket) return;
     socket.emit('campaign:subscribe', campaignId);
 
     // Subscribe to each mission's room for real-time status updates
-    for (const mid of missionIds) {
+    for (const mid of stableMissionIds) {
       socket.emit('mission:subscribe', mid);
     }
 
-    // Campaign-level events
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onStatus = (d: any) => { if (d.campaignId === campaignId) setStatus(d.status); };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onPhaseStatus = (d: any) => { if (d.campaignId === campaignId) setPhaseStatuses(p => ({ ...p, [d.phaseId]: d.status })); };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onPhaseDebrief = (d: any) => { if (d.campaignId === campaignId) setPhaseDebriefs(p => ({ ...p, [d.phaseId]: d.debrief })); };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onCampaignMissionStatus = (d: any) => { if (d.campaignId === campaignId) setMissionStatuses(p => ({ ...p, [d.missionId]: d.status })); };
+    const onStatus = (d: CampaignStatusEvent) => {
+      if (d.campaignId === campaignId) setStatus(d.status);
+    };
+    const onPhaseStatus = (d: PhaseStatusEvent) => {
+      if (d.campaignId === campaignId) setPhaseStatuses(p => ({ ...p, [d.phaseId]: d.status }));
+    };
+    const onPhaseDebrief = (d: PhaseDebriefEvent) => {
+      if (d.campaignId === campaignId) setPhaseDebriefs(p => ({ ...p, [d.phaseId]: d.debrief }));
+    };
+    const onCampaignMissionStatus = (d: CampaignMissionStatusEvent) => {
+      if (d.campaignId === campaignId) setMissionStatuses(p => ({ ...p, [d.missionId]: d.status }));
+    };
 
-    // Mission-level status events (emitted by executor and review handler)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onMissionStatus = (d: any) => {
-      if (d.missionId && missionIds.includes(d.missionId)) {
+    const onMissionStatus = (d: MissionStatusEvent) => {
+      if (d.missionId && stableMissionIds.includes(d.missionId)) {
         setMissionStatuses(p => ({ ...p, [d.missionId]: d.status }));
       }
     };
@@ -55,11 +91,11 @@ export function useCampaignComms(
       socket.off('campaign:mission-status', onCampaignMissionStatus);
       socket.off('mission:status', onMissionStatus);
       socket.emit('campaign:unsubscribe', campaignId);
-      for (const mid of missionIds) {
+      for (const mid of stableMissionIds) {
         socket.emit('mission:unsubscribe', mid);
       }
     };
-  }, [socket, campaignId, missionIds.join(',')]);
+  }, [socket, campaignId, stableMissionIds]);
 
   return { status, phaseStatuses, phaseDebriefs, missionStatuses };
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSocket } from '@/hooks/use-socket';
 import {
   getNotifications,
@@ -25,7 +25,6 @@ export function useNotifications() {
   const socket = useSocket();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const subscribedRef = useRef(false);
 
   // Fetch initial data on mount
   useEffect(() => {
@@ -54,10 +53,7 @@ export function useNotifications() {
   useEffect(() => {
     if (!socket) return;
 
-    if (!subscribedRef.current) {
-      socket.emit('hq:subscribe');
-      subscribedRef.current = true;
-    }
+    socket.emit('hq:subscribe');
 
     const handleNotification = (data: SocketNotification) => {
       const newNotification: Notification = {
@@ -82,6 +78,7 @@ export function useNotifications() {
 
     return () => {
       socket.off('notification:new', handleNotification);
+      socket.emit('hq:unsubscribe');
     };
   }, [socket]);
 

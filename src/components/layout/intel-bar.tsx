@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useNotifications } from "@/hooks/use-notifications";
-import { formatRelativeTime } from "@/lib/utils";
+import { cn, formatRelativeTime } from "@/lib/utils";
 import type { Notification } from "@/types";
 
 const INTEL_QUOTES = [
@@ -59,18 +59,15 @@ function entityLink(n: Notification): string | null {
 }
 
 export function IntelBar() {
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() =>
+    Math.floor(Math.random() * INTEL_QUOTES.length)
+  );
   const [visible, setVisible] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   const { notifications, unreadCount, markAsRead, markAllRead } = useNotifications();
-
-  useEffect(() => {
-    // Pick a random starting index on mount
-    setIndex(Math.floor(Math.random() * INTEL_QUOTES.length));
-  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -126,8 +123,10 @@ export function IntelBar() {
         INTEL //
       </span>
       <span
-        className="text-dr-dim text-sm truncate transition-opacity duration-300 flex-1"
-        style={{ opacity: visible ? 1 : 0 }}
+        className={cn(
+          "text-dr-dim text-sm truncate transition-opacity duration-300 flex-1",
+          visible ? "opacity-100" : "opacity-0"
+        )}
       >
         {INTEL_QUOTES[index]}
       </span>
