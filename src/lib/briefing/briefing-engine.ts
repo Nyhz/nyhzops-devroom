@@ -147,13 +147,21 @@ export async function sendBriefingMessage(
   }
 
   // 8. Spawn Claude process with host-synced credentials
-  const authHome = createAuthenticatedHome();
+  // Use a persistent HOME per campaign so --resume can find previous session data
+  const persistentHome = `/tmp/claude-briefing-${campaignId}`;
+  const persistentClaudeDir = `${persistentHome}/.claude`;
+  fs.mkdirSync(persistentClaudeDir, { recursive: true });
+  const realHome = process.env.HOME || '/home/devroom';
+  try { fs.copyFileSync(`${realHome}/.claude.json`, `${persistentHome}/.claude.json`); } catch { /* fine */ }
+  try { fs.copyFileSync(`${realHome}/.claude/settings.json`, `${persistentClaudeDir}/settings.json`); } catch { /* fine */ }
+  try { fs.copyFileSync(config.hostCredentialsPath, `${persistentClaudeDir}/.credentials.json`); } catch { /* fine */ }
+
   const abortController = new AbortController();
   const proc = spawn(config.claudePath, cliArgs, {
     cwd: battlefield.repoPath,
     signal: abortController.signal,
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, HOME: authHome },
+    env: { ...process.env, HOME: persistentHome },
   });
 
   activeProcesses.set(campaignId, { proc, abort: abortController });
@@ -216,7 +224,6 @@ export async function sendBriefingMessage(
   return new Promise<void>((resolve, reject) => {
     proc.on('close', (code) => {
       activeProcesses.delete(campaignId);
-      try { fs.rmSync(authHome, { recursive: true, force: true }); } catch { /* best effort */ }
 
       // Process any remaining buffered line
       if (lineBuffer.trim()) {
