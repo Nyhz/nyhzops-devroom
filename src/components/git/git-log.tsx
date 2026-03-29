@@ -63,19 +63,21 @@ export function GitLog({ battlefieldId, initialCommits, className }: GitLogProps
                   className="w-full text-left px-3 py-2 hover:bg-dr-elevated/50 transition-colors"
                   onClick={() => setExpandedHash(isExpanded ? null : commit.hash)}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-dr-amber text-xs font-data shrink-0">
-                      {shortHash}
-                    </span>
-                    <span className="text-dr-text text-xs font-tactical truncate flex-1">
+                  <div className="flex flex-col items-start gap-1 md:flex-row md:items-center md:gap-3">
+                    <span className="text-dr-text text-xs font-tactical truncate max-w-full md:order-2 md:flex-1">
                       {commit.message}
                     </span>
-                    <span className="text-dr-dim text-xs font-tactical shrink-0">
-                      {commit.author}
-                    </span>
-                    <span className="text-dr-dim text-xs font-tactical shrink-0 w-16 text-right">
-                      {formatDate(commit.date)}
-                    </span>
+                    <div className="flex items-center gap-2 text-dr-dim text-xs font-tactical md:contents">
+                      <span className="text-dr-amber font-data shrink-0 md:order-1">
+                        {shortHash}
+                      </span>
+                      <span className="shrink-0 md:order-3">
+                        {commit.author}
+                      </span>
+                      <span className="shrink-0 md:w-16 md:text-right md:order-4">
+                        {formatDate(commit.date)}
+                      </span>
+                    </div>
                   </div>
                   {commit.refs && (
                     <div className="mt-1">

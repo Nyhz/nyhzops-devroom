@@ -79,6 +79,7 @@ export function GitStatus({ battlefieldId, initialStatus, className }: GitStatus
           variant="success"
           disabled={isPending || !hasChanges}
           onClick={() => runAction(() => stageAll(battlefieldId))}
+          className="w-full md:w-auto min-h-[44px] md:min-h-0"
         >
           Stage All
         </TacButton>
@@ -87,6 +88,7 @@ export function GitStatus({ battlefieldId, initialStatus, className }: GitStatus
           variant="ghost"
           disabled={isPending || !hasStaged}
           onClick={() => runAction(() => unstageAll(battlefieldId))}
+          className="w-full md:w-auto min-h-[44px] md:min-h-0"
         >
           Unstage All
         </TacButton>
@@ -200,6 +202,7 @@ export function GitStatus({ battlefieldId, initialStatus, className }: GitStatus
           size="sm"
           disabled={isPending || !hasStaged || !commitMessage.trim()}
           onClick={handleCommit}
+          className="w-full md:w-auto min-h-[44px] md:min-h-0"
         >
           Commit
         </TacButton>
@@ -250,14 +253,14 @@ function FileRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between px-3 py-1.5 border-b border-dr-border/50 last:border-b-0 hover:bg-dr-elevated/50">
+    <div className="flex flex-col gap-1.5 px-3 py-2 border-b border-dr-border/50 last:border-b-0 hover:bg-dr-elevated/50 md:flex-row md:items-center md:justify-between md:gap-0 md:py-1.5">
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <span className={cn('text-xs font-tactical uppercase w-20 shrink-0', accentClass)}>
           {status}
         </span>
         <span className="text-dr-text text-xs font-data truncate">{path}</span>
       </div>
-      <div className="flex items-center gap-1 shrink-0 ml-2">{children}</div>
+      <div className="flex items-center gap-1 shrink-0 md:ml-2">{children}</div>
     </div>
   );
 }
