@@ -221,12 +221,14 @@ export async function executeMission(
     try {
       fs.copyFileSync(path.join(realHome, '.claude.json'), path.join(missionHome, '.claude.json'));
     } catch { /* no .claude.json — fine */ }
-    // Copy auth and settings — no session data (each mission gets fresh sessions)
-    for (const file of ['.credentials.json', 'settings.json']) {
-      try {
-        fs.copyFileSync(path.join(realHome, '.claude', file), path.join(missionClaudeDir, file));
-      } catch { /* skip missing files */ }
-    }
+    // Copy settings from container HOME
+    try {
+      fs.copyFileSync(path.join(realHome, '.claude', 'settings.json'), path.join(missionClaudeDir, 'settings.json'));
+    } catch { /* skip missing */ }
+    // Copy auth credentials from host-synced Keychain extract (Docker volume mount)
+    try {
+      fs.copyFileSync(config.hostCredentialsPath, path.join(missionClaudeDir, '.credentials.json'));
+    } catch { /* no host credentials — auth check will catch this */ }
 
     const proc = spawn(config.claudePath, args, {
       cwd: workingDirectory,
