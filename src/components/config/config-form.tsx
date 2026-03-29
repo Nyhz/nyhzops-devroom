@@ -187,7 +187,7 @@ export function ConfigForm({
 
   return (
     <>
-      <TacCard className="space-y-6">
+      <TacCard className="space-y-5 md:space-y-6 p-3 md:p-6">
         {/* Name */}
         <div>
           <label className="block text-dr-dim font-tactical text-xs uppercase tracking-wider mb-1">
@@ -276,7 +276,7 @@ export function ConfigForm({
             type="button"
             onClick={() => setAutoStartDevServer(!autoStartDevServer)}
             className={`
-              w-4 h-4 border flex items-center justify-center transition-colors
+              w-6 h-6 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 md:w-4 md:h-4 border flex items-center justify-center transition-colors
               ${autoStartDevServer
                 ? 'border-dr-green bg-dr-green/20 text-dr-green'
                 : 'border-dr-border bg-dr-bg text-transparent'
@@ -301,7 +301,7 @@ export function ConfigForm({
           <label className="block text-dr-dim font-tactical text-xs uppercase tracking-wider mb-1">
             Repo Path
           </label>
-          <div className="text-dr-dim font-data text-sm px-3 py-2 bg-dr-bg border border-dr-border opacity-60">
+          <div className="text-dr-dim font-data text-sm px-3 py-2 bg-dr-bg border border-dr-border opacity-60 break-all">
             {repoPath}
           </div>
         </div>
@@ -312,7 +312,7 @@ export function ConfigForm({
             CLAUDE.md Path
           </label>
           <div className="flex gap-2">
-            <div className="flex-1 text-dr-muted font-data text-sm px-3 py-2 bg-dr-bg border border-dr-border">
+            <div className="flex-1 text-dr-muted font-data text-sm px-3 py-2 bg-dr-bg border border-dr-border break-all min-w-0">
               {claudeMdPath || '(not set)'}
             </div>
             {claudeMdPath && (
@@ -334,7 +334,7 @@ export function ConfigForm({
             SPEC.md Path
           </label>
           <div className="flex gap-2">
-            <div className="flex-1 text-dr-muted font-data text-sm px-3 py-2 bg-dr-bg border border-dr-border">
+            <div className="flex-1 text-dr-muted font-data text-sm px-3 py-2 bg-dr-bg border border-dr-border break-all min-w-0">
               {specMdPath || '(not set)'}
             </div>
             {specMdPath && (
@@ -365,12 +365,13 @@ export function ConfigForm({
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-3 pt-2">
+        <div className="flex flex-col gap-3 pt-2 md:flex-row md:items-center">
           <TacButton
             type="button"
             variant="success"
             onClick={handleSave}
             disabled={saving}
+            className="w-full md:w-auto"
           >
             {saving ? 'Saving...' : 'Save'}
           </TacButton>
@@ -379,6 +380,7 @@ export function ConfigForm({
             variant="primary"
             onClick={handleRebootstrap}
             disabled={saving}
+            className="w-full md:w-auto"
           >
             Re-Bootstrap
           </TacButton>
@@ -387,13 +389,13 @@ export function ConfigForm({
 
       {/* Danger Zone */}
       <div className="border border-dr-red/30 bg-dr-red/5">
-        <div className="px-6 py-3 border-b border-dr-red/30">
+        <div className="px-3 py-3 md:px-6 border-b border-dr-red/30">
           <span className="text-dr-red font-tactical text-xs uppercase tracking-wider">
             DANGER ZONE
           </span>
         </div>
-        <div className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="p-3 md:p-6 space-y-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="text-dr-text font-tactical text-sm">Archive Battlefield</div>
               <div className="text-dr-muted font-data text-xs mt-0.5">
@@ -405,12 +407,13 @@ export function ConfigForm({
               variant="danger"
               onClick={handleArchive}
               disabled={saving}
+              className="w-full md:w-auto"
             >
               ARCHIVE
             </TacButton>
           </div>
           <div className="border-t border-dr-red/20" />
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="text-dr-text font-tactical text-sm">Delete Battlefield</div>
               <div className="text-dr-muted font-data text-xs mt-0.5">
@@ -422,6 +425,7 @@ export function ConfigForm({
               variant="danger"
               onClick={handleDelete}
               disabled={saving}
+              className="w-full md:w-auto"
             >
               DELETE
             </TacButton>
@@ -431,7 +435,7 @@ export function ConfigForm({
 
       {/* Preview Modal */}
       <TacModal open={previewOpen} onOpenChange={setPreviewOpen}>
-        <TacModalContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+        <TacModalContent className="max-w-[95vw] md:max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
           <TacModalHeader>
             <TacModalTitle>{previewTitle}</TacModalTitle>
           </TacModalHeader>
