@@ -1,7 +1,7 @@
 import { getDatabase } from "@/lib/db/index";
 import { battlefields, missions, campaigns } from "@/lib/db/schema";
 import { count, eq } from "drizzle-orm";
-import { SidebarContent } from "./sidebar-content";
+import { CollapsibleSidebar } from "./collapsible-sidebar";
 import type { Battlefield } from "@/types";
 
 export function Sidebar() {
@@ -30,12 +30,10 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="bg-dr-surface border-r border-dr-border flex flex-col overflow-y-auto">
-      <SidebarContent
-        battlefields={allBattlefields}
-        missionCounts={missionCounts}
-        campaignCounts={campaignCounts}
-      />
-    </aside>
+    <CollapsibleSidebar
+      battlefields={allBattlefields}
+      missionCounts={missionCounts}
+      campaignCounts={campaignCounts}
+    />
   );
 }
