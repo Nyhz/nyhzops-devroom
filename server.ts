@@ -18,13 +18,9 @@ import { handleTelegramCallback } from './src/lib/captain/escalation';
 
 // Typed globalThis for Socket.IO access
 declare global {
-  // eslint-disable-next-line no-var
   var io: SocketIOServer | undefined;
-  // eslint-disable-next-line no-var
   var orchestrator: Orchestrator | undefined;
-  // eslint-disable-next-line no-var
   var devServerManager: DevServerManager | undefined;
-  // eslint-disable-next-line no-var
   var scheduler: Scheduler | undefined;
 }
 

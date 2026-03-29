@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { eq, desc, count, like, sql, and } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
-import { missions, assets, battlefields, missionLogs, captainLogs, campaigns } from '@/lib/db/schema';
+import { missions, assets, battlefields, missionLogs, captainLogs } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import type {
   Mission,

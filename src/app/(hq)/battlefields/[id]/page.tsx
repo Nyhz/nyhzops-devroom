@@ -89,7 +89,6 @@ export default async function BattlefieldOverviewPage({
     if (bootstrapMission) {
       return (
         <BootstrapComms
-          battlefieldId={id}
           missionId={bootstrapMission.id}
           codename={battlefield.codename || ''}
         />

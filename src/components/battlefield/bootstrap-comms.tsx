@@ -7,12 +7,11 @@ import { TacCard } from '@/components/ui/tac-card';
 import { Terminal } from '@/components/ui/terminal';
 
 interface BootstrapCommsProps {
-  battlefieldId: string;
   missionId: string;
   codename: string;
 }
 
-export function BootstrapComms({ battlefieldId, missionId, codename }: BootstrapCommsProps) {
+export function BootstrapComms({ missionId, codename }: BootstrapCommsProps) {
   const router = useRouter();
   const { logs, status } = useMissionComms(missionId, [], 'queued');
   const hasRefreshed = useRef(false);

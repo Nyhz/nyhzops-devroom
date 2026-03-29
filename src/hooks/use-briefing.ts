@@ -25,7 +25,7 @@ export function useBriefing(campaignId: string, initialMessages: ChatMessage[]) 
   const sendMessage = useCallback((message: string) => {
     setPlanReady(false);
     chat.sendMessage(message);
-  }, [chat.sendMessage]);
+  }, [chat]);
 
   return {
     messages: chat.messages,

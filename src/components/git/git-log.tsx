@@ -30,9 +30,10 @@ export function GitLog({ battlefieldId, initialCommits, className }: GitLogProps
     });
   }
 
+  const [now] = useState(Date.now);
+
   function formatDate(dateStr: string): string {
     const date = new Date(dateStr);
-    const now = Date.now();
     const diff = now - date.getTime();
     const seconds = Math.floor(diff / 1000);
     const minutes = Math.floor(seconds / 60);

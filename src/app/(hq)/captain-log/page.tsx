@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { getCaptainLogs, getCaptainStats } from '@/actions/captain';
-import { TacBadge } from '@/components/ui/tac-badge';
 import { Markdown } from '@/components/ui/markdown';
 import { formatRelativeTime } from '@/lib/utils';
 import { PageWrapper } from '@/components/layout/page-wrapper';

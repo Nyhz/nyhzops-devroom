@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { eq, desc, count, inArray, and, sql } from 'drizzle-orm';
+import { eq, desc, count, inArray, and } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 import simpleGit from 'simple-git';

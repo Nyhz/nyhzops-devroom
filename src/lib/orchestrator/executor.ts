@@ -275,7 +275,7 @@ export async function executeMission(
       storeLog('log', content);
     });
 
-    parser.onToolUse((tool, _input) => {
+    parser.onToolUse((tool) => {
       lastActivityTime = Date.now();
       lastMessageHadToolUse = true;
       const msg = `Tool: ${tool}`;

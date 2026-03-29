@@ -4,9 +4,9 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { eq, desc, and, inArray } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
-import { campaigns, phases, missions, missionLogs, assets, battlefields } from '@/lib/db/schema';
+import { campaigns, phases, missions, missionLogs, assets } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
-import type { Campaign, CampaignWithPlan, PlanJSON, Phase, Mission } from '@/types';
+import type { Campaign, CampaignWithPlan, PlanJSON } from '@/types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -742,8 +742,6 @@ export async function resumeCampaign(campaignId: string): Promise<void> {
 export async function skipAndContinueCampaign(
   campaignId: string,
 ): Promise<void> {
-  const db = getDatabase();
-
   const campaign = getOrThrow(campaigns, campaignId, 'skipAndContinueCampaign');
   if (campaign.status !== 'paused') {
     throw new Error(

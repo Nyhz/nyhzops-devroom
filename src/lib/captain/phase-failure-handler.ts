@@ -108,7 +108,7 @@ function parseDecision(raw: string): PhaseFailureDecision {
  * Check how many retry decisions the Captain has already made for this
  * campaign's current phase. If >= 2, force escalation.
  */
-function getPhaseRetryCount(campaignId: string, phaseId: string): number {
+function getPhaseRetryCount(campaignId: string): number {
   const db = getDatabase();
   const logs = db
     .select()
@@ -137,7 +137,7 @@ export async function handlePhaseFailure(params: {
   totalPhases: number;
 }): Promise<PhaseFailureDecision> {
   // Check retry limit before even asking Captain
-  const retryCount = getPhaseRetryCount(params.campaign.id, params.phase.id);
+  const retryCount = getPhaseRetryCount(params.campaign.id);
   if (retryCount >= 2) {
     return {
       decision: 'escalate',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useGeneral } from '@/hooks/use-general';
 import { createGeneralSession, closeGeneralSession, renameGeneralSession, getSessionMessages } from '@/actions/general';
@@ -96,15 +96,6 @@ export function GeneralChat({
     item?.scrollIntoView({ block: 'nearest' });
   }, [slashMenuIndex, slashMenuOpen]);
 
-  // Auto-create session if opened from battlefield with ?battlefield=<id>
-  useEffect(() => {
-    const bfId = searchParams.get('battlefield');
-    if (bfId && sessions.length === 0) {
-      const bf = battlefields.find((b) => b.id === bfId);
-      handleCreateSession(bf?.codename ? `${bf.codename} Session` : 'New Session', bfId);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleCreateSession = async (name: string, battlefieldId?: string) => {
     const session = await createGeneralSession(name, battlefieldId);
     setSessions((prev) => [...prev, session]);
@@ -112,6 +103,20 @@ export function GeneralChat({
     setSessionMessages([]);
     setShowNewModal(false);
   };
+
+  // Auto-create session if opened from battlefield with ?battlefield=<id>
+  useEffect(() => {
+    const bfId = searchParams.get('battlefield');
+    if (bfId && sessions.length === 0) {
+      const bf = battlefields.find((b) => b.id === bfId);
+      const name = bf?.codename ? `${bf.codename} Session` : 'New Session';
+      createGeneralSession(name, bfId).then((session) => {
+        setSessions((prev) => [...prev, session]);
+        setActiveSessionId(session.id);
+        setSessionMessages([]);
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCloseSession = async () => {
     if (!closeTarget) return;

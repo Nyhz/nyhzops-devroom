@@ -20,7 +20,6 @@ interface MissionActionsProps {
   status: string;
   battlefieldId: string;
   sessionId: string | null;
-  worktreeBranch: string | null;
   campaignId?: string | null;
   briefing?: string;
 }
@@ -30,7 +29,6 @@ export function MissionActions({
   status,
   battlefieldId,
   sessionId,
-  worktreeBranch,
   campaignId,
   briefing,
 }: MissionActionsProps) {
@@ -44,7 +42,6 @@ export function MissionActions({
 
   const canDeploy = status === 'standby';
   const canAbandon = status === 'standby' || status === 'queued' || status === 'in_combat' || status === 'reviewing' || (status === 'compromised' && !campaignId);
-  const isTerminal = status === 'accomplished' || status === 'compromised' || status === 'abandoned';
   const canContinue =
     (status === 'accomplished' || status === 'compromised') && sessionId != null;
   const canTacticalOverride = status === 'compromised';

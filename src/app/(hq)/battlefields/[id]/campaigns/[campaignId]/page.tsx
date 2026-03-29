@@ -87,7 +87,6 @@ export default async function CampaignDetailPage({
       <PageWrapper breadcrumb={breadcrumb} title={campaign.name}>
         <PlanEditor
           campaignId={campaignId}
-          battlefieldId={id}
           initialPlan={planJSON}
           assets={activeAssets}
         />
@@ -149,7 +148,7 @@ export default async function CampaignDetailPage({
 
     return (
       <PageWrapper breadcrumb={breadcrumb} title={campaign.name} actions={statusBadge}>
-        <CampaignResults campaignName={campaign.name} missions={resultMissions} battlefieldId={id} />
+        <CampaignResults missions={resultMissions} battlefieldId={id} />
         {controls}
       </PageWrapper>
     );

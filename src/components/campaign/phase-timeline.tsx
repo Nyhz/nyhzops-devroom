@@ -27,11 +27,10 @@ interface PhaseTimelineProps {
     }>;
   }>;
   battlefieldId?: string;
-  readOnly?: boolean;
 }
 
 
-export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: PhaseTimelineProps) {
+export function PhaseTimeline({ phases, battlefieldId }: PhaseTimelineProps) {
   if (phases.length === 0) {
     return (
       <div className="text-dr-muted font-tactical text-sm py-8 text-center">

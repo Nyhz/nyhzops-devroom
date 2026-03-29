@@ -1,6 +1,6 @@
 'use server';
 
-import { eq, desc, count, sql } from 'drizzle-orm';
+import { eq, desc, count } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { notifications } from '@/lib/db/schema';
 import type { Notification } from '@/types';

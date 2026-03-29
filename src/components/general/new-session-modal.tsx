@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { TacButton } from '@/components/ui/tac-button';
 
 interface Battlefield {
@@ -19,19 +19,14 @@ export function NewSessionModal({ open, onClose, onCreate, battlefields }: NewSe
   const [name, setName] = useState('');
   const [battlefieldId, setBattlefieldId] = useState('');
 
-  useEffect(() => {
-    if (open) {
-      setName('');
-      setBattlefieldId('');
-    }
-  }, [open]);
-
   if (!open) return null;
 
   const handleCreate = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
     onCreate(trimmed, battlefieldId || undefined);
+    setName('');
+    setBattlefieldId('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

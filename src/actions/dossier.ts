@@ -169,8 +169,6 @@ export async function resolveDossier(
   id: string,
   values: Record<string, string>,
 ): Promise<{ briefing: string; assetCodename: string | null }> {
-  const db = getDatabase();
-
   const dossier = getOrThrow(dossiers, id, 'resolveDossier');
 
   let briefing = dossier.briefingTemplate;
