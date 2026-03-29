@@ -137,8 +137,8 @@ export function MissionComms({
       </div>
 
       {/* Token stats */}
-      <TacCard className="p-4">
-        <div className="grid grid-cols-5 gap-4 text-xs font-tactical">
+      <TacCard className="p-2.5 sm:p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 md:gap-4 text-xs font-tactical">
           <div>
             <div className="text-dr-muted tracking-wider mb-1">INPUT</div>
             <div className="text-dr-text">
@@ -186,7 +186,7 @@ export function MissionComms({
             <div className="h-px bg-dr-border" />
           </div>
           <div
-            className={`border p-4 ${
+            className={`border p-2.5 sm:p-4 ${
               liveStatus === 'compromised'
                 ? 'bg-dr-red/5 border-dr-red/30'
                 : 'bg-dr-surface border-dr-border'

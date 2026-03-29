@@ -41,7 +41,7 @@ export default async function MissionDetailPage({
       title={`MISSION: ${mission.title}`}
     >
       {/* Status bar */}
-      <div className="flex items-center gap-4 text-xs font-tactical">
+      <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs font-tactical">
         <LiveStatusBadge missionId={missionId} initialStatus={status} />
         <span className="text-dr-muted">
           Asset:{' '}
@@ -63,7 +63,7 @@ export default async function MissionDetailPage({
           </h2>
           <div className="h-px bg-dr-border" />
         </div>
-        <TacCard className="p-4">
+        <TacCard className="p-2.5 sm:p-4">
           <Markdown content={mission.briefing} className="text-sm" />
         </TacCard>
       </div>
@@ -102,7 +102,7 @@ export default async function MissionDetailPage({
                 status={log.escalated ? 'red' : undefined}
                 className="px-3 py-2.5 space-y-1.5"
               >
-                <div className="flex items-center gap-3 text-xs font-tactical">
+                <div className="flex flex-wrap items-center gap-2 md:gap-3 text-xs font-tactical">
                   <span className="text-dr-dim">
                     {formatRelativeTime(log.timestamp)}
                   </span>
