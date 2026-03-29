@@ -17,7 +17,7 @@ interface Session {
   name: string;
   sessionId: string | null;
   battlefieldId: string | null;
-  status: string;
+  status: string | null;
   createdAt: number;
   updatedAt: number;
 }
