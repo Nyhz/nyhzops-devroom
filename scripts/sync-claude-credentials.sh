@@ -3,8 +3,8 @@
 # Extracts Claude Code OAuth tokens from macOS Keychain and writes to a file
 # that the DEVROOM Docker container mounts for agent authentication.
 #
-# Usage: Run via launchd or cron every 30 minutes.
-#   crontab example: */30 * * * * /path/to/sync-claude-credentials.sh
+# Usage: Run via launchd or cron every 4 hours.
+#   crontab example: 0 */4 * * * /path/to/sync-claude-credentials.sh
 
 set -euo pipefail
 
