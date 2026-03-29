@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useSocket } from '@/hooks/use-socket';
+import { useSocket, useReconnectKey } from '@/hooks/use-socket';
+
+const MAX_LOGS = 500;
 
 interface CommandLog {
   content: string;
@@ -10,6 +12,7 @@ interface CommandLog {
 
 export function useCommandOutput(battlefieldId: string) {
   const socket = useSocket();
+  const reconnectKey = useReconnectKey();
   const [logs, setLogs] = useState<CommandLog[]>([]);
   const [exitCode, setExitCode] = useState<number | null>(null);
   const [isRunning, setIsRunning] = useState(true);
@@ -21,7 +24,13 @@ export function useCommandOutput(battlefieldId: string) {
 
     const handleOutput = (data: { battlefieldId: string; content: string; timestamp: number }) => {
       if (data.battlefieldId === battlefieldId) {
-        setLogs(prev => [...prev, { content: data.content, timestamp: data.timestamp }]);
+        setLogs(prev => {
+          const next = [...prev, { content: data.content, timestamp: data.timestamp }];
+          if (next.length > MAX_LOGS) {
+            return next.slice(next.length - MAX_LOGS);
+          }
+          return next;
+        });
       }
     };
 
@@ -40,7 +49,7 @@ export function useCommandOutput(battlefieldId: string) {
       socket.off('console:exit', handleExit);
       socket.emit('console:unsubscribe', battlefieldId);
     };
-  }, [socket, battlefieldId]);
+  }, [socket, battlefieldId, reconnectKey]);
 
   const prependBufferedLogs = useCallback((buffered: string) => {
     if (!buffered) return;

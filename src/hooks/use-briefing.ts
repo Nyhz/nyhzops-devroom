@@ -7,12 +7,14 @@ export function useBriefing(campaignId: string, initialMessages: ChatMessage[]) 
   const [planReady, setPlanReady] = useState(false);
 
   const extraEvents = useMemo(() => ({
-    'plan-ready': () => {
-      setPlanReady(true);
+    'briefing:plan-ready': (data: Record<string, unknown>) => {
+      if (data.campaignId === campaignId) {
+        setPlanReady(true);
+      }
     },
-  }), []);
+  }), [campaignId]);
 
-  const { messages, streaming, isLoading, error, sendMessage: baseSend } = useStreamingChat({
+  const chat = useStreamingChat({
     resourceId: campaignId,
     resourceKey: 'campaignId',
     eventPrefix: 'briefing',
@@ -22,8 +24,15 @@ export function useBriefing(campaignId: string, initialMessages: ChatMessage[]) 
 
   const sendMessage = useCallback((message: string) => {
     setPlanReady(false);
-    baseSend(message);
-  }, [baseSend]);
+    chat.sendMessage(message);
+  }, [chat.sendMessage]);
 
-  return { messages, streaming, isLoading, error, planReady, sendMessage };
+  return {
+    messages: chat.messages,
+    streaming: chat.streaming,
+    isLoading: chat.isLoading,
+    error: chat.error,
+    planReady,
+    sendMessage,
+  };
 }

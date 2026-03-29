@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useSocket } from '@/hooks/use-socket';
+import { useSocket, useReconnectKey } from '@/hooks/use-socket';
 import {
   getNotifications,
   getUnreadCount,
@@ -23,6 +23,7 @@ interface SocketNotification {
 
 export function useNotifications() {
   const socket = useSocket();
+  const reconnectKey = useReconnectKey();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -80,7 +81,7 @@ export function useNotifications() {
       socket.off('notification:new', handleNotification);
       socket.emit('hq:unsubscribe');
     };
-  }, [socket]);
+  }, [socket, reconnectKey]);
 
   const markAsRead = useCallback(async (id: string) => {
     await markNotificationRead(id);

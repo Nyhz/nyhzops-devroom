@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect, useRef } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCampaignComms } from '@/hooks/use-campaign-comms';
 import { PhaseTimeline } from '@/components/campaign/phase-timeline';
@@ -42,13 +42,8 @@ export function CampaignLiveView({
 }: CampaignLiveViewProps) {
   const router = useRouter();
 
-  // Collect all mission IDs for socket subscriptions
-  const missionIds = useRef(
-    initialPhases.flatMap(p => p.missions.map(m => m.id))
-  );
-
   const { status, phaseStatuses, phaseDebriefs, missionStatuses } =
-    useCampaignComms(campaignId, initialStatus, missionIds.current);
+    useCampaignComms(campaignId, initialStatus);
 
   // Merge live statuses onto initial phase data
   const mergedPhases = useMemo(() => {

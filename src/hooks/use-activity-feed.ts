@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useSocket } from '@/hooks/use-socket';
+import { useSocket, useReconnectKey } from '@/hooks/use-socket';
 
 const MAX_EVENTS = 50;
 
@@ -15,6 +15,7 @@ export interface ActivityEvent {
 
 export function useActivityFeed(): ActivityEvent[] {
   const socket = useSocket();
+  const reconnectKey = useReconnectKey();
   const [events, setEvents] = useState<ActivityEvent[]>([]);
 
   const handleEvent = useCallback((event: ActivityEvent) => {
@@ -35,8 +36,9 @@ export function useActivityFeed(): ActivityEvent[] {
 
     return () => {
       socket.off('activity:event', handleEvent);
+      socket.emit('hq:unsubscribe');
     };
-  }, [socket, handleEvent]);
+  }, [socket, handleEvent, reconnectKey]);
 
   return events;
 }

@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { useSocket } from './use-socket';
+import { useEffect } from 'react';
+import { useSocket, useReconnectKey } from './use-socket';
 import { useStreamingChat, type ChatMessage } from './use-streaming-chat';
 
 export function useGeneral(sessionId: string | null, initialMessages: ChatMessage[]) {
   const socket = useSocket();
-  const prevSessionId = useRef(sessionId);
+  const reconnectKey = useReconnectKey();
 
-  const { messages, setMessages, streaming, isLoading, error, sendMessage } = useStreamingChat({
+  const chat = useStreamingChat({
     resourceId: sessionId,
     resourceKey: 'sessionId',
     eventPrefix: 'general',
@@ -17,19 +17,17 @@ export function useGeneral(sessionId: string | null, initialMessages: ChatMessag
 
   // Reset messages when session changes
   useEffect(() => {
-    if (prevSessionId.current !== sessionId) {
-      prevSessionId.current = sessionId;
-      setMessages(initialMessages);
-    }
-  }, [sessionId, initialMessages, setMessages]);
+    chat.setMessages(initialMessages);
+    chat.resetStream();
+  }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Listen for system events (unique to general)
+  // Handle general:system event (unique to general chat)
   useEffect(() => {
     if (!socket || !sessionId) return;
 
     const handleSystem = (data: { sessionId: string; content: string; messageId: string }) => {
       if (data.sessionId === sessionId) {
-        setMessages((prev) => [
+        chat.setMessages(prev => [
           ...prev,
           {
             id: data.messageId,
@@ -42,10 +40,14 @@ export function useGeneral(sessionId: string | null, initialMessages: ChatMessag
     };
 
     socket.on('general:system', handleSystem);
-    return () => {
-      socket.off('general:system', handleSystem);
-    };
-  }, [socket, sessionId, setMessages]);
+    return () => { socket.off('general:system', handleSystem); };
+  }, [socket, sessionId, reconnectKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { messages, streaming, isLoading, error, sendMessage };
+  return {
+    messages: chat.messages,
+    streaming: chat.streaming,
+    isLoading: chat.isLoading,
+    error: chat.error,
+    sendMessage: chat.sendMessage,
+  };
 }

@@ -3,5 +3,9 @@
 import { useSocketContext } from '@/components/providers/socket-provider';
 
 export function useSocket() {
-  return useSocketContext();
+  return useSocketContext().socket;
+}
+
+export function useReconnectKey() {
+  return useSocketContext().reconnectKey;
 }
