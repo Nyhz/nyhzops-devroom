@@ -1,12 +1,19 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import { io as ioClient, type Socket } from 'socket.io-client';
 
-const SocketContext = createContext<Socket | null>(null);
+interface SocketContextValue {
+  socket: Socket | null;
+  reconnectKey: number;
+}
+
+const SocketContext = createContext<SocketContextValue>({ socket: null, reconnectKey: 0 });
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [reconnectKey, setReconnectKey] = useState(0);
+  const initialConnect = useRef(true);
 
   useEffect(() => {
     const sock = ioClient({
@@ -17,6 +24,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     sock.on('connect', () => {
       console.log('[Socket.IO] Connected:', sock.id);
+      if (initialConnect.current) {
+        initialConnect.current = false;
+      } else {
+        // Increment reconnectKey on reconnection so hooks re-subscribe to rooms
+        setReconnectKey(k => k + 1);
+      }
     });
 
     sock.on('disconnect', () => {
@@ -31,7 +44,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <SocketContext value={socket}>
+    <SocketContext value={{ socket, reconnectKey }}>
       {children}
     </SocketContext>
   );

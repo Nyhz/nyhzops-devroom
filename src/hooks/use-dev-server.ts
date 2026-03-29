@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSocket } from '@/hooks/use-socket';
+import { useSocket, useReconnectKey } from '@/hooks/use-socket';
+
+const MAX_LOGS = 500;
 
 interface DevServerLog {
   content: string;
@@ -16,6 +18,7 @@ interface DevServerState {
 
 export function useDevServer(battlefieldId: string, initialStatus: DevServerState) {
   const socket = useSocket();
+  const reconnectKey = useReconnectKey();
   const [logs, setLogs] = useState<DevServerLog[]>([]);
   const [status, setStatus] = useState<DevServerState['status']>(initialStatus.status);
   const [port, setPort] = useState<number | null>(initialStatus.port);
@@ -28,7 +31,13 @@ export function useDevServer(battlefieldId: string, initialStatus: DevServerStat
 
     const handleLog = (data: { battlefieldId: string; content: string; timestamp: number }) => {
       if (data.battlefieldId === battlefieldId) {
-        setLogs(prev => [...prev, { content: data.content, timestamp: data.timestamp }]);
+        setLogs(prev => {
+          const next = [...prev, { content: data.content, timestamp: data.timestamp }];
+          if (next.length > MAX_LOGS) {
+            return next.slice(next.length - MAX_LOGS);
+          }
+          return next;
+        });
       }
     };
 
@@ -53,7 +62,7 @@ export function useDevServer(battlefieldId: string, initialStatus: DevServerStat
       socket.off('devserver:status', handleStatus);
       socket.emit('devserver:unsubscribe', battlefieldId);
     };
-  }, [socket, battlefieldId]);
+  }, [socket, battlefieldId, reconnectKey]);
 
   return { logs, status, port, pid };
 }

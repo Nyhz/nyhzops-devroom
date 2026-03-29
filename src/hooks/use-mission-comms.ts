@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useSocket } from '@/hooks/use-socket';
+import { useSocket, useReconnectKey } from '@/hooks/use-socket';
 import type { MissionLog, MissionStatus } from '@/types';
+
+const MAX_LOGS = 1000;
 
 interface MissionTokens {
   input: number;
@@ -25,6 +27,7 @@ export function useMissionComms(
   initialStatus: string,
 ): UseMissionCommsReturn {
   const socket = useSocket();
+  const reconnectKey = useReconnectKey();
   const [logs, setLogs] = useState<MissionLog[]>(initialLogs);
   const [status, setStatus] = useState<MissionStatus | null>(initialStatus as MissionStatus);
   const [debrief, setDebrief] = useState<string | null>(null);
@@ -39,13 +42,19 @@ export function useMissionComms(
     const handleLog = (data: { missionId: string; timestamp: number; type: string; content: string }) => {
       if (data.missionId !== missionId) return;
       logIdCounter.current += 1;
-      setLogs(prev => [...prev, {
-        id: `live-${logIdCounter.current}`,
-        missionId: data.missionId,
-        timestamp: data.timestamp,
-        type: data.type,
-        content: data.content,
-      }]);
+      setLogs(prev => {
+        const next = [...prev, {
+          id: `live-${logIdCounter.current}`,
+          missionId: data.missionId,
+          timestamp: data.timestamp,
+          type: data.type,
+          content: data.content,
+        }];
+        if (next.length > MAX_LOGS) {
+          return next.slice(next.length - MAX_LOGS);
+        }
+        return next;
+      });
     };
 
     const handleStatus = (data: { missionId: string; status: string }) => {
@@ -84,7 +93,7 @@ export function useMissionComms(
       socket.off('mission:tokens', handleTokens);
       socket.emit('mission:unsubscribe', missionId);
     };
-  }, [socket, missionId]);
+  }, [socket, missionId, reconnectKey]);
 
   return { logs, status, debrief, tokens };
 }
