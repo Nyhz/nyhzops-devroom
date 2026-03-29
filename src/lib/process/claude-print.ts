@@ -1,4 +1,6 @@
 import { spawn } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 import { config } from '@/lib/config';
 
 interface RunClaudePrintOptions {
@@ -6,6 +8,35 @@ interface RunClaudePrintOptions {
   cwd?: string;
   outputFormat?: string;
   jsonSchema?: string;
+}
+
+/**
+ * Set up a temporary HOME with host-synced credentials for a Claude CLI process.
+ * Returns the temp HOME path. Caller is responsible for cleanup.
+ */
+function createAuthenticatedHome(): string {
+  const tempHome = `/tmp/claude-print-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const tempClaudeDir = path.join(tempHome, '.claude');
+  fs.mkdirSync(tempClaudeDir, { recursive: true });
+
+  const realHome = process.env.HOME || '/home/devroom';
+
+  // Copy .claude.json (profile info)
+  try {
+    fs.copyFileSync(path.join(realHome, '.claude.json'), path.join(tempHome, '.claude.json'));
+  } catch { /* fine */ }
+
+  // Copy settings
+  try {
+    fs.copyFileSync(path.join(realHome, '.claude', 'settings.json'), path.join(tempClaudeDir, 'settings.json'));
+  } catch { /* fine */ }
+
+  // Copy host-synced credentials
+  try {
+    fs.copyFileSync(config.hostCredentialsPath, path.join(tempClaudeDir, '.credentials.json'));
+  } catch { /* no host credentials available */ }
+
+  return tempHome;
 }
 
 /**
@@ -24,6 +55,8 @@ export function runClaudePrint(
     jsonSchema,
   } = options;
 
+  const tempHome = createAuthenticatedHome();
+
   return new Promise((resolve, reject) => {
     const args = [
       '--print',
@@ -38,7 +71,10 @@ export function runClaudePrint(
       args.push('--json-schema', jsonSchema);
     }
 
-    const proc = spawn(config.claudePath, args, { cwd });
+    const proc = spawn(config.claudePath, args, {
+      cwd,
+      env: { ...process.env, HOME: tempHome },
+    });
 
     let stdout = '';
     let stderr = '';
@@ -49,7 +85,12 @@ export function runClaudePrint(
     proc.stdin?.write(prompt);
     proc.stdin?.end();
 
+    const cleanup = () => {
+      try { fs.rmSync(tempHome, { recursive: true, force: true }); } catch { /* best effort */ }
+    };
+
     proc.on('close', (code) => {
+      cleanup();
       if (code === 0 && stdout.trim()) {
         resolve(stdout.trim());
       } else {
@@ -60,6 +101,7 @@ export function runClaudePrint(
     });
 
     proc.on('error', (err) => {
+      cleanup();
       reject(err);
     });
   });
