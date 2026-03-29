@@ -51,7 +51,7 @@ export function CampaignMissionCard({
       {/* Title row with priority dot */}
       <div className="flex items-start gap-2">
         <span
-          className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', dotColor)}
+          className={cn('mt-1.5 h-3 w-3 shrink-0 rounded-full', dotColor)}
           title={`Priority: ${normalizedPriority}`}
         />
         <span className="font-tactical text-sm text-dr-text truncate">
@@ -61,7 +61,7 @@ export function CampaignMissionCard({
 
       {/* Asset codename */}
       {assetCodename && (
-        <span className="font-tactical text-xs text-dr-dim tracking-wider pl-4">
+        <span className="font-tactical text-xs text-dr-muted tracking-wider pl-4">
           {assetCodename}
         </span>
       )}
@@ -69,13 +69,13 @@ export function CampaignMissionCard({
       {/* Status badge */}
       {status && (
         <div className="pl-4">
-          <TacBadge status={status} className="text-[10px]" />
+          <TacBadge status={status} className="text-xs" />
         </div>
       )}
 
       {/* Duration + tokens */}
       {hasMetrics && (
-        <div className="flex items-center gap-3 pl-4 font-data text-[10px] text-dr-dim">
+        <div className="flex items-center gap-3 pl-4 font-data text-xs text-dr-muted">
           {durationMs != null && (
             <span>{formatDuration(durationMs)}</span>
           )}

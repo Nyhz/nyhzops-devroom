@@ -63,7 +63,7 @@ export function AssetDeployment({ initialData }: AssetDeploymentProps) {
         </span>
         <Link
           href="/assets"
-          className="text-dr-dim font-tactical text-[10px] hover:text-dr-muted transition-colors"
+          className="text-dr-muted font-tactical text-xs hover:text-dr-text transition-colors"
         >
           manage
         </Link>
@@ -72,8 +72,8 @@ export function AssetDeployment({ initialData }: AssetDeploymentProps) {
       {allIdle ? (
         /* Peace time */
         <div className="px-3 py-6 flex flex-col items-center gap-2">
-          <span className="text-dr-dim text-lg">&#9790;</span>
-          <span className="text-dr-dim font-data text-[10px] text-center leading-relaxed">
+          <span className="text-dr-muted text-lg">&#9790;</span>
+          <span className="text-dr-muted font-data text-xs text-center leading-relaxed">
             {peaceMsg}
           </span>
         </div>
@@ -83,7 +83,7 @@ export function AssetDeployment({ initialData }: AssetDeploymentProps) {
           {active.map((entry) => (
             <div key={entry.id} className="flex items-center gap-2">
               <span
-                className={`text-[8px] ${
+                className={`text-sm ${
                   entry.status === 'in_combat' ? 'text-dr-amber' : 'text-dr-blue'
                 }`}
               >
@@ -93,12 +93,12 @@ export function AssetDeployment({ initialData }: AssetDeploymentProps) {
                 <div className="text-dr-text font-tactical text-xs truncate">
                   {entry.codename}
                 </div>
-                <div className="text-dr-dim font-data text-[10px] truncate">
+                <div className="text-dr-muted font-data text-xs truncate">
                   {entry.missionTitle}
                 </div>
               </div>
               <span
-                className={`font-tactical text-[10px] tracking-wider shrink-0 ${
+                className={`font-tactical text-xs tracking-wider shrink-0 ${
                   entry.status === 'in_combat' ? 'text-dr-amber' : 'text-dr-blue'
                 }`}
               >

@@ -63,7 +63,7 @@ export function CampaignResults({ campaignName, missions, battlefieldId }: Campa
 
       {/* Cache hit bar */}
       <div className="bg-dr-surface border border-dr-border p-3 flex items-center gap-4 text-xs font-tactical">
-        <span className="text-dr-dim">CACHE HIT</span>
+        <span className="text-dr-muted">CACHE HIT</span>
         <span className="text-dr-green">{cacheHitPercent}%</span>
         <div className="flex-1 h-1.5 bg-dr-bg overflow-hidden">
           <div className="h-full bg-dr-green" style={{ width: `${cacheHitPercent}%` }} />
@@ -74,7 +74,7 @@ export function CampaignResults({ campaignName, missions, battlefieldId }: Campa
       {phaseList.map(([phaseNum, phase]) => (
         <div key={phaseNum} className="border border-dr-border border-l-2 border-l-dr-green">
           <div className="bg-dr-elevated px-4 py-2 border-b border-dr-border">
-            <span className="text-dr-dim font-tactical text-[10px] tracking-wider mr-2">
+            <span className="text-dr-muted font-tactical text-xs tracking-wider mr-2">
               PHASE {phaseNum}
             </span>
             <span className="text-dr-amber font-tactical text-sm">{phase.name}</span>
@@ -90,7 +90,7 @@ export function CampaignResults({ campaignName, missions, battlefieldId }: Campa
                       <span className={`text-xs ${m.status === 'accomplished' ? 'text-dr-green' : m.status === 'compromised' ? 'text-dr-red' : 'text-dr-dim'}`}>●</span>
                       <span className="text-dr-text font-tactical text-sm">{m.title}</span>
                     </div>
-                    <div className="flex items-center gap-4 text-xs font-tactical text-dr-dim">
+                    <div className="flex items-center gap-4 text-xs font-tactical text-dr-muted">
                       <span>{m.assetCodename ?? 'UNASSIGNED'}</span>
                       <span>{m.durationMs ? formatDuration(m.durationMs) : '—'}</span>
                       <span>{formatTokens((m.costInput || 0) + (m.costOutput || 0) + (m.costCacheHit || 0))} tok</span>
@@ -112,7 +112,7 @@ export function CampaignResults({ campaignName, missions, battlefieldId }: Campa
           {/* Phase debrief — toggleable */}
           {phase.debrief && (
             <details className="border-t border-dr-border bg-dr-bg/50">
-              <summary className="px-4 py-2.5 cursor-pointer text-dr-dim font-tactical text-[10px] tracking-wider hover:text-dr-muted transition-colors select-none">
+              <summary className="px-4 py-2.5 cursor-pointer text-dr-muted font-tactical text-xs tracking-wider hover:text-dr-text transition-colors select-none">
                 PHASE DEBRIEF
               </summary>
               <div className="px-4 pb-3 text-dr-muted font-data text-xs whitespace-pre-wrap leading-relaxed">
@@ -130,7 +130,7 @@ function StatCard({ label, value, color }: { label: string; value: string; color
   return (
     <div className="bg-dr-surface border border-dr-border p-3 text-center">
       <div className={`text-lg font-tactical ${color ?? 'text-dr-text'}`}>{value}</div>
-      <div className="text-dr-dim font-tactical text-[10px] tracking-wider mt-1">{label}</div>
+      <div className="text-dr-muted font-tactical text-xs tracking-wider mt-1">{label}</div>
     </div>
   );
 }

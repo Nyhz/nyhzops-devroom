@@ -105,11 +105,11 @@ export default async function MissionDetailPage({
                 className="px-3 py-2.5 space-y-1.5"
               >
                 <div className="flex items-center gap-3 text-xs font-tactical">
-                  <span className="text-dr-dim">
+                  <span className="text-dr-muted">
                     {formatRelativeTime(log.timestamp)}
                   </span>
                   <span
-                    className={`border px-1.5 py-0.5 text-[10px] uppercase tracking-wider ${
+                    className={`border px-1.5 py-0.5 text-xs uppercase tracking-wider ${
                       log.confidence === 'high'
                         ? 'text-dr-green border-dr-green'
                         : log.confidence === 'medium'
@@ -120,7 +120,7 @@ export default async function MissionDetailPage({
                     {log.confidence}
                   </span>
                   {log.escalated ? (
-                    <span className="text-dr-red uppercase tracking-wider text-[10px]">
+                    <span className="text-dr-red uppercase tracking-wider text-xs">
                       ESCALATED
                     </span>
                   ) : null}
@@ -135,7 +135,7 @@ export default async function MissionDetailPage({
                 <p className="text-sm font-data text-dr-green whitespace-pre-wrap">
                   {log.answer}
                 </p>
-                <p className="text-xs font-data text-dr-dim italic">
+                <p className="text-xs font-data text-dr-muted italic">
                   {log.reasoning}
                 </p>
               </TacCard>

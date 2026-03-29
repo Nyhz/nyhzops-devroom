@@ -71,7 +71,7 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && !isLoading && (
-          <div className="text-dr-dim font-tactical text-sm text-center py-8">
+          <div className="text-dr-muted font-tactical text-sm text-center py-8">
             Begin your briefing with GENERAL. Describe your objective and GENERAL will help you plan the campaign.
           </div>
         )}
@@ -84,7 +84,7 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
                 : 'bg-dr-surface border border-dr-amber/20'
             } p-3`}>
               <div className="flex items-center gap-2 mb-1">
-                <span className={`font-tactical text-[10px] tracking-wider ${
+                <span className={`font-tactical text-xs tracking-wider ${
                   msg.role === 'commander' ? 'text-dr-green' : 'text-dr-amber'
                 }`}>
                   {msg.role === 'commander' ? 'COMMANDER' : 'GENERAL'}
@@ -101,10 +101,10 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
           <div className="flex justify-start">
             <div className="max-w-[80%] bg-dr-surface border border-dr-amber/20 p-3">
               <div className="flex items-center gap-2 mb-1">
-                <span className="font-tactical text-[10px] tracking-wider text-dr-amber">
+                <span className="font-tactical text-xs tracking-wider text-dr-amber">
                   GENERAL
                 </span>
-                <span className="w-1.5 h-3 bg-dr-amber/70 animate-pulse" />
+                <span className="w-2.5 h-4 bg-dr-amber/70 animate-pulse" />
               </div>
               <div className="text-dr-text font-data text-sm whitespace-pre-wrap leading-relaxed">
                 {streaming}
