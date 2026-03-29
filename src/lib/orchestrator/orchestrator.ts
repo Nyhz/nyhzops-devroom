@@ -38,6 +38,13 @@ export class Orchestrator {
     this.drainQueue();
   }
 
+  private emitAgentCount(): void {
+    this.io.to('hq:activity').emit('orchestrator:agents', {
+      active: this.activeJobs.size,
+      max: this.maxAgents,
+    });
+  }
+
   pause(reason: string): void {
     this.paused = true;
     this.pauseReason = reason;
@@ -78,6 +85,7 @@ export class Orchestrator {
     // Create abort controller and track
     const ac = new AbortController();
     this.activeJobs.set(missionId, ac);
+    this.emitAgentCount();
     console.log(`[Orchestrator] Executing mission ${missionId} (${this.activeJobs.size}/${this.maxAgents} slots)`);
 
     // Execute (don't await — runs in background)
@@ -91,6 +99,7 @@ export class Orchestrator {
       })
       .finally(() => {
         this.activeJobs.delete(missionId);
+        this.emitAgentCount();
         console.log(`[Orchestrator] Mission ${missionId} done (${this.activeJobs.size}/${this.maxAgents} slots)`);
         this.drainQueue();
 

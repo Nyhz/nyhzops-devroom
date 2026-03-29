@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { GlobalNavTop, GlobalNavBottom } from "./global-nav";
 import { BattlefieldSelector } from "./battlefield-selector";
 import { SidebarNav } from "./sidebar-nav";
+import { useSocket } from "@/hooks/use-socket";
 import { config } from "@/lib/config";
 import type { Battlefield } from "@/types";
 
@@ -19,9 +21,19 @@ export function SidebarContent({
   battlefields,
   missionCounts,
   campaignCounts,
-  activeAgents,
+  activeAgents: initialActiveAgents,
   onLinkClick,
 }: SidebarContentProps) {
+  const [activeAgents, setActiveAgents] = useState(initialActiveAgents);
+  const socket = useSocket();
+
+  useEffect(() => {
+    if (!socket) return;
+    socket.emit('join', 'hq:activity');
+    const handler = (data: { active: number }) => setActiveAgents(data.active);
+    socket.on('orchestrator:agents', handler);
+    return () => { socket.off('orchestrator:agents', handler); };
+  }, [socket]);
   return (
     <>
       {/* Brand block — clickable, goes to War Room */}
