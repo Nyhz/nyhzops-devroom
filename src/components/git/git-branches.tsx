@@ -60,7 +60,7 @@ export function GitBranches({ battlefieldId, initialBranches, className }: GitBr
       {/* New branch form */}
       <TacCard className="p-4 space-y-3">
         <div className="text-dr-amber text-xs font-tactical tracking-wider">NEW BRANCH</div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <TacInput
             placeholder="Branch name..."
             value={newBranchName}
@@ -79,6 +79,7 @@ export function GitBranches({ battlefieldId, initialBranches, className }: GitBr
             variant="success"
             disabled={isPending || !newBranchName.trim()}
             onClick={handleCreate}
+            className="w-full sm:w-auto min-h-[44px] sm:min-h-0"
           >
             Create
           </TacButton>
@@ -101,7 +102,7 @@ export function GitBranches({ battlefieldId, initialBranches, className }: GitBr
             return (
               <div
                 key={branch.name}
-                className="flex items-center justify-between px-3 py-2 border-b border-dr-border/50 last:border-b-0 hover:bg-dr-elevated/50"
+                className="flex flex-col gap-1.5 px-3 py-2 border-b border-dr-border/50 last:border-b-0 hover:bg-dr-elevated/50 md:flex-row md:items-center md:justify-between md:gap-0"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span
@@ -127,7 +128,7 @@ export function GitBranches({ battlefieldId, initialBranches, className }: GitBr
                   )}
                 </div>
                 {!isCurrent && (
-                  <div className="flex items-center gap-1 shrink-0 ml-2">
+                  <div className="flex items-center gap-1 shrink-0 md:ml-2">
                     <TacButton
                       size="sm"
                       variant="ghost"

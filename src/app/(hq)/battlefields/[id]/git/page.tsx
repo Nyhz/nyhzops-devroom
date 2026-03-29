@@ -37,7 +37,7 @@ export default async function GitPage({
       <Tabs defaultValue="status">
         <TabsList
           variant="line"
-          className="border-b border-dr-border bg-transparent rounded-none p-0"
+          className="border-b border-dr-border bg-transparent rounded-none p-0 overflow-x-auto flex-nowrap"
         >
           <TabsTrigger
             value="status"
