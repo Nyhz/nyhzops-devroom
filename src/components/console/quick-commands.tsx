@@ -61,7 +61,7 @@ export function QuickCommands({ battlefieldId, scripts }: QuickCommandsProps) {
                   variant="ghost"
                   onClick={() => handleRunScript(name)}
                   disabled={isPending}
-                  className={isActive ? 'border-dr-amber text-dr-amber' : ''}
+                  className={`min-h-[44px] ${isActive ? 'border-dr-amber text-dr-amber' : ''}`}
                 >
                   {isActive ? '● ' : ''}npm run {name}
                 </TacButton>
@@ -78,13 +78,14 @@ export function QuickCommands({ battlefieldId, scripts }: QuickCommandsProps) {
             onKeyDown={handleKeyDown}
             placeholder="Enter custom command..."
             disabled={isPending}
+            className="min-w-0 flex-1"
           />
           <TacButton
             size="sm"
             variant="primary"
             onClick={handleRunCustom}
             disabled={isPending || !customCommand.trim()}
-            className="shrink-0"
+            className="shrink-0 min-h-[44px] min-w-[44px]"
           >
             RUN
           </TacButton>
