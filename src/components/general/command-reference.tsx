@@ -21,7 +21,7 @@ export function CommandReference({ open, onClose }: CommandReferenceProps) {
           </span>
           <button
             onClick={onClose}
-            className="text-dr-dim hover:text-dr-text text-sm font-mono"
+            className="text-dr-muted hover:text-dr-text text-sm font-mono"
           >
             ✕
           </button>
@@ -29,7 +29,7 @@ export function CommandReference({ open, onClose }: CommandReferenceProps) {
 
         {/* Context */}
         <div className="space-y-2">
-          <div className="text-dr-muted font-tactical text-[10px] tracking-widest uppercase">
+          <div className="text-dr-muted font-tactical text-xs tracking-widest uppercase">
             CONTEXT
           </div>
           {commands.native
@@ -41,7 +41,7 @@ export function CommandReference({ open, onClose }: CommandReferenceProps) {
 
         {/* Info */}
         <div className="space-y-2">
-          <div className="text-dr-muted font-tactical text-[10px] tracking-widest uppercase">
+          <div className="text-dr-muted font-tactical text-xs tracking-widest uppercase">
             INFO
           </div>
           {commands.native
@@ -53,7 +53,7 @@ export function CommandReference({ open, onClose }: CommandReferenceProps) {
 
         {/* DEVROOM Shortcuts */}
         <div className="space-y-2">
-          <div className="text-dr-muted font-tactical text-[10px] tracking-widest uppercase">
+          <div className="text-dr-muted font-tactical text-xs tracking-widest uppercase">
             DEVROOM SHORTCUTS
           </div>
           {commands.custom.map((cmd) => (
@@ -69,7 +69,7 @@ function CommandRow({ name, description }: { name: string; description: string }
   return (
     <div className="space-y-0.5">
       <div className="text-dr-green font-mono text-xs">{name}</div>
-      <div className="text-dr-dim font-mono text-[11px]">{description}</div>
+      <div className="text-dr-muted font-mono text-xs">{description}</div>
     </div>
   );
 }

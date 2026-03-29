@@ -16,12 +16,12 @@ export default async function CaptainLogPage() {
 
   return (
     <PageWrapper breadcrumb="HQ" title="CAPTAIN'S LOG">
-      <p className="text-xs font-tactical text-dr-muted -mt-4">
+      <p className="text-sm font-tactical text-dr-muted -mt-4">
         Autonomous decision record — all Captain interventions during mission execution
       </p>
 
       {/* Stats bar */}
-      <div className="flex items-center gap-6 text-xs font-tactical border border-dr-border bg-dr-surface px-4 py-3">
+      <div className="flex items-center gap-6 text-sm font-tactical border border-dr-border bg-dr-surface px-4 py-3">
         <div>
           <span className="text-dr-muted">TOTAL DECISIONS</span>{' '}
           <span className="text-dr-green font-bold">{stats.totalDecisions}</span>
@@ -30,7 +30,7 @@ export default async function CaptainLogPage() {
         <div>
           <span className="text-dr-muted">ESCALATIONS</span>{' '}
           <span className="text-dr-red font-bold">{stats.escalationCount}</span>
-          <span className="text-dr-dim ml-1">({escalationPct}%)</span>
+          <span className="text-dr-muted ml-1">({escalationPct}%)</span>
         </div>
         <div className="w-px h-4 bg-dr-border" />
         <div>
@@ -50,10 +50,10 @@ export default async function CaptainLogPage() {
       {/* Log entries */}
       {logs.length === 0 ? (
         <div className="border border-dr-border bg-dr-surface px-6 py-12 text-center">
-          <p className="text-dr-dim text-sm font-tactical">
+          <p className="text-dr-muted text-sm font-tactical">
             No Captain decisions recorded yet.
           </p>
-          <p className="text-dr-dim text-xs font-tactical mt-2">
+          <p className="text-dr-muted text-sm font-tactical mt-2">
             The Captain intervenes when an agent stalls during mission execution.
           </p>
         </div>
@@ -67,8 +67,8 @@ export default async function CaptainLogPage() {
               }`}
             >
               {/* Top row: timestamp, confidence, escalation */}
-              <div className="flex items-center gap-3 text-xs font-tactical">
-                <span className="text-dr-dim">
+              <div className="flex items-center gap-3 text-sm font-tactical">
+                <span className="text-dr-muted">
                   {formatRelativeTime(log.timestamp)}
                 </span>
                 <ConfidenceBadge confidence={log.confidence} />
@@ -87,10 +87,10 @@ export default async function CaptainLogPage() {
 
               {/* Question */}
               <div className="bg-dr-bg border border-dr-border px-3 py-2">
-                <span className="text-[10px] font-tactical text-dr-dim tracking-wider">
+                <span className="text-xs font-tactical text-dr-muted tracking-wider">
                   AGENT ASKED
                 </span>
-                <p className="text-xs font-data text-dr-muted mt-1 whitespace-pre-wrap">
+                <p className="text-sm font-data text-dr-text mt-1 whitespace-pre-wrap">
                   {log.question.length > 500
                     ? log.question.slice(0, 500) + '...'
                     : log.question}
@@ -99,7 +99,7 @@ export default async function CaptainLogPage() {
 
               {/* Answer */}
               <div>
-                <span className="text-[10px] font-tactical text-dr-dim tracking-wider">
+                <span className="text-xs font-tactical text-dr-muted tracking-wider">
                   CAPTAIN&apos;S ANSWER
                 </span>
                 <p className="text-sm font-data text-dr-green mt-1 whitespace-pre-wrap">
@@ -109,10 +109,10 @@ export default async function CaptainLogPage() {
 
               {/* Reasoning */}
               <div>
-                <span className="text-[10px] font-tactical text-dr-dim tracking-wider">
+                <span className="text-xs font-tactical text-dr-muted tracking-wider">
                   REASONING
                 </span>
-                <p className="text-xs font-data text-dr-dim italic mt-1">
+                <p className="text-sm font-data text-dr-muted italic mt-1">
                   {log.reasoning}
                 </p>
               </div>
@@ -134,7 +134,7 @@ function ConfidenceBadge({ confidence }: { confidence: string }) {
 
   return (
     <span
-      className={`border px-1.5 py-0.5 text-[10px] font-tactical uppercase tracking-wider ${colors}`}
+      className={`border px-1.5 py-0.5 text-xs font-tactical uppercase tracking-wider ${colors}`}
     >
       {confidence}
     </span>
