@@ -766,7 +766,7 @@ export async function tacticalOverride(
 ): Promise<void> {
   const db = getDatabase();
   const mission = getOrThrow(missions, missionId, 'tacticalOverride');
-  if (mission.status !== 'compromised') throw new Error('tacticalOverride: can only override compromised missions');
+  if (mission.status !== 'compromised' && mission.status !== 'abandoned') throw new Error('tacticalOverride: can only override compromised or abandoned missions');
 
   const now = Date.now();
 

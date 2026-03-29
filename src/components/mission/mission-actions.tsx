@@ -47,7 +47,7 @@ export function MissionActions({
   const isTerminal = status === 'accomplished' || status === 'compromised' || status === 'abandoned';
   const canContinue =
     (status === 'accomplished' || status === 'compromised') && sessionId != null;
-  const canTacticalOverride = status === 'compromised';
+  const canTacticalOverride = status === 'compromised' || status === 'abandoned';
   const canSkipMission = status === 'compromised' && !!campaignId;
 
   const handleAbandon = async () => {
