@@ -7,9 +7,9 @@ export const TacInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInp
       ref={ref}
       className={cn(
         'w-full bg-dr-bg border border-dr-border text-dr-text font-tactical text-base',
-        'px-4 py-3 placeholder:text-dr-dim',
+        'px-4 py-3 placeholder:text-dr-muted',
         'focus:border-dr-amber focus:outline-none',
-        'disabled:opacity-50 disabled:cursor-not-allowed',
+        'disabled:opacity-70 disabled:cursor-not-allowed',
         className,
       )}
       {...props}
@@ -24,9 +24,9 @@ export const TacTextarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttribute
       ref={ref}
       className={cn(
         'w-full bg-dr-bg border border-dr-border text-dr-text font-tactical text-base',
-        'px-4 py-3 placeholder:text-dr-dim resize-vertical min-h-[100px]',
+        'px-4 py-3 placeholder:text-dr-muted resize-vertical min-h-[100px]',
         'focus:border-dr-amber focus:outline-none',
-        'disabled:opacity-50 disabled:cursor-not-allowed',
+        'disabled:opacity-70 disabled:cursor-not-allowed',
         className,
       )}
       {...props}

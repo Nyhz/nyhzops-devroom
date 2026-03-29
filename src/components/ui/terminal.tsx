@@ -22,7 +22,7 @@ interface DisplayEntry {
 }
 
 const typeStyles = {
-  log: 'text-dr-muted',
+  log: 'text-dr-text',
   status: 'text-dr-green',
   error: 'text-dr-red',
 } as const;

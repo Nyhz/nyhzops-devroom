@@ -53,8 +53,8 @@
   --color-dr-elevated: #1a1a22;
   --color-dr-border:   #2a2a32;
   --color-dr-text:     #b8b8c8;
-  --color-dr-muted:    #6a6a7a;
-  --color-dr-dim:      #4a4a5a;
+  --color-dr-muted:    #9a9aaa;
+  --color-dr-dim:      #7a7a8a;
   --color-dr-green:    #00ff41;
   --color-dr-amber:    #ffbf00;
   --color-dr-red:      #ff3333;
@@ -82,7 +82,7 @@
   --secondary: #1a1a22;
   --secondary-foreground: #b8b8c8;
   --muted: #1a1a22;
-  --muted-foreground: #6a6a7a;
+  --muted-foreground: #9a9aaa;
   --accent: #1a1a22;
   --accent-foreground: #b8b8c8;
   --destructive: #ff3333;
@@ -93,7 +93,7 @@
   --chart-2: #ffbf00;
   --chart-3: #00aaff;
   --chart-4: #ff3333;
-  --chart-5: #6a6a7a;
+  --chart-5: #9a9aaa;
   --radius: 0rem;
   --sidebar: #111114;
   --sidebar-foreground: #b8b8c8;
@@ -140,7 +140,7 @@
     background: #2a2a32;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #4a4a5a;
+    background: #7a7a8a;
   }
 
   /* Firefox scrollbar */
