@@ -12,6 +12,7 @@ import { BootstrapComms } from '@/components/battlefield/bootstrap-comms';
 import { BootstrapError } from '@/components/battlefield/bootstrap-error';
 import { readBootstrapFile } from '@/actions/battlefield';
 import { PageWrapper } from '@/components/layout/page-wrapper';
+import { formatTokens } from '@/lib/utils';
 import type { Battlefield } from '@/types';
 
 export default async function BattlefieldOverviewPage({
@@ -168,11 +169,6 @@ export default async function BattlefieldOverviewPage({
   const totalTokensAll = totalInput + totalOutput + totalCacheHit;
   // Approximate cost: Input $3/1M, Output $15/1M, Cache $0.30/1M
   const totalCostUsd = (totalInput * 3 + totalOutput * 15 + totalCacheHit * 0.3) / 1_000_000;
-  const formatTokens = (n: number) => {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return String(n);
-  };
 
   return (
     <PageWrapper breadcrumb={battlefield.codename} title="Missions">

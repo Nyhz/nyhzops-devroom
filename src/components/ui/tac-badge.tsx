@@ -6,9 +6,9 @@ interface TacBadgeProps {
   glow?: boolean;
 }
 
-type StatusColor = 'green' | 'amber' | 'red' | 'blue' | 'dim';
+export type StatusColor = 'green' | 'amber' | 'red' | 'blue' | 'dim';
 
-const statusColorMap: Record<string, StatusColor> = {
+export const statusColorMap: Record<string, StatusColor> = {
   accomplished: 'green',
   secured: 'green',
   active: 'amber',
@@ -39,6 +39,24 @@ const glowStyles: Record<StatusColor, string> = {
   blue: '',
   dim: '',
 } as const;
+
+const borderStyles: Record<StatusColor, string> = {
+  green: 'border-l-dr-green',
+  amber: 'border-l-dr-amber',
+  red: 'border-l-dr-red',
+  blue: 'border-l-dr-blue',
+  dim: 'border-l-dr-dim',
+} as const;
+
+export function getStatusColor(status: string): StatusColor {
+  const normalized = status.toLowerCase().replace(/\s+/g, '_');
+  return statusColorMap[normalized] ?? 'dim';
+}
+
+export function getStatusBorderColor(status: string | null): string {
+  if (!status) return borderStyles.dim;
+  return borderStyles[getStatusColor(status)];
+}
 
 export function TacBadge({ status, className, glow = false }: TacBadgeProps) {
   const normalizedStatus = status.toLowerCase().replace(/\s+/g, '_');

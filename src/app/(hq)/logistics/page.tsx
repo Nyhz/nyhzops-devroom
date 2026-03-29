@@ -6,16 +6,7 @@ import {
   getRateLimitStatus,
 } from '@/actions/logistics';
 import { PageWrapper } from '@/components/layout/page-wrapper';
-
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
-
-function formatCost(usd: number): string {
-  return `$${usd.toFixed(2)}`;
-}
+import { formatTokens, formatCost } from '@/lib/utils';
 
 function formatTime(ms: number): string {
   const now = Date.now();

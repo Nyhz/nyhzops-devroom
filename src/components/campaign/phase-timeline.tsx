@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { cn, formatDuration } from '@/lib/utils';
-import { TacBadge } from '@/components/ui/tac-badge';
+import { cn, formatDuration, formatTokens } from '@/lib/utils';
+import { TacBadge, getStatusBorderColor } from '@/components/ui/tac-badge';
 import { Markdown } from '@/components/ui/markdown';
 import { CampaignMissionCard } from '@/components/campaign/mission-card';
 
@@ -29,25 +29,6 @@ interface PhaseTimelineProps {
   readOnly?: boolean;
 }
 
-const statusBorderColor: Record<string, string> = {
-  secured: 'border-l-dr-green',
-  accomplished: 'border-l-dr-green',
-  active: 'border-l-dr-amber',
-  in_combat: 'border-l-dr-amber',
-  compromised: 'border-l-dr-red',
-  standby: 'border-l-dr-dim',
-  draft: 'border-l-dr-dim',
-};
-
-function formatTokenCount(tokens: number): string {
-  if (tokens >= 1_000_000) {
-    return `${(tokens / 1_000_000).toFixed(1)}M tokens`;
-  }
-  if (tokens >= 1000) {
-    return `${(tokens / 1000).toFixed(1)}K tokens`;
-  }
-  return `${tokens} tokens`;
-}
 
 export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: PhaseTimelineProps) {
   if (phases.length === 0) {
@@ -61,8 +42,7 @@ export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: Ph
   return (
     <div className="flex flex-col gap-4">
       {phases.map((phase) => {
-        const normalizedStatus = (phase.status ?? 'standby').toLowerCase().replace(/\s+/g, '_');
-        const borderColor = statusBorderColor[normalizedStatus] ?? 'border-l-dr-dim';
+        const borderColor = getStatusBorderColor(phase.status);
         const hasMetrics = phase.durationMs != null || phase.totalTokens != null;
 
         return (
@@ -104,7 +84,7 @@ export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: Ph
                     <span>{formatDuration(phase.durationMs)}</span>
                   )}
                   {phase.totalTokens != null && phase.totalTokens > 0 && (
-                    <span>{formatTokenCount(phase.totalTokens)}</span>
+                    <span>{formatTokens(phase.totalTokens)} tokens</span>
                   )}
                 </div>
               )}

@@ -1,4 +1,4 @@
-import { cn, formatDuration } from '@/lib/utils';
+import { cn, formatDuration, formatTokens } from '@/lib/utils';
 import { TacBadge } from '@/components/ui/tac-badge';
 
 interface CampaignMissionCardProps {
@@ -19,13 +19,6 @@ const priorityDotColor: Record<string, string> = {
   critical: 'bg-dr-red',
 };
 
-function formatTokens(input: number, output: number): string {
-  const total = input + output;
-  if (total >= 1000) {
-    return `${(total / 1000).toFixed(1)}K tokens`;
-  }
-  return `${total} tokens`;
-}
 
 export function CampaignMissionCard({
   title,
@@ -80,7 +73,7 @@ export function CampaignMissionCard({
             <span>{formatDuration(durationMs)}</span>
           )}
           {costInput != null && costOutput != null && (
-            <span>{formatTokens(costInput, costOutput)}</span>
+            <span>{formatTokens(costInput + costOutput)} tokens</span>
           )}
         </div>
       )}

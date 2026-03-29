@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { SearchInput } from '@/components/ui/search-input';
-import { TacBadge } from '@/components/ui/tac-badge';
+import { TacBadge, getStatusBorderColor } from '@/components/ui/tac-badge';
 import { formatRelativeTime } from '@/lib/utils';
 
 interface MissionListProps {
@@ -17,23 +17,6 @@ interface MissionListProps {
     createdAt: number;
   }>;
   battlefieldId: string;
-}
-
-function getStatusBorderColor(status: string | null): string {
-  switch (status) {
-    case 'accomplished':
-      return 'border-l-dr-green';
-    case 'in_combat':
-    case 'deploying':
-    case 'queued':
-      return 'border-l-dr-amber';
-    case 'compromised':
-      return 'border-l-dr-red';
-    case 'standby':
-    case 'abandoned':
-    default:
-      return 'border-l-dr-dim';
-  }
 }
 
 export function MissionList({ missions, battlefieldId }: MissionListProps) {
