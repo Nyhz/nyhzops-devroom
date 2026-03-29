@@ -14,32 +14,32 @@ export function StatsBar({
   cacheHitPercent,
 }: StatsBarProps) {
   return (
-    <div className="flex bg-dr-border gap-px">
-      <div className="flex-1 bg-dr-surface p-5 text-center">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 bg-dr-border gap-px">
+      <div className="bg-dr-surface p-3 md:p-5 text-center">
         <div className="text-dr-amber font-tactical text-4xl">{inCombat}</div>
         <div className="text-dr-muted font-tactical text-sm tracking-wider uppercase mt-1">
           IN COMBAT
         </div>
       </div>
-      <div className="flex-1 bg-dr-surface p-5 text-center">
+      <div className="bg-dr-surface p-3 md:p-5 text-center">
         <div className="text-dr-green font-tactical text-4xl">{accomplished}</div>
         <div className="text-dr-muted font-tactical text-sm tracking-wider uppercase mt-1">
           ACCOMPLISHED
         </div>
       </div>
-      <div className="flex-1 bg-dr-surface p-5 text-center">
+      <div className="bg-dr-surface p-3 md:p-5 text-center">
         <div className="text-dr-red font-tactical text-4xl">{compromised}</div>
         <div className="text-dr-muted font-tactical text-sm tracking-wider uppercase mt-1">
           COMPROMISED
         </div>
       </div>
-      <div className="flex-1 bg-dr-surface p-5 text-center">
+      <div className="bg-dr-surface p-3 md:p-5 text-center">
         <div className="text-dr-dim font-tactical text-4xl">{standby}</div>
         <div className="text-dr-muted font-tactical text-sm tracking-wider uppercase mt-1">
           STANDBY
         </div>
       </div>
-      <div className="flex-1 bg-dr-surface p-5 text-center">
+      <div className="col-span-2 md:col-span-1 bg-dr-surface p-3 md:p-5 text-center">
         <div className="text-dr-green font-tactical text-4xl">{cacheHitPercent}</div>
         <div className="text-dr-muted font-tactical text-sm tracking-wider uppercase mt-1">
           CACHE HIT
