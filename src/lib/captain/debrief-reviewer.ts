@@ -66,14 +66,16 @@ Rules:
 - Most debriefs are satisfactory. Only flag genuine issues.
 - Minor style differences are not concerns.
 - "retry" only if the agent clearly failed to complete the task.
-- "escalate" only if there's a significant risk the Commander should know about.`);
+- "escalate" only if there's a significant risk the Commander should know about.
+
+IMPORTANT: Do NOT use any tools. Do NOT read files. Do NOT run commands. You have all the information you need above. Analyze the text and respond with your assessment only.`);
 
   return sections.join('\n\n---\n\n');
 }
 
 function spawnReview(prompt: string): Promise<string> {
   return runClaudePrint(prompt, {
-    maxTurns: 5,
+    maxTurns: 2,
     outputFormat: 'json',
     jsonSchema: REVIEW_JSON_SCHEMA,
   });
