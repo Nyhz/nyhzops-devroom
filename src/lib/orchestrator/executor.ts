@@ -17,6 +17,8 @@ import { escalate } from '@/lib/captain/escalation';
 import { runCaptainReview } from '@/lib/captain/review-handler';
 import { getCaptainLogs } from '@/actions/captain';
 import type { Mission, StreamResult } from '@/types';
+import { checkCliAuth } from './auth-check';
+import type { Orchestrator } from './orchestrator';
 
 /** Remove per-mission Claude config isolation dir */
 function cleanupMissionHome(missionId: string) {
@@ -101,6 +103,29 @@ export async function executeMission(
         status: 'active',
         updatedAt: Date.now(),
       }).where(eq(campaigns.id, mission.campaignId)).run();
+    }
+
+    // Pre-flight auth check — verify CLI can authenticate before spending resources
+    const authResult = await checkCliAuth();
+    if (!authResult.ok) {
+      updateStatus('queued');
+      storeLog('status', `Auth check failed: ${authResult.error}. Mission re-queued.`);
+      emitActivity('mission:auth_failed', `Auth check failed for mission: ${mission.title}. Re-queued.`);
+
+      const orch = globalThis.orchestrator as Orchestrator | undefined;
+      if (orch && !orch.paused) {
+        orch.pause('CLI authentication lost');
+        escalate({
+          level: 'critical',
+          title: 'CLI Authentication Lost',
+          detail: 'Queue paused. All missions held.\nCheck host credential sync and re-login if needed.',
+          actions: [
+            { label: 'UNPAUSE', handler: 'unpause' },
+          ],
+        });
+      }
+
+      return;
     }
 
     // Step 2: Build prompt
