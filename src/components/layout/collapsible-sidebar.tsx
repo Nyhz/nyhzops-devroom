@@ -33,12 +33,14 @@ interface CollapsibleSidebarProps {
   battlefields: Battlefield[];
   missionCounts: Record<string, number>;
   campaignCounts: Record<string, number>;
+  activeAgents: number;
 }
 
 export function CollapsibleSidebar({
   battlefields,
   missionCounts,
   campaignCounts,
+  activeAgents,
 }: CollapsibleSidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const pathname = usePathname();
@@ -212,6 +214,7 @@ export function CollapsibleSidebar({
           battlefields={battlefields}
           missionCounts={missionCounts}
           campaignCounts={campaignCounts}
+          activeAgents={activeAgents}
         />
       </aside>
 
@@ -229,6 +232,7 @@ export function CollapsibleSidebar({
               battlefields={battlefields}
               missionCounts={missionCounts}
               campaignCounts={campaignCounts}
+              activeAgents={activeAgents}
               onLinkClick={closeExpanded}
             />
             <div className="border-t border-dr-border">

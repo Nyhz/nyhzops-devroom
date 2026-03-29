@@ -12,6 +12,7 @@ interface MobileDrawerProps {
   battlefields: Battlefield[];
   missionCounts: Record<string, number>;
   campaignCounts: Record<string, number>;
+  activeAgents: number;
 }
 
 export function MobileDrawer({
@@ -20,6 +21,7 @@ export function MobileDrawer({
   battlefields,
   missionCounts,
   campaignCounts,
+  activeAgents,
 }: MobileDrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -135,6 +137,7 @@ export function MobileDrawer({
           battlefields={battlefields}
           missionCounts={missionCounts}
           campaignCounts={campaignCounts}
+          activeAgents={activeAgents}
           onLinkClick={onClose}
         />
       </div>

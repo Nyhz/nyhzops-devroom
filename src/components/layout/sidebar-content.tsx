@@ -11,6 +11,7 @@ interface SidebarContentProps {
   battlefields: Battlefield[];
   missionCounts: Record<string, number>;
   campaignCounts: Record<string, number>;
+  activeAgents: number;
   onLinkClick?: () => void;
 }
 
@@ -18,6 +19,7 @@ export function SidebarContent({
   battlefields,
   missionCounts,
   campaignCounts,
+  activeAgents,
   onLinkClick,
 }: SidebarContentProps) {
   return (
@@ -82,7 +84,7 @@ export function SidebarContent({
         <div className="mt-1.5 flex items-center gap-2">
           <span className="text-dr-dim text-sm">●</span>
           <span className="text-dr-muted text-sm">
-            {globalThis.orchestrator?.getActiveCount() ?? 0}/{config.maxAgents} assets deployed
+            {activeAgents}/{config.maxAgents} assets deployed
           </span>
         </div>
       </div>

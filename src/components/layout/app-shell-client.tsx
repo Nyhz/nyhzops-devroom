@@ -14,6 +14,7 @@ interface AppShellClientProps {
   battlefields: Battlefield[];
   missionCounts: Record<string, number>;
   campaignCounts: Record<string, number>;
+  activeAgents: number;
 }
 
 export function AppShellClient({
@@ -21,6 +22,7 @@ export function AppShellClient({
   battlefields,
   missionCounts,
   campaignCounts,
+  activeAgents,
 }: AppShellClientProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
@@ -64,6 +66,7 @@ export function AppShellClient({
           battlefields={battlefields}
           missionCounts={missionCounts}
           campaignCounts={campaignCounts}
+          activeAgents={activeAgents}
         />
         <main className="overflow-y-auto overflow-x-hidden">{children}</main>
       </div>
@@ -78,6 +81,7 @@ export function AppShellClient({
         battlefields={battlefields}
         missionCounts={missionCounts}
         campaignCounts={campaignCounts}
+        activeAgents={activeAgents}
       />
     </div>
   );

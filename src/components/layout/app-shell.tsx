@@ -32,11 +32,14 @@ export function AppShell({ children }: AppShellProps) {
     campaignCounts[bf.id] = cResult[0]?.value ?? 0;
   }
 
+  const activeAgents = globalThis.orchestrator?.getActiveCount() ?? 0;
+
   return (
     <AppShellClient
       battlefields={allBattlefields}
       missionCounts={missionCounts}
       campaignCounts={campaignCounts}
+      activeAgents={activeAgents}
     >
       {children}
     </AppShellClient>
