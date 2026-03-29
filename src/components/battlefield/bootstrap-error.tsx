@@ -68,11 +68,12 @@ export function BootstrapError({
         <p className="text-dr-muted text-xs mt-1">{debrief}</p>
       )}
 
-      <div className="flex gap-3 mt-6">
+      <div className="flex flex-col md:flex-row gap-3 mt-6">
         <TacButton
           variant="primary"
           onClick={handleRetry}
           disabled={isPending}
+          className="w-full md:w-auto"
         >
           RETRY BOOTSTRAP
         </TacButton>
@@ -80,6 +81,7 @@ export function BootstrapError({
           variant="danger"
           onClick={handleAbandon}
           disabled={isPending}
+          className="w-full md:w-auto"
         >
           ABANDON
         </TacButton>
