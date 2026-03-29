@@ -186,6 +186,19 @@ export async function executeMission(
       campaignContextString = `Campaign mission for battlefield ${battlefield.codename}. Mission: ${mission.title}`;
     }
 
+    // For continued missions, inject the previous mission's debrief as context
+    // (session resume doesn't work across worktrees, so we provide context via prompt)
+    if (mission.sessionId) {
+      const prevMission = db.select().from(missions)
+        .where(eq(missions.sessionId, mission.sessionId))
+        .all()
+        .filter(m => m.id !== mission.id && m.debrief)
+        .pop();
+      if (prevMission?.debrief) {
+        fullPrompt += `\n\n---\n\n## Previous Mission Context\n\nThis is a continuation of a previous mission. Here is the debrief from the prior run:\n\n${prevMission.debrief}`;
+      }
+    }
+
     // Step 3: Spawn Claude Code
     const args = [
       '--print',
@@ -194,7 +207,6 @@ export async function executeMission(
       '--include-partial-messages',
       '--dangerously-skip-permissions',
       '--max-turns', '50',
-      ...(mission.sessionId ? ['--session-id', mission.sessionId] : []),
       fullPrompt,
     ];
 
@@ -209,19 +221,11 @@ export async function executeMission(
     try {
       fs.copyFileSync(path.join(realHome, '.claude.json'), path.join(missionHome, '.claude.json'));
     } catch { /* no .claude.json — fine */ }
-    // Copy auth and settings
+    // Copy auth and settings — no session data (each mission gets fresh sessions)
     for (const file of ['.credentials.json', 'settings.json']) {
       try {
         fs.copyFileSync(path.join(realHome, '.claude', file), path.join(missionClaudeDir, file));
       } catch { /* skip missing files */ }
-    }
-    // For continued missions (resuming a session), symlink session storage
-    if (mission.sessionId) {
-      for (const dir of ['sessions', 'session-env']) {
-        try {
-          fs.symlinkSync(path.join(realHome, '.claude', dir), path.join(missionClaudeDir, dir));
-        } catch { /* skip if missing or already exists */ }
-      }
     }
 
     const proc = spawn(config.claudePath, args, {
