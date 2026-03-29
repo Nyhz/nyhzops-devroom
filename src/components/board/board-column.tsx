@@ -47,7 +47,7 @@ export function BoardColumn({
   const hiddenCount = cards.length - COLLAPSED_LIMIT;
 
   return (
-    <div className={cn('flex-shrink-0 w-72 flex flex-col min-h-0', className)}>
+    <div className={cn('flex-shrink-0 w-72 flex flex-col', className)}>
       {/* Column header */}
       <div className="flex items-baseline justify-between gap-2 px-1.5 pb-2">
         <span className={cn('text-[11px] font-tactical tracking-widest', `text-${color}/50`)}>
@@ -63,12 +63,18 @@ export function BoardColumn({
             ref={provided.innerRef}
             {...provided.droppableProps}
             className={cn(
-              'flex-1 flex flex-col gap-1.5 p-1.5 min-h-[80px] overflow-y-auto',
+              'flex flex-col gap-1.5 p-1.5',
               'bg-white/[0.02] border border-transparent rounded-sm',
               'transition-colors',
               snapshot.isDraggingOver && acceptsDrop && 'border-dr-amber/20 bg-dr-amber/[0.03]',
             )}
           >
+            {visibleCards.length === 0 && (
+              <div className="py-4 text-center text-dr-dim/30 text-[11px] font-tactical">
+                No {label.toLowerCase()}
+              </div>
+            )}
+
             {visibleCards.map((note, index) => {
               const isLinked = note.missionId !== null;
 

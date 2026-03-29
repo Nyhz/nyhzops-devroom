@@ -268,9 +268,9 @@ export function IntelBoard({ battlefieldId, initialNotes }: IntelBoardProps) {
       </div>
 
       {/* Board columns */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden min-h-0">
+      <div className="flex-1 overflow-auto min-h-0">
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-3 h-full px-6 py-4 min-w-max">
+          <div className="flex gap-3 items-start px-6 py-4 min-w-max">
             {BOARD_COLUMNS.map(col => (
               <BoardColumn
                 key={col.key}
