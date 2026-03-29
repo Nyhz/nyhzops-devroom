@@ -1,5 +1,4 @@
-import { spawn } from 'child_process';
-import { config } from '@/lib/config';
+import { runClaudePrint } from '@/lib/process/claude-print';
 import type { CaptainLog, CaptainConfidence } from '@/types';
 
 export interface CaptainDecision {
@@ -134,44 +133,17 @@ function parseDecision(raw: string): CaptainDecision {
 export async function askCaptain(params: AskCaptainParams): Promise<CaptainDecision> {
   const prompt = buildCaptainPrompt(params);
 
-  return new Promise<CaptainDecision>((resolve) => {
-    const proc = spawn(config.claudePath, [
-      '--print',
-      '--dangerously-skip-permissions',
-      '--max-turns', '1',
-    ], { cwd: '/tmp' });
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
-    proc.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); });
-
-    proc.stdin?.write(prompt);
-    proc.stdin?.end();
-
-    proc.on('close', (code) => {
-      if (code === 0 && stdout.trim()) {
-        resolve(parseDecision(stdout));
-      } else {
-        console.warn(`[Captain] Process exited with code ${code}. stderr: ${stderr.slice(0, 200)}`);
-        resolve({
-          answer: 'Proceed with your best judgment based on the project conventions.',
-          reasoning: `Captain process failed (exit code ${code}). Providing fallback guidance.`,
-          escalate: true,
-          confidence: 'low',
-        });
-      }
-    });
-
-    proc.on('error', (err) => {
-      console.error(`[Captain] Spawn error:`, err.message);
-      resolve({
-        answer: 'Proceed with your best judgment based on the project conventions.',
-        reasoning: `Captain spawn error: ${err.message}. Providing fallback guidance.`,
-        escalate: true,
-        confidence: 'low',
-      });
-    });
-  });
+  try {
+    const stdout = await runClaudePrint(prompt);
+    return parseDecision(stdout);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Captain] Process failed: ${msg}`);
+    return {
+      answer: 'Proceed with your best judgment based on the project conventions.',
+      reasoning: `Captain process failed: ${msg}. Providing fallback guidance.`,
+      escalate: true,
+      confidence: 'low',
+    };
+  }
 }

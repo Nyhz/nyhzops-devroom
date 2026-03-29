@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { eq, desc, asc, like, and } from 'drizzle-orm';
-import { getDatabase } from '@/lib/db/index';
+import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { scheduledTasks, missions } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import { validateCron, getNextRun } from '@/lib/scheduler/cron';
@@ -88,15 +88,7 @@ export async function updateScheduledTask(
   data: UpdateScheduledTaskInput,
 ): Promise<ScheduledTask> {
   const db = getDatabase();
-  const existing = db
-    .select()
-    .from(scheduledTasks)
-    .where(eq(scheduledTasks.id, id))
-    .get();
-
-  if (!existing) {
-    throw new Error(`updateScheduledTask: task ${id} not found`);
-  }
+  const existing = getOrThrow(scheduledTasks, id, 'updateScheduledTask');
 
   const now = Date.now();
   const updatedCron = data.cron ?? existing.cron;
@@ -149,15 +141,7 @@ export async function updateScheduledTask(
 
 export async function deleteScheduledTask(id: string): Promise<void> {
   const db = getDatabase();
-  const existing = db
-    .select()
-    .from(scheduledTasks)
-    .where(eq(scheduledTasks.id, id))
-    .get();
-
-  if (!existing) {
-    throw new Error(`deleteScheduledTask: task ${id} not found`);
-  }
+  const existing = getOrThrow(scheduledTasks, id, 'deleteScheduledTask');
 
   db.delete(scheduledTasks).where(eq(scheduledTasks.id, id)).run();
   revalidatePath(`/battlefields/${existing.battlefieldId}/schedule`);
@@ -189,15 +173,7 @@ export async function toggleScheduledTask(
   enabled: boolean,
 ): Promise<ScheduledTask> {
   const db = getDatabase();
-  const existing = db
-    .select()
-    .from(scheduledTasks)
-    .where(eq(scheduledTasks.id, id))
-    .get();
-
-  if (!existing) {
-    throw new Error(`toggleScheduledTask: task ${id} not found`);
-  }
+  const existing = getOrThrow(scheduledTasks, id, 'toggleScheduledTask');
 
   const now = Date.now();
   const nextRunAt = enabled ? getNextRun(existing.cron) : existing.nextRunAt;

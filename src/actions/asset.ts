@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { eq, count, inArray, desc } from 'drizzle-orm';
-import { getDatabase } from '@/lib/db/index';
+import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { assets, missions } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import type { AssetStatus } from '@/types';
@@ -144,10 +144,7 @@ export async function updateAsset(
 ) {
   const db = getDatabase();
 
-  const existing = db.select().from(assets).where(eq(assets.id, id)).get();
-  if (!existing) {
-    throw new Error(`Asset ${id} not found`);
-  }
+  const existing = getOrThrow(assets, id, 'updateAsset');
 
   const updates: Record<string, unknown> = {};
 
@@ -207,11 +204,7 @@ export async function updateAsset(
 // ---------------------------------------------------------------------------
 export async function toggleAssetStatus(id: string) {
   const db = getDatabase();
-
-  const asset = db.select().from(assets).where(eq(assets.id, id)).get();
-  if (!asset) {
-    throw new Error(`Asset ${id} not found`);
-  }
+  const asset = getOrThrow(assets, id, 'toggleAssetStatus');
 
   const newStatus: AssetStatus = asset.status === 'active' ? 'offline' : 'active';
   db.update(assets)
@@ -227,11 +220,7 @@ export async function toggleAssetStatus(id: string) {
 // ---------------------------------------------------------------------------
 export async function deleteAsset(id: string) {
   const db = getDatabase();
-
-  const asset = db.select().from(assets).where(eq(assets.id, id)).get();
-  if (!asset) {
-    throw new Error(`Asset ${id} not found`);
-  }
+  const asset = getOrThrow(assets, id, 'deleteAsset');
 
   // Check if any missions reference this asset
   const [missionRef] = db

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { eq, desc, count, like, sql, and } from 'drizzle-orm';
-import { getDatabase } from '@/lib/db/index';
+import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { missions, assets, battlefields, missionLogs, captainLogs, campaigns } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import type {
@@ -35,17 +35,7 @@ async function _createMission(
 
   const title = data.title?.trim() || extractTitle(data.briefing);
 
-  const battlefield = db
-    .select({ codename: battlefields.codename })
-    .from(battlefields)
-    .where(eq(battlefields.id, data.battlefieldId))
-    .get();
-
-  if (!battlefield) {
-    throw new Error(
-      `_createMission: battlefield ${data.battlefieldId} not found`,
-    );
-  }
+  const battlefield = getOrThrow(battlefields, data.battlefieldId, '_createMission battlefield');
 
   const record = db
     .insert(missions)
@@ -231,16 +221,7 @@ export async function listMissions(
 // ---------------------------------------------------------------------------
 export async function deployMission(id: string): Promise<Mission> {
   const db = getDatabase();
-
-  const mission = db
-    .select()
-    .from(missions)
-    .where(eq(missions.id, id))
-    .get();
-
-  if (!mission) {
-    throw new Error(`deployMission: mission ${id} not found`);
-  }
+  const mission = getOrThrow(missions, id, 'deployMission');
 
   if (mission.status !== 'standby') {
     throw new Error(
@@ -293,16 +274,7 @@ export async function deployMission(id: string): Promise<Mission> {
 // ---------------------------------------------------------------------------
 export async function abandonMission(id: string): Promise<Mission> {
   const db = getDatabase();
-
-  const mission = db
-    .select()
-    .from(missions)
-    .where(eq(missions.id, id))
-    .get();
-
-  if (!mission) {
-    throw new Error(`abandonMission: mission ${id} not found`);
-  }
+  const mission = getOrThrow(missions, id, 'abandonMission');
 
   if (!['standby', 'queued', 'in_combat'].includes(mission.status!)) {
     throw new Error(
@@ -365,8 +337,7 @@ export async function continueMission(
   const db = getDatabase();
 
   // Get the original mission
-  const original = db.select().from(missions).where(eq(missions.id, missionId)).get();
-  if (!original) throw new Error('Mission not found');
+  const original = getOrThrow(missions, missionId, 'continueMission');
   if (original.status !== 'accomplished' && original.status !== 'compromised') {
     throw new Error('Can only continue accomplished or compromised missions');
   }
@@ -429,16 +400,7 @@ export async function continueMission(
 // ---------------------------------------------------------------------------
 export async function removeMission(id: string): Promise<{ battlefieldId: string }> {
   const db = getDatabase();
-
-  const mission = db
-    .select()
-    .from(missions)
-    .where(eq(missions.id, id))
-    .get();
-
-  if (!mission) {
-    throw new Error(`removeMission: mission ${id} not found`);
-  }
+  const mission = getOrThrow(missions, id, 'removeMission');
 
   // If in_combat, abort first
   if (mission.status === 'in_combat') {

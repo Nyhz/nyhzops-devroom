@@ -1,6 +1,8 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { eq } from 'drizzle-orm';
+import type { SQLiteTableWithColumns } from 'drizzle-orm/sqlite-core';
 import { config } from '../config';
 import * as schema from './schema';
 import path from 'path';
@@ -36,3 +38,23 @@ export function closeDatabase() {
 }
 
 export type DB = ReturnType<typeof getDatabase>;
+
+/**
+ * Fetch a row by ID or throw a descriptive error.
+ * Eliminates the repeated select→get→if(!row) throw pattern across all actions.
+ * All tables in this project use `text('id').primaryKey()`.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getOrThrow<T extends SQLiteTableWithColumns<any>>(
+  table: T,
+  id: string,
+  label: string,
+): T['$inferSelect'] {
+  const db = getDatabase();
+  // All project tables have `id: text('id').primaryKey()`
+  const row = db.select().from(table).where(eq(table.id, id)).get();
+  if (!row) {
+    throw new Error(`${label}: ${id} not found`);
+  }
+  return row;
+}

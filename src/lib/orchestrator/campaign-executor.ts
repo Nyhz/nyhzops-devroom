@@ -1,4 +1,3 @@
-import { spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -6,7 +5,7 @@ import { eq, and, inArray } from 'drizzle-orm';
 import { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
 import { campaigns, phases, missions, battlefields } from '@/lib/db/schema';
-import { config } from '@/lib/config';
+import { runClaudePrint } from '@/lib/process/claude-print';
 import { escalate } from '@/lib/captain/escalation';
 import { handlePhaseFailure } from '@/lib/captain/phase-failure-handler';
 import { storeCaptainLog } from '@/lib/captain/captain-db';
@@ -647,34 +646,7 @@ export class CampaignExecutor {
    * Returns the stdout output.
    */
   private runClaudeForDebrief(prompt: string, cwd: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const proc = spawn(config.claudePath, [
-        '--print',
-        '--dangerously-skip-permissions',
-        '--max-turns', '5',
-      ], { cwd });
-
-      let stdout = '';
-      let stderr = '';
-
-      proc.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
-      proc.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); });
-
-      proc.stdin?.write(prompt);
-      proc.stdin?.end();
-
-      proc.on('close', (code) => {
-        if (code === 0 && stdout.trim()) {
-          resolve(stdout.trim());
-        } else {
-          reject(new Error(`Claude debrief exited with code ${code}. Stderr: ${stderr.slice(0, 500)}`));
-        }
-      });
-
-      proc.on('error', (err) => {
-        reject(err);
-      });
-    });
+    return runClaudePrint(prompt, { maxTurns: 5, cwd });
   }
 
   // ---------------------------------------------------------------------------
