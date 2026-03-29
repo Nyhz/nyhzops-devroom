@@ -109,7 +109,7 @@ export function ScheduleList({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-end">
-        <TacButton size="sm" onClick={() => setShowCreate(true)}>
+        <TacButton size="sm" className="min-h-[44px] min-w-[44px]" onClick={() => setShowCreate(true)}>
           + New Task
         </TacButton>
       </div>
@@ -129,7 +129,7 @@ export function ScheduleList({
           <TacCard
             key={task.id}
             status={task.enabled ? 'green' : undefined}
-            className="flex items-center justify-between gap-4"
+            className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4"
           >
             <div className="flex-1 min-w-0">
               {/* Row 1: status dot + name + type badge */}
@@ -156,8 +156,8 @@ export function ScheduleList({
               </div>
 
               {/* Row 2: cron description + stats */}
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-dr-muted font-tactical text-xs">
+              <div className="flex flex-wrap items-center gap-2 md:gap-3 mt-1">
+                <span className="text-dr-muted font-tactical text-xs break-all">
                   {formatCronHuman(task.cron)}
                 </span>
                 <span className="text-dr-dim font-tactical text-xs">
@@ -185,9 +185,10 @@ export function ScheduleList({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
               <TacButton
                 size="sm"
+                className="min-h-[44px] min-w-[44px]"
                 variant="ghost"
                 onClick={() => setEditingTask(task)}
                 disabled={isPending}
@@ -196,6 +197,7 @@ export function ScheduleList({
               </TacButton>
               <TacButton
                 size="sm"
+                className="min-h-[44px] min-w-[44px]"
                 variant={task.enabled ? 'danger' : 'success'}
                 onClick={() => handleToggle(task)}
                 disabled={isPending}
@@ -204,6 +206,7 @@ export function ScheduleList({
               </TacButton>
               <TacButton
                 size="sm"
+                className="min-h-[44px] min-w-[44px]"
                 variant="danger"
                 onClick={() => handleDelete(task)}
                 disabled={isPending}
