@@ -438,11 +438,22 @@ export class CampaignExecutor {
       if (decision.decision === 'retry') {
         console.log(`[Campaign] ${this.campaignId} — Captain decided to retry ${compromisedMissions.length} mission(s).`);
 
-        // Retry failed missions via tactical override
-        const { tacticalOverride } = await import('@/actions/campaign');
+        // Retry failed missions — reset directly instead of calling Server Action
+        // (Server Actions use revalidatePath which fails outside request context)
+        const now = Date.now();
         for (const m of compromisedMissions) {
           const newBriefing = decision.retryBriefings?.[m.id] || m.briefing;
-          await tacticalOverride(m.id, newBriefing);
+          db.update(missions).set({
+            briefing: newBriefing,
+            status: 'queued',
+            sessionId: null,
+            debrief: null,
+            reviewAttempts: 0,
+            completedAt: null,
+            startedAt: null,
+            updatedAt: now,
+          }).where(eq(missions.id, m.id)).run();
+          globalThis.orchestrator?.onMissionQueued(m.id);
         }
         // Don't pause — redeployed missions will run and onCampaignMissionComplete will re-evaluate
         return;

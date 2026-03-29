@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getCaptainLogs, getCaptainStats } from '@/actions/captain';
 import { TacBadge } from '@/components/ui/tac-badge';
+import { Markdown } from '@/components/ui/markdown';
 import { formatRelativeTime } from '@/lib/utils';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 
@@ -102,9 +103,9 @@ export default async function CaptainLogPage() {
                 <span className="text-xs font-tactical text-dr-muted tracking-wider">
                   CAPTAIN&apos;S ANSWER
                 </span>
-                <p className="text-sm font-data text-dr-green mt-1 whitespace-pre-wrap">
-                  {log.answer}
-                </p>
+                <div className="text-dr-green mt-1">
+                  <Markdown content={log.answer} className="text-sm" />
+                </div>
               </div>
 
               {/* Reasoning */}

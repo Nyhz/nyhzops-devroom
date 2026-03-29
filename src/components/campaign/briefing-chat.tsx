@@ -4,7 +4,10 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBriefing } from '@/hooks/use-briefing';
 import { TacButton } from '@/components/ui/tac-button';
-import { TacTextareaWithImages } from '@/components/ui/tac-textarea-with-images';
+import { CommanderContent } from '@/components/ui/commander-content';
+import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface BriefingChatProps {
   campaignId: string;
@@ -90,9 +93,15 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
                   {msg.role === 'commander' ? 'COMMANDER' : 'GENERAL'}
                 </span>
               </div>
-              <div className="text-dr-text font-data text-sm whitespace-pre-wrap leading-relaxed">
-                {msg.content}
-              </div>
+              {msg.role === 'commander' ? (
+                <div className="text-dr-text font-data text-sm whitespace-pre-wrap leading-relaxed">
+                  <CommanderContent content={msg.content} />
+                </div>
+              ) : (
+                <div className="text-dr-text font-mono text-sm general-markdown">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -106,8 +115,8 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
                 </span>
                 <span className="w-2.5 h-4 bg-dr-amber/70 animate-pulse" />
               </div>
-              <div className="text-dr-text font-data text-sm whitespace-pre-wrap leading-relaxed">
-                {streaming}
+              <div className="text-dr-text font-mono text-sm general-markdown">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{streaming}</ReactMarkdown>
               </div>
             </div>
           </div>
@@ -131,25 +140,34 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
       </div>
 
       {/* Input */}
-      <div className="border-t border-dr-border bg-dr-surface p-3">
-        <div className="flex gap-3">
-          <TacTextareaWithImages
+      <div className="border-t border-dr-border shrink-0 bg-dr-surface">
+        <div className="flex items-end">
+          <textarea
             value={input}
-            onChange={setInput}
+            onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Brief the GENERAL..."
-            rows={2}
-            className="flex-1 resize-none"
+            rows={1}
             disabled={isLoading}
+            className={cn(
+              'flex-1 bg-transparent text-dr-text font-mono text-sm',
+              'px-4 py-3 placeholder:text-dr-dim resize-none',
+              'focus:outline-none',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+            )}
           />
-          <TacButton
-            variant="primary"
+          <button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="self-end"
+            className={cn(
+              'px-4 py-3 font-tactical text-xs tracking-widest transition-colors shrink-0',
+              input.trim() && !isLoading
+                ? 'text-dr-green hover:bg-dr-green/10'
+                : 'text-dr-dim cursor-not-allowed',
+            )}
           >
             SEND
-          </TacButton>
+          </button>
         </div>
       </div>
     </div>

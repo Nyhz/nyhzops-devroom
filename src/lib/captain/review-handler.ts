@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { missions, battlefields } from '@/lib/db/schema';
@@ -145,6 +146,12 @@ function promoteMission(missionId: string, status: 'accomplished'): void {
 
   const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
 
+  // Only promote if still in reviewing — merge failure may have set compromised
+  if (!mission || mission.status !== 'reviewing') {
+    console.log(`[Captain] Skipping promotion of ${missionId} — status is ${mission?.status}, not reviewing`);
+    return;
+  }
+
   db.update(missions).set({
     status,
     completedAt: Date.now(),
@@ -153,6 +160,11 @@ function promoteMission(missionId: string, status: 'accomplished'): void {
 
   emitStatusChange(missionId, status);
   console.log(`[Captain] Mission ${missionId} → ${status}`);
+
+  // Clean up per-mission Claude config isolation dir
+  try {
+    fs.rmSync(`/tmp/claude-config/${missionId}`, { recursive: true, force: true });
+  } catch { /* best effort */ }
 
   // Notify campaign executor if this is a campaign mission
   if (mission?.campaignId) {

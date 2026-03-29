@@ -332,7 +332,7 @@ function SortableMissionItem({
               [+]
             </button>
             {showDepPicker && (
-              <div className="absolute left-0 top-full mt-1 z-40 bg-dr-surface border border-dr-border p-1 min-w-[180px] max-h-[160px] overflow-y-auto">
+              <div className="absolute left-0 bottom-full mb-1 z-40 bg-dr-surface border border-dr-border p-1 min-w-[180px] max-h-[160px] overflow-y-auto">
                 {siblingTitles
                   .filter((t) => !currentDeps.includes(t))
                   .map((t) => (

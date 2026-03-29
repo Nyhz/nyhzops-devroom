@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   images: {
     dangerouslyAllowLocalIP: true,
   },
+  allowedDevOrigins: ['devroom.lan'],
 };
 
 export default nextConfig;

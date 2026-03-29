@@ -4,13 +4,14 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useGeneral } from '@/hooks/use-general';
 import { createGeneralSession, closeGeneralSession, renameGeneralSession, getSessionMessages } from '@/actions/general';
+import { getAllCommands } from '@/lib/general/general-commands';
 import { TacButton } from '@/components/ui/tac-button';
-import { TacTextareaWithImages } from '@/components/ui/tac-textarea-with-images';
 import { NewSessionModal } from './new-session-modal';
 import { CloseSessionModal } from './close-session-modal';
 import { CommandReference } from './command-reference';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { CommanderContent } from '@/components/ui/commander-content';
 import { cn } from '@/lib/utils';
 
 interface Session {
@@ -59,8 +60,24 @@ export function GeneralChat({
   const [showCommands, setShowCommands] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [editName, setEditName] = useState('');
+  const [slashMenuOpen, setSlashMenuOpen] = useState(false);
+  const [slashMenuIndex, setSlashMenuIndex] = useState(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const slashMenuRef = useRef<HTMLDivElement>(null);
+
+  // Build flat command list for autocomplete
+  const allCommands = getAllCommands();
+  const flatCommands = [
+    ...allCommands.native.map((c) => ({ name: c.name, description: c.description })),
+    ...allCommands.custom.map((c) => ({ name: c.name, description: c.description })),
+  ];
+
+  // Filter commands based on current input (after the `/`)
+  const slashQuery = slashMenuOpen ? input.slice(1).toLowerCase() : '';
+  const filteredCommands = slashMenuOpen
+    ? flatCommands.filter((c) => c.name.toLowerCase().startsWith('/' + slashQuery))
+    : [];
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
 
@@ -73,6 +90,13 @@ export function GeneralChat({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streaming]);
+
+  // Auto-scroll slash menu to keep selected item visible
+  useEffect(() => {
+    if (!slashMenuOpen || !slashMenuRef.current) return;
+    const item = slashMenuRef.current.children[slashMenuIndex] as HTMLElement | undefined;
+    item?.scrollIntoView({ block: 'nearest' });
+  }, [slashMenuIndex, slashMenuOpen]);
 
   // Auto-create session if opened from battlefield with ?battlefield=<id>
   useEffect(() => {
@@ -129,9 +153,54 @@ export function GeneralChat({
     if (!trimmed || !activeSessionId) return;
     sendMessage(trimmed);
     setInput('');
+    setSlashMenuOpen(false);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setInput(val);
+
+    // Open slash menu when input starts with `/` and has no spaces yet (typing a command)
+    if (val.startsWith('/') && !val.includes(' ')) {
+      setSlashMenuOpen(true);
+      setSlashMenuIndex(0);
+    } else {
+      setSlashMenuOpen(false);
+    }
+  };
+
+  const selectSlashCommand = (commandName: string) => {
+    // If the command has args placeholder (contains space), put cursor after command + space
+    const hasArgs = commandName.includes(' ');
+    const base = hasArgs ? commandName.split(' ')[0] + ' ' : commandName;
+    setInput(base);
+    setSlashMenuOpen(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (slashMenuOpen && filteredCommands.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSlashMenuIndex((i) => (i + 1) % filteredCommands.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSlashMenuIndex((i) => (i - 1 + filteredCommands.length) % filteredCommands.length);
+        return;
+      }
+      if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+        e.preventDefault();
+        selectSlashCommand(filteredCommands[slashMenuIndex].name);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSlashMenuOpen(false);
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -183,7 +252,7 @@ export function GeneralChat({
                   e.stopPropagation();
                   setCloseTarget(session);
                 }}
-                className="text-dr-muted hover:text-dr-red ml-1 text-xs"
+                className="text-dr-dim hover:text-dr-red ml-1 text-[10px]"
               >
                 ✕
               </span>
@@ -191,7 +260,7 @@ export function GeneralChat({
           ))}
           <button
             onClick={() => setShowNewModal(true)}
-            className="px-4 py-2.5 text-dr-muted hover:text-dr-amber font-mono text-sm transition-colors shrink-0"
+            className="px-4 py-2.5 text-dr-dim hover:text-dr-amber font-mono text-sm transition-colors shrink-0"
           >
             +
           </button>
@@ -200,7 +269,7 @@ export function GeneralChat({
           onClick={() => setShowCommands((v) => !v)}
           className={cn(
             'px-4 py-2.5 font-mono text-sm transition-colors shrink-0',
-            showCommands ? 'text-dr-amber' : 'text-dr-muted hover:text-dr-amber',
+            showCommands ? 'text-dr-amber' : 'text-dr-dim hover:text-dr-amber',
           )}
         >
           ?
@@ -236,7 +305,7 @@ export function GeneralChat({
               </button>
             )}
             {activeSession.battlefieldId && (
-              <span className="text-dr-muted font-mono text-xs">
+              <span className="text-dr-dim font-mono text-[10px]">
                 BATTLEFIELD LINKED
               </span>
             )}
@@ -279,10 +348,10 @@ export function GeneralChat({
         {streaming && (
           <div className="flex justify-start">
             <div className="max-w-[80%] space-y-1">
-              <div className="text-dr-amber font-tactical text-xs tracking-widest">GENERAL</div>
-              <div className="text-dr-text font-mono text-sm leading-relaxed prose prose-invert prose-sm max-w-none">
+              <div className="text-dr-amber font-tactical text-[10px] tracking-widest">GENERAL</div>
+              <div className="text-dr-text font-mono text-sm general-markdown">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{streaming}</ReactMarkdown>
-                <span className="inline-block w-2.5 h-4 bg-dr-amber animate-pulse ml-0.5" />
+                <span className="inline-block w-2 h-4 bg-dr-amber animate-pulse ml-0.5" />
               </div>
             </div>
           </div>
@@ -291,7 +360,7 @@ export function GeneralChat({
         {/* Loading indicator */}
         {isLoading && !streaming && (
           <div className="flex justify-start">
-            <div className="text-dr-muted font-mono text-sm animate-pulse">
+            <div className="text-dr-dim font-mono text-sm animate-pulse">
               GENERAL is thinking...
             </div>
           </div>
@@ -312,26 +381,61 @@ export function GeneralChat({
 
       {/* Input */}
       {activeSession && (
-        <div className="border-t border-dr-border bg-dr-surface p-3 shrink-0">
-          <div className="flex gap-3">
-            <TacTextareaWithImages
+        <div className="relative border-t border-dr-border shrink-0 bg-dr-surface">
+          {/* Slash command autocomplete */}
+          {slashMenuOpen && filteredCommands.length > 0 && (
+            <div
+              ref={slashMenuRef}
+              className="absolute bottom-full left-0 right-0 border border-dr-border bg-dr-elevated max-h-60 overflow-y-auto overscroll-contain"
+            >
+              {filteredCommands.map((cmd, i) => (
+                <button
+                  key={cmd.name}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    selectSlashCommand(cmd.name);
+                  }}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-4 py-2 text-left transition-colors',
+                    i === slashMenuIndex
+                      ? 'bg-dr-green/10'
+                      : 'hover:bg-dr-surface',
+                  )}
+                >
+                  <span className="text-dr-green font-mono text-xs shrink-0">{cmd.name}</span>
+                  <span className="text-dr-dim font-mono text-[11px] truncate">{cmd.description}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex items-end">
+            <textarea
               value={input}
-              onChange={setInput}
+              onChange={handleInputChange}
               onKeyDown={handleKeyDown}
+              onBlur={() => setTimeout(() => setSlashMenuOpen(false), 150)}
               placeholder="Talk to GENERAL..."
-              rows={2}
+              rows={1}
               disabled={isLoading}
-              className="flex-1"
+              className={cn(
+                'flex-1 bg-transparent text-dr-text font-mono text-sm',
+                'px-4 py-3 placeholder:text-dr-dim resize-none',
+                'focus:outline-none',
+                'disabled:opacity-50 disabled:cursor-not-allowed',
+              )}
             />
-            <TacButton
-              variant="success"
-              size="sm"
+            <button
               onClick={handleSend}
               disabled={isLoading || !input.trim()}
-              className="self-end"
+              className={cn(
+                'px-4 py-3 font-tactical text-xs tracking-widest transition-colors shrink-0',
+                input.trim() && !isLoading
+                  ? 'text-dr-green hover:bg-dr-green/10'
+                  : 'text-dr-dim cursor-not-allowed',
+              )}
             >
               SEND
-            </TacButton>
+            </button>
           </div>
         </div>
       )}
@@ -361,7 +465,7 @@ function MessageBubble({ role, content }: { role: string; content: string }) {
   if (role === 'system') {
     return (
       <div className="flex justify-center py-2">
-        <span className="text-dr-muted font-mono text-xs tracking-widest">{content}</span>
+        <span className="text-dr-dim font-mono text-[11px] tracking-widest">{content}</span>
       </div>
     );
   }
@@ -373,7 +477,7 @@ function MessageBubble({ role, content }: { role: string; content: string }) {
       <div className={cn('max-w-[80%] space-y-1')}>
         <div
           className={cn(
-            'font-tactical text-xs tracking-widest',
+            'font-tactical text-[10px] tracking-widest',
             isCommander ? 'text-dr-green text-right' : 'text-dr-amber',
           )}
         >
@@ -384,11 +488,11 @@ function MessageBubble({ role, content }: { role: string; content: string }) {
             'font-mono text-sm leading-relaxed',
             isCommander
               ? 'text-dr-text bg-dr-elevated border border-dr-border px-3 py-2'
-              : 'text-dr-text prose prose-invert prose-sm max-w-none',
+              : 'text-dr-text general-markdown',
           )}
         >
           {isCommander ? (
-            content
+            <CommanderContent content={content} />
           ) : (
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
           )}

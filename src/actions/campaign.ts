@@ -855,6 +855,7 @@ export async function tacticalOverride(
   db.update(missions).set({
     briefing: newBriefing,
     status: 'queued',
+    sessionId: null,
     debrief: null,
     reviewAttempts: 0,
     completedAt: null,

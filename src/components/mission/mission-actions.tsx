@@ -43,11 +43,11 @@ export function MissionActions({
   const [confirm, ConfirmDialog] = useConfirm();
 
   const canDeploy = status === 'standby';
-  const canAbandon = status === 'standby' || status === 'queued' || status === 'in_combat' || status === 'reviewing';
+  const canAbandon = status === 'standby' || status === 'queued' || status === 'in_combat' || status === 'reviewing' || (status === 'compromised' && !campaignId);
   const isTerminal = status === 'accomplished' || status === 'compromised' || status === 'abandoned';
   const canContinue =
     (status === 'accomplished' || status === 'compromised') && sessionId != null;
-  const canTacticalOverride = status === 'compromised' && !!campaignId;
+  const canTacticalOverride = status === 'compromised';
   const canSkipMission = status === 'compromised' && !!campaignId;
 
   const handleAbandon = async () => {

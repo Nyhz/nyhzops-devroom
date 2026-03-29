@@ -19,6 +19,13 @@ import { runCaptainReview } from '@/lib/captain/review-handler';
 import { getCaptainLogs } from '@/actions/captain';
 import type { Mission, StreamResult } from '@/types';
 
+/** Remove per-mission Claude config isolation dir */
+function cleanupMissionHome(missionId: string) {
+  try {
+    fs.rmSync(`/tmp/claude-config/${missionId}`, { recursive: true, force: true });
+  } catch { /* best effort */ }
+}
+
 export class RateLimitError extends Error {
   resetsAt: number;
   rateLimitType: string;
@@ -148,6 +155,10 @@ export async function executeMission(
 
     let fullPrompt = buildPrompt(mission, battlefield, asset);
 
+    // Workspace context — tell the agent where it's running
+    const isWorktree = workingDirectory !== battlefield.repoPath;
+    fullPrompt += `\n\n---\n\n## Workspace\n\nYour working directory is \`${workingDirectory}\`.${isWorktree ? `\nYou are operating in a git worktree. All file paths are relative to this directory. Use absolute paths starting with \`${workingDirectory}/\` when reading or writing files.` : ''}\nThe main repository is at \`${battlefield.repoPath}\`.`;
+
     // Check for captain retry feedback
     const retryAttempts = mission.reviewAttempts ?? 0;
     if (retryAttempts > 0) {
@@ -188,9 +199,21 @@ export async function executeMission(
       fullPrompt,
     ];
 
+    // Isolate Claude config per mission to prevent concurrent write corruption
+    const missionHome = `/tmp/claude-config/${mission.id}`;
+    fs.mkdirSync(missionHome, { recursive: true });
+    const realHome = process.env.HOME || '/home/devroom';
+    try {
+      fs.copyFileSync(path.join(realHome, '.claude.json'), path.join(missionHome, '.claude.json'));
+    } catch { /* no .claude.json — fine */ }
+    try {
+      fs.symlinkSync(path.join(realHome, '.claude'), path.join(missionHome, '.claude'));
+    } catch { /* already exists or no .claude dir */ }
+
     const proc = spawn(config.claudePath, args, {
       cwd: workingDirectory,
       signal: abortController.signal,
+      env: { ...process.env, HOME: missionHome },
     });
 
     // Capture stderr — set up BEFORE readline loop so we don't miss output
@@ -488,8 +511,9 @@ export async function executeMission(
         );
 
         if (mergeResult.success) {
-          // Clean up worktree immediately
+          // Clean up worktree and isolated config
           await removeWorktree(battlefield.repoPath, worktreePath, worktreeBranch);
+          cleanupMissionHome(mission.id);
           storeLog('status', mergeResult.conflictResolved
             ? 'Merge complete (conflicts auto-resolved). Worktree cleaned up.'
             : 'Merge complete. Worktree cleaned up.');
@@ -554,12 +578,15 @@ export async function executeMission(
       storeLog('error', errorMsg);
     }
 
-    // Worktree cleanup for abandoned missions
-    if (isAbort && worktreePath && worktreeBranch && battlefieldRef) {
-      try {
-        await removeWorktree(battlefieldRef.repoPath, worktreePath, worktreeBranch);
-      } catch {
-        // Best effort cleanup
+    // Worktree + config cleanup for abandoned missions
+    if (isAbort) {
+      cleanupMissionHome(mission.id);
+      if (worktreePath && worktreeBranch && battlefieldRef) {
+        try {
+          await removeWorktree(battlefieldRef.repoPath, worktreePath, worktreeBranch);
+        } catch {
+          // Best effort cleanup
+        }
       }
     }
 

@@ -1,5 +1,6 @@
 services:
   devroom:
+    image: devroom:latest
     build:
       context: .
       target: dev
@@ -10,7 +11,7 @@ services:
       - DEVROOM_HOST=0.0.0.0
       - DEVROOM_DB_PATH=/data/devroom.db
       - DEVROOM_CLAUDE_PATH=claude
-      - DEVROOM_DEV_BASE_PATH=/Users/nyhzdev/battlefields
+      - DEVROOM_DEV_BASE_PATH=/Users/nyhzdev/devroom/battlefields
       - DEVROOM_MAX_AGENTS=5
       # Uncomment for Telegram escalations:
       # - DEVROOM_TELEGRAM_ENABLED=true
@@ -23,14 +24,15 @@ services:
       # Preserve container's node_modules (Linux native bindings, not macOS)
       - devroom-node-modules:/app/node_modules
 
-      # Persistent database
-      - devroom-data:/data
+      # Persistent database (host directory — survives volume wipes, backed by Time Machine)
+      - /Users/nyhzdev/devroom/devroom-data:/data
 
-      # Claude Code auth & config (CLI installed in image via npm)
-      - /Users/nyhzdev/.claude:/root/.claude
+      # Claude Code auth (shared read-only) & config (seeded at boot from /seed)
+      - /Users/nyhzdev/.claude:/home/devroom/.claude
+      - /Users/nyhzdev/.claude.json:/seed/.claude.json:ro
 
       # Battlefields — mounted at the SAME absolute path so DB paths stay valid
-      - /Users/nyhzdev/battlefields:/Users/nyhzdev/battlefields
+      - /Users/nyhzdev/devroom/battlefields:/Users/nyhzdev/devroom/battlefields
     ports:
       - "7777:7777"
 
@@ -49,7 +51,6 @@ services:
       - devroom
 
 volumes:
-  devroom-data:
   devroom-node-modules:
   caddy-data:
   caddy-config:

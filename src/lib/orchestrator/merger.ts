@@ -19,11 +19,31 @@ export async function mergeBranch(
   const git = simpleGit(repoPath);
 
   try {
+    // Stash any uncommitted changes on the target branch before merging
+    let stashed = false;
+    const status = await git.status();
+    if (status.modified.length > 0 || status.staged.length > 0 || status.not_added.length > 0) {
+      await git.stash(['push', '-m', `devroom-pre-merge-${sourceBranch}`]);
+      stashed = true;
+    }
+
     // Switch to target branch
     await git.checkout(targetBranch);
 
     // Attempt merge
-    await git.merge([sourceBranch, '--no-ff']);
+    try {
+      await git.merge([sourceBranch, '--no-ff']);
+    } finally {
+      // Restore stashed changes regardless of merge outcome
+      if (stashed) {
+        try {
+          await git.stash(['pop']);
+        } catch {
+          // Stash pop conflict — leave in stash, log for manual recovery
+          console.warn(`[Merger] Stash pop failed after merging ${sourceBranch}. Changes saved in git stash.`);
+        }
+      }
+    }
 
     return { success: true, conflictResolved: false };
   } catch (err) {

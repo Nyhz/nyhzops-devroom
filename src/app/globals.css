@@ -149,3 +149,135 @@
     scrollbar-color: #2a2a32 #0a0a0c;
   }
 }
+
+/* ── GENERAL chat markdown ── */
+.general-markdown {
+  line-height: 1.7;
+}
+
+.general-markdown > * + * {
+  margin-top: 0.75em;
+}
+
+.general-markdown h1,
+.general-markdown h2,
+.general-markdown h3,
+.general-markdown h4 {
+  color: var(--color-dr-amber);
+  font-family: var(--font-tactical);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+}
+
+.general-markdown h1 { font-size: 18px; }
+.general-markdown h2 { font-size: 16px; }
+.general-markdown h3 { font-size: 15px; color: var(--color-dr-muted); }
+.general-markdown h4 { font-size: 14px; color: var(--color-dr-muted); }
+
+.general-markdown strong {
+  color: var(--color-dr-text);
+  font-weight: 700;
+}
+
+.general-markdown em {
+  color: var(--color-dr-muted);
+  font-style: italic;
+}
+
+.general-markdown hr {
+  border: none;
+  border-top: 1px solid var(--color-dr-border);
+  margin: 1em 0;
+}
+
+/* Lists */
+.general-markdown ul,
+.general-markdown ol {
+  padding-left: 1.5em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.general-markdown ul { list-style-type: "› "; }
+.general-markdown ol { list-style-type: decimal; }
+
+.general-markdown li {
+  margin-top: 0.25em;
+  padding-left: 0.25em;
+}
+
+.general-markdown li::marker {
+  color: var(--color-dr-green);
+}
+
+/* Tables */
+.general-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75em 0;
+  font-size: 14px;
+}
+
+.general-markdown thead th {
+  color: var(--color-dr-amber);
+  font-family: var(--font-tactical);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 0.5em 0.75em;
+  border-bottom: 1px solid var(--color-dr-green);
+  white-space: nowrap;
+}
+
+.general-markdown tbody td {
+  padding: 0.4em 0.75em;
+  border-bottom: 1px solid var(--color-dr-border);
+  vertical-align: top;
+}
+
+.general-markdown tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Code */
+.general-markdown code {
+  background: var(--color-dr-elevated);
+  color: var(--color-dr-green);
+  padding: 0.15em 0.4em;
+  font-size: 0.9em;
+}
+
+.general-markdown pre {
+  background: var(--color-dr-elevated);
+  border: 1px solid var(--color-dr-border);
+  padding: 0.75em 1em;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+
+.general-markdown pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Blockquote */
+.general-markdown blockquote {
+  border-left: 2px solid var(--color-dr-amber);
+  padding-left: 1em;
+  color: var(--color-dr-muted);
+  margin: 0.75em 0;
+}
+
+/* Links */
+.general-markdown a {
+  color: var(--color-dr-blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.general-markdown a:hover {
+  color: var(--color-dr-green);
+}

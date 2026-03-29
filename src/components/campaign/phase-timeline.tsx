@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { cn, formatDuration } from '@/lib/utils';
 import { TacBadge } from '@/components/ui/tac-badge';
+import { Markdown } from '@/components/ui/markdown';
 import { CampaignMissionCard } from '@/components/campaign/mission-card';
 
 interface PhaseTimelineProps {
@@ -150,8 +151,8 @@ export function PhaseTimeline({ phases, battlefieldId, readOnly: _readOnly }: Ph
                   <summary className="font-tactical text-xs text-dr-muted cursor-pointer hover:text-dr-text select-none">
                     DEBRIEF
                   </summary>
-                  <div className="mt-2 p-3 bg-dr-elevated border border-dr-border font-data text-sm text-dr-muted whitespace-pre-wrap">
-                    {phase.debrief}
+                  <div className="mt-2 p-3 bg-dr-elevated border border-dr-border">
+                    <Markdown content={phase.debrief} className="text-sm" />
                   </div>
                 </details>
               )}

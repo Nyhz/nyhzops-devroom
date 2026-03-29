@@ -8,6 +8,7 @@ import { LiveStatusBadge } from '@/components/mission/live-status-badge';
 import { MissionComms } from '@/components/mission/mission-comms';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { TacCard } from '@/components/ui/tac-card';
+import { Markdown } from '@/components/ui/markdown';
 import { formatRelativeTime } from '@/lib/utils';
 
 export default async function MissionDetailPage({
@@ -105,11 +106,11 @@ export default async function MissionDetailPage({
                 className="px-3 py-2.5 space-y-1.5"
               >
                 <div className="flex items-center gap-3 text-xs font-tactical">
-                  <span className="text-dr-muted">
+                  <span className="text-dr-dim">
                     {formatRelativeTime(log.timestamp)}
                   </span>
                   <span
-                    className={`border px-1.5 py-0.5 text-xs uppercase tracking-wider ${
+                    className={`border px-1.5 py-0.5 text-[10px] uppercase tracking-wider ${
                       log.confidence === 'high'
                         ? 'text-dr-green border-dr-green'
                         : log.confidence === 'medium'
@@ -120,7 +121,7 @@ export default async function MissionDetailPage({
                     {log.confidence}
                   </span>
                   {log.escalated ? (
-                    <span className="text-dr-red uppercase tracking-wider text-xs">
+                    <span className="text-dr-red uppercase tracking-wider text-[10px]">
                       ESCALATED
                     </span>
                   ) : null}
@@ -132,10 +133,10 @@ export default async function MissionDetailPage({
                       : log.question}
                   </p>
                 </div>
-                <p className="text-sm font-data text-dr-green whitespace-pre-wrap">
-                  {log.answer}
-                </p>
-                <p className="text-xs font-data text-dr-muted italic">
+                <div className="text-dr-green">
+                  <Markdown content={log.answer} className="text-sm" />
+                </div>
+                <p className="text-xs font-data text-dr-dim italic">
                   {log.reasoning}
                 </p>
               </TacCard>

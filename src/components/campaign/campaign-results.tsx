@@ -1,4 +1,5 @@
 import { formatDuration } from '@/lib/utils';
+import { Markdown } from '@/components/ui/markdown';
 
 interface ResultMission {
   id: string;
@@ -115,8 +116,8 @@ export function CampaignResults({ campaignName, missions, battlefieldId }: Campa
               <summary className="px-4 py-2.5 cursor-pointer text-dr-muted font-tactical text-xs tracking-wider hover:text-dr-text transition-colors select-none">
                 PHASE DEBRIEF
               </summary>
-              <div className="px-4 pb-3 text-dr-muted font-data text-xs whitespace-pre-wrap leading-relaxed">
-                {phase.debrief}
+              <div className="px-4 pb-3">
+                <Markdown content={phase.debrief} className="text-xs" />
               </div>
             </details>
           )}

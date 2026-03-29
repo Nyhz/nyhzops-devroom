@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useMissionComms } from '@/hooks/use-mission-comms';
 import { Terminal } from '@/components/ui/terminal';
 import { MissionActions } from '@/components/mission/mission-actions';
+import { Markdown } from '@/components/ui/markdown';
 import { formatDuration } from '@/lib/utils';
 import type { MissionLog, MissionStatus } from '@/types';
 
@@ -167,15 +168,13 @@ export function MissionComms({
             <div className="h-px bg-dr-border" />
           </div>
           <div
-            className={`font-data text-sm leading-relaxed border p-4 ${
+            className={`border p-4 ${
               liveStatus === 'compromised'
                 ? 'bg-dr-red/5 border-dr-red/30'
                 : 'bg-dr-surface border-dr-border'
             }`}
           >
-            {liveDebrief.split('\n').filter(Boolean).map((line, i) => (
-              <p key={i} className="text-dr-text mb-2 last:mb-0">{line}</p>
-            ))}
+            <Markdown content={liveDebrief} className="text-sm" />
           </div>
         </div>
       )}

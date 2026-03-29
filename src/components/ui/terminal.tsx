@@ -27,16 +27,14 @@ const typeStyles = {
   error: 'text-dr-red',
 } as const;
 
-const TOOL_PATTERN = /^Tool: \w+$/;
+const TOOL_PATTERN = /^Tool: \w+/;
 
 function formatTimestamp(ms: number): string {
   const d = new Date(ms);
-  return d.toLocaleTimeString('en-US', {
-    hour12: false,
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+  const h = String(d.getUTCHours()).padStart(2, '0');
+  const m = String(d.getUTCMinutes()).padStart(2, '0');
+  const s = String(d.getUTCSeconds()).padStart(2, '0');
+  return `${h}:${m}:${s}`;
 }
 
 function groupLogs(logs: LogEntry[]): DisplayEntry[] {
@@ -44,15 +42,27 @@ function groupLogs(logs: LogEntry[]): DisplayEntry[] {
 
   for (const entry of logs) {
     const prev = result[result.length - 1];
-    const isToolCall = TOOL_PATTERN.test(entry.content.trim());
+    const trimmed = entry.content.trim();
+    const isToolCall = TOOL_PATTERN.test(trimmed);
 
     if (
       isToolCall &&
       prev &&
-      prev.content.trim() === entry.content.trim() &&
+      prev.content.trim() === trimmed &&
       prev.type === entry.type
     ) {
+      // Collapse repeated identical tool calls
       prev.count++;
+      prev.timestamp = entry.timestamp;
+    } else if (
+      !isToolCall &&
+      entry.type === 'log' &&
+      prev &&
+      prev.type === 'log' &&
+      !TOOL_PATTERN.test(prev.content.trim())
+    ) {
+      // Coalesce consecutive text lines into one entry
+      prev.content = prev.content.trimEnd() + ' ' + trimmed;
       prev.timestamp = entry.timestamp;
     } else {
       result.push({ ...entry, count: 1 });
