@@ -48,9 +48,9 @@ function entityLink(n: Notification): string | null {
 
   switch (n.entityType) {
     case 'mission':
-      return `/projects/${n.battlefieldId}/missions/${n.entityId}`;
+      return `/battlefields/${n.battlefieldId}/missions/${n.entityId}`;
     case 'campaign':
-      return `/projects/${n.battlefieldId}/campaigns/${n.entityId}`;
+      return `/battlefields/${n.battlefieldId}/campaigns/${n.entityId}`;
     case 'phase':
       return null; // phases don't have their own page
     default:
