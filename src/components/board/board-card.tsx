@@ -97,7 +97,7 @@ export function BoardCard({ note, isSelected, onSelect, onClick, className }: Bo
       <p
         className={cn(
           'font-mono leading-tight mb-1 pr-5 truncate',
-          '[font-size:11px]',
+          'text-xs',
           isLinked ? 'text-dr-text/80' : 'text-dr-text/70',
         )}
       >
@@ -109,7 +109,7 @@ export function BoardCard({ note, isSelected, onSelect, onClick, className }: Bo
         <span
           className={cn(
             'font-mono truncate',
-            '[font-size:10px]',
+            '[font-size:11px]',
             isLinked
               ? (STATUS_TEXT_COLORS[status] ?? 'text-dr-muted/60')
               : 'text-dr-muted/50',
