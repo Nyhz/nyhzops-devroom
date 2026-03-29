@@ -9,7 +9,7 @@ const proc = spawn(config.claudePath, [
   '--output-format', 'stream-json',
   '--include-partial-messages',
   '--dangerously-skip-permissions',
-  '--max-turns', '50',
+  '--max-turns', '100',
   ...(sessionId ? ['--session-id', sessionId] : []),
   fullPrompt,   // prompt as positional argument
 ], {
@@ -34,9 +34,9 @@ Target 90%+ cache hit rate.
 ## Socket.IO
 
 - Attached to custom `server.ts`.
-- Rooms: `mission:{id}` per mission, `campaign:{id}` per campaign, `briefing:{campaignId}` per briefing session, `general:{sessionId}` per GENERAL chat session, `hq:activity` for global, `devserver:{battlefieldId}` for dev server logs, `console:{battlefieldId}` for command output.
-- Server → Client: `mission:log`, `mission:status`, `mission:debrief`, `mission:tokens`, `campaign:status`, `campaign:phase`, `briefing:chunk`, `briefing:complete`, `briefing:error`, `briefing:plan-ready`, `general:chunk`, `general:complete`, `general:error`, `general:system`, `activity:event`, `devserver:log`, `devserver:status`, `console:output`, `console:exit`, `notification`.
-- Client → Server: `mission:subscribe`, `mission:unsubscribe`, `campaign:subscribe`, `campaign:unsubscribe`, `briefing:subscribe`, `briefing:unsubscribe`, `briefing:send`, `general:send`, `hq:subscribe`, `hq:unsubscribe`, `devserver:subscribe`, `devserver:unsubscribe`, `console:subscribe`, `console:unsubscribe`.
+- Rooms: `mission:{id}` per mission, `campaign:{id}` per campaign, `briefing:{campaignId}` per briefing session, `general:{sessionId}` per GENERAL chat session, `battlefield:{battlefieldId}` for battlefield-level mission status, `hq:activity` for global, `devserver:{battlefieldId}` for dev server logs, `console:{battlefieldId}` for command output.
+- Server → Client: `mission:log`, `mission:status`, `mission:debrief`, `mission:tokens`, `campaign:status`, `campaign:phase`, `campaign:phase-debrief`, `campaign:phase-status`, `campaign:mission-status`, `briefing:chunk`, `briefing:complete`, `briefing:error`, `briefing:plan-ready`, `general:chunk`, `general:complete`, `general:error`, `general:system`, `orchestrator:agents`, `orchestrator:paused`, `orchestrator:resumed`, `activity:event`, `devserver:log`, `devserver:status`, `console:output`, `console:exit`, `notification:new`.
+- Client → Server: `mission:subscribe`, `mission:unsubscribe`, `campaign:subscribe`, `campaign:unsubscribe`, `briefing:subscribe`, `briefing:unsubscribe`, `briefing:send`, `general:send`, `battlefield:subscribe`, `battlefield:unsubscribe`, `hq:subscribe`, `hq:unsubscribe`, `devserver:subscribe`, `devserver:unsubscribe`, `console:subscribe`, `console:unsubscribe`.
 
 ---
 
@@ -46,7 +46,7 @@ Standalone Claude Code chat sessions independent of campaigns. Accessible at `/g
 
 - **Engine**: `lib/general/general-engine.ts` — spawns Claude Code CLI per session.
 - **Resume**: Uses `--resume` flag with persisted session IDs for conversation continuity.
-- **Commands**: `/clear` (reset context), `/compact` (compress history) — parsed by `general-commands.ts`.
+- **Commands**: `/clear` (reset context), `/compact` (compress history), `/sitrep` (system status), `/diagnose <missionId>` (mission diagnostics) — parsed by `general-commands.ts`. Native commands (`/cost`, `/status`, `/model`, `/memory`) are passed through to Claude Code.
 - **Prompt**: `general-prompt.ts` builds a dynamic system prompt. If the session is linked to a battlefield, it includes project context (CLAUDE.md, repo info).
 - **Streaming**: Output is streamed via Socket.IO (`general:chunk`) and persisted to `generalMessages` on completion (`general:complete`).
 - **Process lifecycle**: One Claude Code process per active session. `killSession(sessionId)` aborts the process via AbortController.

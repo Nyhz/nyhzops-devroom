@@ -3,7 +3,7 @@
 ## Git / Worktree
 
 - Branch naming: `devroom/{codename-lower}/{mission-id-short}`.
-- Phase branches: `devroom/{codename-lower}/phase-{number}-{slug}`.
+- Phase branches: `devroom/{codename-lower}/phase-{number}-{slug}` (documented pattern — not yet implemented in orchestrator).
 - Post-completion: merge → cleanup worktree dir → delete branch.
 - Conflicts: spawn dedicated Claude Code process with resolution prompt.
 - Never force-push. Merge failure → `compromised` with details.
@@ -32,7 +32,7 @@
 ```json
 {
   "dev": "tsx server.ts",
-  "build": "next build",
+  "build": "NODE_ENV=production next build",
   "start": "NODE_ENV=production tsx server.ts",
   "test": "vitest",
   "lint": "eslint",
@@ -106,3 +106,4 @@ docker compose -f docker-compose.yml up --build -t production
 | `DEVROOM_TELEGRAM_BOT_TOKEN`| `''`         | Telegram bot token for notifications     |
 | `DEVROOM_TELEGRAM_CHAT_ID` | `''`         | Telegram chat ID for notifications       |
 | `DEVROOM_TELEGRAM_ENABLED` | `false`      | Enable Telegram integration (`'true'`)   |
+| `DEVROOM_HOST_CREDENTIALS_PATH`| `/host-credentials/claude-credentials.json` | Path to Claude Code credentials file (Docker) |

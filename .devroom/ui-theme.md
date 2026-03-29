@@ -27,7 +27,7 @@ The UI follows the tactical operations center aesthetic from the reference scree
 - **Bottom status bar** with system status and LAN access warning.
 - **Left sidebar** split into two sections:
   - **Global nav** (always visible): top links — HQ (◉), GENERAL (◇); bottom links — CAPTAIN'S LOG (⚓), ASSETS (◎), LOGISTICS (◈).
-  - **Battlefield nav** (visible when inside `/battlefields/[id]`): MISSIONS (■), CAMPAIGNS (✕), GIT (◆), CONSOLE (▶), SCHEDULE (⏱), CONFIG (⚙) — with count badges.
+  - **Battlefield nav** (visible when inside `/battlefields/[id]`): MISSIONS (■), CAMPAIGNS (✕), INTEL BOARD (⊞), GIT (◆), CONSOLE (▶), SCHEDULE (⏱), CONFIG (⚙) — with count badges.
 - **Right sidebar** (battlefield view) with asset list and asset breakdown stats.
 
 ### Tailwind Theme
@@ -42,8 +42,8 @@ Tailwind v4 uses CSS-based configuration. There is **no `tailwind.config.ts`**. 
   --color-dr-elevated:  #1a1a22;
   --color-dr-border:    #2a2a32;
   --color-dr-text:      #b8b8c8;
-  --color-dr-muted:     #6a6a7a;
-  --color-dr-dim:       #4a4a5a;
+  --color-dr-muted:     #9898a8;
+  --color-dr-dim:       #868696;
   --color-dr-green:     #00ff41;
   --color-dr-amber:     #ffbf00;
   --color-dr-red:       #ff3333;
@@ -112,9 +112,10 @@ Bottom bar: `● LOCAL ACCESS ONLY — NOT SAFE TO EXPOSE TO A NETWORK`. Green d
 │ PROJ ▾ │  │ mission title    ● ACCOMP.  │       │               │
 │ ■ MISS │  │ ASSET · 9 mins ago    VIEW  │       │               │
 │ ✕ CAMP │  ├─────────────────────────────┤       │               │
-│ ◆ GIT  │  │ ...                         │       │               │
-│ ▶ CONS │  │ ASSET · 9 mins ago    VIEW  │       │               │
-│ ⏱ SCHD │  └─────────────────────────────┘       │               │
+│ ⊞ INTL │  │ ...                         │       │               │
+│ ◆ GIT  │  │ ASSET · 9 mins ago    VIEW  │       │               │
+│ ▶ CONS │  └─────────────────────────────┘       │               │
+│ ⏱ SCHD │                                        │               │
 │ ⚙ CONF │                                        │               │
 │        │                                        │               │
 │ ─────  │                                        │               │
