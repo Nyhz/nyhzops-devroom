@@ -105,6 +105,7 @@ export function MissionActions({
       const newMission = await continueMission(missionId, continueBriefing.trim());
       toast.success('Continued mission deployed');
       router.push(`/battlefields/${battlefieldId}/missions/${newMission.id}`);
+      router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to continue mission');
     } finally {
