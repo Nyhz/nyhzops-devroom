@@ -7,15 +7,18 @@ import { TacTextareaWithImages } from '@/components/ui/tac-textarea-with-images'
 import { TacCard } from '@/components/ui/tac-card';
 import { DossierSelector } from '@/components/dashboard/dossier-selector';
 import { createMission, createAndDeployMission } from '@/actions/mission';
+import { linkNoteToMission } from '@/actions/intel';
 
 interface DeployMissionProps {
   battlefieldId: string;
   assets: Array<{ id: string; codename: string; status: string }>;
   className?: string;
+  initialBriefing?: string;
+  noteId?: string;
 }
 
-export function DeployMission({ battlefieldId, assets, className }: DeployMissionProps) {
-  const [briefing, setBriefing] = useState('');
+export function DeployMission({ battlefieldId, assets, className, initialBriefing, noteId }: DeployMissionProps) {
+  const [briefing, setBriefing] = useState(initialBriefing ?? '');
   const [assetId, setAssetId] = useState('');
   const [dossierName, setDossierName] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -61,11 +64,14 @@ export function DeployMission({ battlefieldId, assets, className }: DeployMissio
     if (!briefing.trim()) return;
     startTransition(async () => {
       try {
-        await createMission({
+        const mission = await createMission({
           battlefieldId,
           briefing: briefing.trim(),
           assetId: assetId || undefined,
         });
+        if (noteId) {
+          await linkNoteToMission(noteId, mission.id);
+        }
         resetForm();
         toast.success('Mission saved — STANDBY');
       } catch (err) {
@@ -78,11 +84,14 @@ export function DeployMission({ battlefieldId, assets, className }: DeployMissio
     if (!briefing.trim()) return;
     startTransition(async () => {
       try {
-        await createAndDeployMission({
+        const mission = await createAndDeployMission({
           battlefieldId,
           briefing: briefing.trim(),
           assetId: assetId || undefined,
         });
+        if (noteId) {
+          await linkNoteToMission(noteId, mission.id);
+        }
         resetForm();
         toast.success('Mission deployed — QUEUED');
       } catch (err) {

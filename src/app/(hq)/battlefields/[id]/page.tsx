@@ -17,10 +17,13 @@ import type { Battlefield } from '@/types';
 
 export default async function BattlefieldOverviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
   const { id } = await params;
+  const { briefing: prefillBriefing, noteId } = await searchParams;
   const db = getDatabase();
 
   const battlefield = db
@@ -178,7 +181,12 @@ export default async function BattlefieldOverviewPage({
       )}
 
       {/* Deploy Mission */}
-      <DeployMission battlefieldId={id} assets={assetList} />
+      <DeployMission
+        battlefieldId={id}
+        assets={assetList}
+        initialBriefing={prefillBriefing}
+        noteId={noteId}
+      />
 
       {/* Stats bar */}
       <StatsBar
