@@ -88,7 +88,7 @@ export function Terminal({ logs, className }: TerminalProps) {
     <div
       ref={containerRef}
       className={cn(
-        'h-[480px] overflow-y-auto bg-dr-bg p-3 border border-dr-border',
+        'h-[300px] md:h-[480px] overflow-y-auto bg-dr-bg p-3 border border-dr-border',
         className,
       )}
     >
@@ -98,7 +98,7 @@ export function Terminal({ logs, className }: TerminalProps) {
             <span className="text-dr-dim shrink-0 select-none">
               {formatTimestamp(entry.timestamp)}
             </span>
-            <span className={typeStyles[entry.type]}>
+            <span className={cn(typeStyles[entry.type], 'whitespace-pre-wrap break-all')}>
               {entry.content}
               {entry.count > 1 && (
                 <span className="text-dr-dim ml-1.5">({entry.count})</span>
