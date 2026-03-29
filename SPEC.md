@@ -44,14 +44,18 @@ Fixed-width left sidebar:
 **Battlefield selector**: Dropdown showing current battlefield name. Selecting navigates to `/battlefields/[id]`.
 
 **Global navigation** (top, above battlefield selector):
-- `HQ` — Main dashboard overview.
-- `CAPTAIN LOG` — AI decision log viewer.
-- `LOGISTICS` — Token usage & rate limits.
+- `◉ HQ` — Main dashboard overview.
+- `◇ GENERAL` — Standalone Claude Code chat sessions.
+
+**Global navigation** (bottom):
+- `⚓ CAPTAIN'S LOG` — AI decision log viewer.
+- `◎ ASSETS` — Agent profiles and specialties.
+- `◈ LOGISTICS` — Token usage & rate limits.
 
 **Battlefield section navigation** (when a battlefield is selected):
 - `■ MISSIONS` — with count badge.
 - `✕ CAMPAIGNS`
-- `◎ ASSETS`
+- `⊞ INTEL BOARD`
 - `◆ GIT`
 - `▶ CONSOLE`
 - `⏱ SCHEDULE`
@@ -93,13 +97,25 @@ See `.devroom/spec-campaigns.md` for full details on campaign creation, phase ex
 
 ---
 
-## 6. Operations — Git, Console & Scheduler
+## 6. Intel Board
+
+Kanban-style planning board per battlefield at `/battlefields/[id]/board`. Intel notes flow through columns that mirror the mission lifecycle: `backlog → planned → deploying → in_combat → reviewing → accomplished → compromised`.
+
+- **Create** standalone notes with title and description.
+- **Drag** notes between `backlog` and `planned` columns for manual triage.
+- **Promote** a single note to a mission, or multi-select notes to create a campaign.
+- **Link** notes to existing missions/campaigns — status columns update in real-time.
+- **Data**: `intelNotes` table — see `.devroom/database-schema.md`.
+
+---
+
+## 7. Operations — Git, Console & Scheduler
 
 See `.devroom/spec-operations.md` for full details on the Git dashboard, console & dev server, and scheduled tasks.
 
 ---
 
-## 7. Git Worktree Management
+## 8. Git Worktree Management
 
 See `.devroom/git-and-workflows.md` for branch naming, merge flow, worktree modes, and cleanup rules.
 
@@ -109,7 +125,7 @@ See `.devroom/git-and-workflows.md` for branch naming, merge flow, worktree mode
 
 ---
 
-## 8. Real-Time (Socket.IO)
+## 9. Real-Time (Socket.IO)
 
 See `.devroom/server-and-sockets.md` for full Socket.IO room/event reference and client hook patterns.
 
@@ -117,7 +133,7 @@ Auto-reconnect via Socket.IO. On reconnect: re-join rooms, backfill missed logs 
 
 ---
 
-## 9. Queue & Concurrency
+## 10. Queue & Concurrency
 
 ### Orchestrator Loop
 
@@ -129,13 +145,13 @@ Rate-limit exit → `queued` (not compromised) → exponential backoff (1m, 2m, 
 
 ---
 
-## 10. Prompt Architecture
+## 11. Prompt Architecture
 
 See `.devroom/spec-prompts.md` for all prompt templates: standard mission, campaign mission, conflict resolution, phase debrief generation, and bootstrap.
 
 ---
 
-## 11. Persistence
+## 12. Persistence
 
 See `.devroom/database-schema.md` for all table definitions.
 
@@ -145,7 +161,7 @@ SQLite with WAL mode, foreign keys, 5s busy timeout. Single file. Schema in `lib
 
 ---
 
-## 12. Error Handling
+## 13. Error Handling
 
 - **Process crashes**: capture partial output → `compromised` → error in debrief. Campaign mission → pause campaign.
 - **Git errors**: simple-git throw → log → `compromised` → git error in debrief → `[RETRY MERGE]` in UI.
@@ -153,13 +169,13 @@ SQLite with WAL mode, foreign keys, 5s busy timeout. Single file. Schema in `lib
 
 ---
 
-## 13. Captain, Notifications, Logistics & War Room
+## 14. Captain, Notifications, Logistics & War Room
 
 See `.devroom/spec-captain-and-comms.md` for full details on the Captain AI decision layer, notification levels & Telegram integration, logistics dashboard, and War Room boot sequence.
 
 ---
 
-## 14. Future Ops (Backlog)
+## 15. Future Ops (Backlog)
 
 - [ ] Auto-import skills from curated registry.
 - [ ] Cost dashboard with token graphs over time (basic cost tracking exists in Logistics).
@@ -175,4 +191,5 @@ See `.devroom/spec-captain-and-comms.md` for full details on the Captain AI deci
 - [x] Captain AI decision layer (autonomous judgment, escalation, debrief review).
 - [x] War Room boot sequence animation.
 - [x] Logistics / token usage dashboard.
+- [x] Intel Board (kanban planning board per battlefield — fully implemented).
 - [ ] Image paste in briefing textarea (Cmd+V, base64 — component exists but not fully wired).
