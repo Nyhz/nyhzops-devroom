@@ -60,7 +60,7 @@ export function DevServerPanel({ battlefieldId, initialStatus, devCommand }: Dev
     <TacCard status={isRunning ? 'green' : undefined}>
       <div className="space-y-3">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span
               className={
@@ -85,6 +85,7 @@ export function DevServerPanel({ battlefieldId, initialStatus, devCommand }: Dev
                 variant="success"
                 onClick={handleStart}
                 disabled={isPending}
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-0"
               >
                 START
               </TacButton>
@@ -95,6 +96,7 @@ export function DevServerPanel({ battlefieldId, initialStatus, devCommand }: Dev
                   variant="danger"
                   onClick={handleStop}
                   disabled={isPending}
+                  className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0"
                 >
                   STOP
                 </TacButton>
@@ -103,6 +105,7 @@ export function DevServerPanel({ battlefieldId, initialStatus, devCommand }: Dev
                   variant="primary"
                   onClick={handleRestart}
                   disabled={isPending}
+                  className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0"
                 >
                   RESTART
                 </TacButton>
@@ -112,7 +115,7 @@ export function DevServerPanel({ battlefieldId, initialStatus, devCommand }: Dev
         </div>
 
         {/* Info */}
-        <div className="flex items-center gap-4 text-xs font-data text-dr-dim">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs font-data text-dr-dim">
           <span>CMD: <span className="text-dr-muted">{devCommand}</span></span>
           {isRunning && initialStatus.uptime !== null && (
             <span>UPTIME: <span className="text-dr-muted">{formatDuration(initialStatus.uptime)}</span></span>

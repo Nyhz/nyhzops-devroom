@@ -63,17 +63,17 @@ export function CommandOutput({ battlefieldId, commandHistory }: CommandOutputPr
                 className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-dr-elevated transition-colors"
                 onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <span
-                    className={`text-xs font-data ${
+                    className={`text-xs font-data shrink-0 ${
                       entry.exitCode === 0 ? 'text-dr-green' : entry.exitCode !== null ? 'text-dr-red' : 'text-dr-dim'
                     }`}
                   >
                     {entry.exitCode === 0 ? '✓' : entry.exitCode !== null ? '✗' : '·'}
                   </span>
-                  <span className="text-dr-text text-xs font-data">{entry.command}</span>
+                  <span className="text-dr-text text-xs font-data truncate">{entry.command}</span>
                 </div>
-                <span className="text-dr-dim text-xs font-data">
+                <span className="text-dr-dim text-xs font-data shrink-0">
                   {formatRelativeTime(entry.createdAt)}
                 </span>
               </button>
