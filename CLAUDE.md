@@ -125,6 +125,12 @@ Detailed docs are split into topic files under `.devroom/`. Reference these when
 | `.devroom/ui-theme.md` | Branding, Tailwind theme tokens, layout structure, UI patterns, Commander reporting tone |
 | `.devroom/server-and-sockets.md` | Custom server boot, Socket.IO rooms/events, Claude Code invocation, prompt cache optimization |
 | `.devroom/git-and-workflows.md` | Git/worktree rules, Definition of Done, scripts, environment variables |
+| `.devroom/spec-battlefields.md` | Battlefield creation, bootstrap, review flow, overview page, configuration |
+| `.devroom/spec-missions.md` | Mission lifecycle, execution, session reuse, assets, dossiers |
+| `.devroom/spec-campaigns.md` | Campaign creation, phase execution, templates, detail page |
+| `.devroom/spec-operations.md` | Git dashboard, console & dev server, scheduled tasks |
+| `.devroom/spec-prompts.md` | All prompt templates (standard, campaign, conflict, debrief, bootstrap) |
+| `.devroom/spec-captain-and-comms.md` | Captain AI, notifications, Telegram, logistics, War Room |
 
 ---
 
