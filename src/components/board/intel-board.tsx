@@ -245,25 +245,25 @@ export function IntelBoard({ battlefieldId, initialNotes }: IntelBoardProps) {
             + NEW NOTE
           </TacButton>
 
-          <TacButton
-            variant="primary"
-            size="sm"
-            disabled={selectedIds.size !== 1}
-            onClick={handleDeployMission}
-          >
-            DEPLOY MISSION
-          </TacButton>
+          {selectedIds.size === 1 && (
+            <TacButton
+              variant="primary"
+              size="sm"
+              onClick={handleDeployMission}
+            >
+              DEPLOY MISSION
+            </TacButton>
+          )}
 
-          <TacButton
-            variant="success"
-            size="sm"
-            disabled={selectedIds.size === 0}
-            onClick={handleLaunchCampaign}
-          >
-            {selectedIds.size > 0
-              ? `⚡ LAUNCH CAMPAIGN (${selectedIds.size})`
-              : '⚡ LAUNCH CAMPAIGN'}
-          </TacButton>
+          {selectedIds.size >= 1 && (
+            <TacButton
+              variant="success"
+              size="sm"
+              onClick={handleLaunchCampaign}
+            >
+              ⚡ LAUNCH CAMPAIGN ({selectedIds.size})
+            </TacButton>
+          )}
         </div>
       </div>
 

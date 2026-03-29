@@ -264,3 +264,45 @@ export async function linkNotesToCampaign(
 export async function getNote(noteId: string): Promise<IntelNote> {
   return getOrThrow(intelNotes, noteId, 'getNote');
 }
+
+// ---------------------------------------------------------------------------
+// backfillIntelNotes — create intel notes for existing missions that lack one
+// ---------------------------------------------------------------------------
+export async function backfillIntelNotes(battlefieldId: string): Promise<number> {
+  const db = getDatabase();
+  const now = Date.now();
+
+  // Find missions in this battlefield that don't have an intel note
+  const missionsWithoutNotes = db
+    .select({ id: missions.id, title: missions.title, campaignId: missions.campaignId })
+    .from(missions)
+    .where(eq(missions.battlefieldId, battlefieldId))
+    .all()
+    .filter(m => {
+      const existing = db
+        .select({ id: intelNotes.id })
+        .from(intelNotes)
+        .where(eq(intelNotes.missionId, m.id))
+        .get();
+      return !existing;
+    });
+
+  for (const m of missionsWithoutNotes) {
+    db.insert(intelNotes)
+      .values({
+        id: generateId(),
+        battlefieldId,
+        title: m.title,
+        description: null,
+        missionId: m.id,
+        campaignId: m.campaignId,
+        column: 'backlog',
+        position: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+  }
+
+  return missionsWithoutNotes.length;
+}
