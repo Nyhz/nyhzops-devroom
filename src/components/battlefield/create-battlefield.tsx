@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { TacInput, TacTextarea } from '@/components/ui/tac-input';
 import { TacButton } from '@/components/ui/tac-button';
+import { TacCard } from '@/components/ui/tac-card';
 import { createBattlefield } from '@/actions/battlefield';
 import { toKebabCase } from '@/lib/utils';
 
@@ -107,7 +108,8 @@ export function CreateBattlefield({ devBasePath }: CreateBattlefieldProps) {
     : `${devBasePath}/...`;
 
   return (
-    <form onSubmit={handleSubmit} className="bg-dr-surface border border-dr-border p-6 space-y-5">
+    <TacCard className="p-0">
+    <form onSubmit={handleSubmit} className="p-6 space-y-5">
       {/* Mode toggle */}
       <div className="flex justify-end">
         <button
@@ -277,5 +279,6 @@ export function CreateBattlefield({ devBasePath }: CreateBattlefieldProps) {
         </TacButton>
       </div>
     </form>
+    </TacCard>
   );
 }

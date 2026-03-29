@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { TacCard } from '@/components/ui/tac-card';
 import { useActivityFeed, type ActivityEvent } from '@/hooks/use-activity-feed';
 
 interface ActivityFeedProps {
@@ -69,7 +70,7 @@ export function ActivityFeed({ className }: ActivityFeedProps) {
       <div className="text-dr-amber font-tactical text-sm tracking-widest uppercase mb-3">
         ACTIVITY FEED
       </div>
-      <div className="bg-dr-surface border border-dr-border max-h-80 overflow-y-auto">
+      <TacCard className="p-0 max-h-80 overflow-y-auto">
         {events.length === 0 ? (
           <div className="p-4 text-center text-dr-dim font-tactical text-xs">
             No recent activity. Deploy a mission to begin.
@@ -82,7 +83,7 @@ export function ActivityFeed({ className }: ActivityFeedProps) {
             <div ref={bottomRef} />
           </div>
         )}
-      </div>
+      </TacCard>
     </div>
   );
 }

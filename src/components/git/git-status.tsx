@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { TacButton } from '@/components/ui/tac-button';
+import { TacCard } from '@/components/ui/tac-card';
 import { TacInput } from '@/components/ui/tac-input';
 import { GitDiff } from '@/components/git/git-diff';
 import { cn } from '@/lib/utils';
@@ -180,7 +181,7 @@ export function GitStatus({ battlefieldId, initialStatus, className }: GitStatus
       </FileSection>
 
       {/* Commit form */}
-      <div className="bg-dr-surface border border-dr-border p-4 space-y-3">
+      <TacCard className="p-4 space-y-3">
         <div className="text-dr-amber text-xs font-tactical tracking-wider">COMMIT</div>
         <TacInput
           placeholder="Commit message..."
@@ -202,7 +203,7 @@ export function GitStatus({ battlefieldId, initialStatus, className }: GitStatus
         >
           Commit
         </TacButton>
-      </div>
+      </TacCard>
     </div>
   );
 }
@@ -225,7 +226,7 @@ function FileSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className={cn('bg-dr-surface border border-dr-border border-l-2', borderClass)}>
+    <TacCard className={cn('p-0 border-l-2', borderClass)}>
       <div className="flex items-center gap-2 px-3 py-2 border-b border-dr-border">
         <span className={cn('text-xs font-tactical tracking-wider', accentClass)}>
           {title}
@@ -233,7 +234,7 @@ function FileSection({
         <span className="text-dr-dim text-xs font-tactical">{count}</span>
       </div>
       <div>{children}</div>
-    </div>
+    </TacCard>
   );
 }
 

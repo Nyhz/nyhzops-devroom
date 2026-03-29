@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { TacButton } from '@/components/ui/tac-button';
 import { GitDiff } from '@/components/git/git-diff';
+import { TacCard } from '@/components/ui/tac-card';
 import { cn } from '@/lib/utils';
 import { getGitLog } from '@/actions/git';
 import type { CommitEntry } from '@/types';
@@ -49,7 +50,7 @@ export function GitLog({ battlefieldId, initialCommits, className }: GitLogProps
       {commits.length === 0 ? (
         <div className="text-dr-dim text-xs font-tactical p-4">No commits found</div>
       ) : (
-        <div className="bg-dr-surface border border-dr-border">
+        <TacCard className="p-0">
           {commits.map((commit) => {
             const shortHash = commit.hash.slice(0, 7);
             const isExpanded = expandedHash === commit.hash;
@@ -94,7 +95,7 @@ export function GitLog({ battlefieldId, initialCommits, className }: GitLogProps
               </div>
             );
           })}
-        </div>
+        </TacCard>
       )}
 
       {hasMore && (

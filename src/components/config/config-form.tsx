@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { updateBattlefield, regenerateBootstrap, readBootstrapFile, archiveBattlefield, deleteBattlefield } from '@/actions/battlefield';
+import { TacCard } from '@/components/ui/tac-card';
 import { TacInput, TacTextarea } from '@/components/ui/tac-input';
 import { TacButton } from '@/components/ui/tac-button';
 import {
@@ -186,7 +187,7 @@ export function ConfigForm({
 
   return (
     <>
-      <div className="bg-dr-surface border border-dr-border p-6 space-y-6">
+      <TacCard className="space-y-6">
         {/* Name */}
         <div>
           <label className="block text-dr-dim font-tactical text-xs uppercase tracking-wider mb-1">
@@ -382,7 +383,7 @@ export function ConfigForm({
             Re-Bootstrap
           </TacButton>
         </div>
-      </div>
+      </TacCard>
 
       {/* Danger Zone */}
       <div className="border border-dr-red/30 bg-dr-red/5">

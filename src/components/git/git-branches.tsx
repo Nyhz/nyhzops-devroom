@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacInput } from '@/components/ui/tac-input';
+import { TacCard } from '@/components/ui/tac-card';
 import { cn } from '@/lib/utils';
 import { useConfirm } from '@/hooks/use-confirm';
 import { checkoutBranch, deleteBranch, createBranch } from '@/actions/git';
@@ -57,7 +58,7 @@ export function GitBranches({ battlefieldId, initialBranches, className }: GitBr
   return (
     <div className={cn('space-y-4', className)}>
       {/* New branch form */}
-      <div className="bg-dr-surface border border-dr-border p-4 space-y-3">
+      <TacCard className="p-4 space-y-3">
         <div className="text-dr-amber text-xs font-tactical tracking-wider">NEW BRANCH</div>
         <div className="flex items-center gap-2">
           <TacInput
@@ -82,10 +83,10 @@ export function GitBranches({ battlefieldId, initialBranches, className }: GitBr
             Create
           </TacButton>
         </div>
-      </div>
+      </TacCard>
 
       {/* Local branches */}
-      <div className="bg-dr-surface border border-dr-border">
+      <TacCard className="p-0">
         <div className="px-3 py-2 border-b border-dr-border">
           <span className="text-dr-amber text-xs font-tactical tracking-wider">
             LOCAL BRANCHES
@@ -149,7 +150,7 @@ export function GitBranches({ battlefieldId, initialBranches, className }: GitBr
             );
           })
         )}
-      </div>
+      </TacCard>
 
       <ConfirmDialog />
     </div>

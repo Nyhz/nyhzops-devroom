@@ -1,4 +1,5 @@
 import { formatDuration, formatTokens, formatCost } from '@/lib/utils';
+import { TacCard } from '@/components/ui/tac-card';
 import { Markdown } from '@/components/ui/markdown';
 
 interface ResultMission {
@@ -57,13 +58,13 @@ export function CampaignResults({ campaignName, missions, battlefieldId }: Campa
       </div>
 
       {/* Cache hit bar */}
-      <div className="bg-dr-surface border border-dr-border p-3 flex items-center gap-4 text-xs font-tactical">
+      <TacCard className="p-3 flex items-center gap-4 text-xs font-tactical">
         <span className="text-dr-muted">CACHE HIT</span>
         <span className="text-dr-green">{cacheHitPercent}%</span>
         <div className="flex-1 h-1.5 bg-dr-bg overflow-hidden">
           <div className="h-full bg-dr-green" style={{ width: `${cacheHitPercent}%` }} />
         </div>
-      </div>
+      </TacCard>
 
       {/* Phase-by-phase breakdown */}
       {phaseList.map(([phaseNum, phase]) => (
@@ -123,9 +124,9 @@ export function CampaignResults({ campaignName, missions, battlefieldId }: Campa
 
 function StatCard({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="bg-dr-surface border border-dr-border p-3 text-center">
+    <TacCard className="p-3 text-center">
       <div className={`text-lg font-tactical ${color ?? 'text-dr-text'}`}>{value}</div>
       <div className="text-dr-muted font-tactical text-xs tracking-wider mt-1">{label}</div>
-    </div>
+    </TacCard>
   );
 }

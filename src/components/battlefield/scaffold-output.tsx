@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCommandOutput } from '@/hooks/use-command-output';
+import { TacCard } from '@/components/ui/tac-card';
 import { Terminal } from '@/components/ui/terminal';
 
 interface ScaffoldOutputProps {
@@ -42,7 +43,7 @@ export function ScaffoldOutput({ battlefieldId }: ScaffoldOutputProps) {
   }));
 
   return (
-    <div className="bg-dr-surface border border-dr-border">
+    <TacCard className="p-0">
       <div className="bg-dr-elevated px-3 py-2 border-b border-dr-border flex items-center gap-2">
         <span className="text-dr-amber text-xs font-tactical tracking-wider">
           SCAFFOLD
@@ -68,6 +69,6 @@ export function ScaffoldOutput({ battlefieldId }: ScaffoldOutputProps) {
           )}
         </div>
       )}
-    </div>
+    </TacCard>
   );
 }

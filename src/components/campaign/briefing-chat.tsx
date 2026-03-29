@@ -4,10 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBriefing } from '@/hooks/use-briefing';
 import { TacButton } from '@/components/ui/tac-button';
-import { CommanderContent } from '@/components/ui/commander-content';
+import { ChatMessage, ChatThinking } from '@/components/ui/chat-message';
 import { cn } from '@/lib/utils';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 
 interface BriefingChatProps {
   campaignId: string;
@@ -80,57 +78,14 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
         )}
 
         {messages.map((msg) => (
-          <div key={msg.id} className={`flex ${msg.role === 'commander' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] ${
-              msg.role === 'commander'
-                ? 'bg-dr-elevated border border-dr-border'
-                : 'bg-dr-surface border border-dr-amber/20'
-            } p-3`}>
-              <div className="flex items-center gap-2 mb-1">
-                <span className={`font-tactical text-xs tracking-wider ${
-                  msg.role === 'commander' ? 'text-dr-green' : 'text-dr-amber'
-                }`}>
-                  {msg.role === 'commander' ? 'COMMANDER' : 'GENERAL'}
-                </span>
-              </div>
-              {msg.role === 'commander' ? (
-                <div className="text-dr-text font-data text-sm whitespace-pre-wrap leading-relaxed">
-                  <CommanderContent content={msg.content} />
-                </div>
-              ) : (
-                <div className="text-dr-text font-mono text-sm general-markdown">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                </div>
-              )}
-            </div>
-          </div>
+          <ChatMessage key={msg.id} role={msg.role} content={msg.content} />
         ))}
 
         {streaming && (
-          <div className="flex justify-start">
-            <div className="max-w-[80%] bg-dr-surface border border-dr-amber/20 p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-tactical text-xs tracking-wider text-dr-amber">
-                  GENERAL
-                </span>
-                <span className="w-2.5 h-4 bg-dr-amber/70 animate-pulse" />
-              </div>
-              <div className="text-dr-text font-mono text-sm general-markdown">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{streaming}</ReactMarkdown>
-              </div>
-            </div>
-          </div>
+          <ChatMessage role="general" content={streaming} isStreaming />
         )}
 
-        {isLoading && !streaming && (
-          <div className="flex justify-start">
-            <div className="bg-dr-surface border border-dr-amber/20 p-3">
-              <span className="text-dr-amber font-tactical text-xs animate-pulse">
-                GENERAL is thinking...
-              </span>
-            </div>
-          </div>
-        )}
+        {isLoading && !streaming && <ChatThinking />}
 
         {error && (
           <div className="bg-dr-red/10 border border-dr-red/30 p-3 text-dr-red font-data text-xs">

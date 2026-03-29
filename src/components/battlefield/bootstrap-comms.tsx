@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMissionComms } from '@/hooks/use-mission-comms';
+import { TacCard } from '@/components/ui/tac-card';
 import { Terminal } from '@/components/ui/terminal';
 
 interface BootstrapCommsProps {
@@ -43,14 +44,14 @@ export function BootstrapComms({ battlefieldId, missionId, codename }: Bootstrap
         Generating battlefield intel...
       </p>
 
-      <div className="bg-dr-surface border border-dr-border">
+      <TacCard className="p-0">
         <div className="bg-dr-elevated px-3 py-2 border-b border-dr-border">
           <span className="text-dr-amber text-xs font-tactical tracking-wider">COMMS</span>
         </div>
         <div className="max-h-96">
           <Terminal logs={terminalLogs} />
         </div>
-      </div>
+      </TacCard>
     </div>
   );
 }

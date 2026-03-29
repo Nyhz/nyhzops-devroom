@@ -9,9 +9,7 @@ import { TacButton } from '@/components/ui/tac-button';
 import { NewSessionModal } from './new-session-modal';
 import { CloseSessionModal } from './close-session-modal';
 import { CommandReference } from './command-reference';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { CommanderContent } from '@/components/ui/commander-content';
+import { ChatMessage, ChatThinking } from '@/components/ui/chat-message';
 import { cn } from '@/lib/utils';
 
 interface Session {
@@ -341,30 +339,16 @@ export function GeneralChat({
       {/* Chat body */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 relative">
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
+          <ChatMessage key={msg.id} role={msg.role} content={msg.content} />
         ))}
 
         {/* Streaming response */}
         {streaming && (
-          <div className="flex justify-start">
-            <div className="max-w-[80%] space-y-1">
-              <div className="text-dr-amber font-tactical text-[10px] tracking-widest">GENERAL</div>
-              <div className="text-dr-text font-mono text-sm general-markdown">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{streaming}</ReactMarkdown>
-                <span className="inline-block w-2 h-4 bg-dr-amber animate-pulse ml-0.5" />
-              </div>
-            </div>
-          </div>
+          <ChatMessage role="general" content={streaming} isStreaming />
         )}
 
         {/* Loading indicator */}
-        {isLoading && !streaming && (
-          <div className="flex justify-start">
-            <div className="text-dr-dim font-mono text-sm animate-pulse">
-              GENERAL is thinking...
-            </div>
-          </div>
-        )}
+        {isLoading && !streaming && <ChatThinking />}
 
         {/* Error */}
         {error && (
@@ -457,47 +441,3 @@ export function GeneralChat({
   );
 }
 
-// ---------------------------------------------------------------------------
-// MessageBubble
-// ---------------------------------------------------------------------------
-
-function MessageBubble({ role, content }: { role: string; content: string }) {
-  if (role === 'system') {
-    return (
-      <div className="flex justify-center py-2">
-        <span className="text-dr-dim font-mono text-[11px] tracking-widest">{content}</span>
-      </div>
-    );
-  }
-
-  const isCommander = role === 'commander';
-
-  return (
-    <div className={cn('flex', isCommander ? 'justify-end' : 'justify-start')}>
-      <div className={cn('max-w-[80%] space-y-1')}>
-        <div
-          className={cn(
-            'font-tactical text-[10px] tracking-widest',
-            isCommander ? 'text-dr-green text-right' : 'text-dr-amber',
-          )}
-        >
-          {isCommander ? 'COMMANDER' : 'GENERAL'}
-        </div>
-        <div
-          className={cn(
-            'font-mono text-sm leading-relaxed',
-            isCommander
-              ? 'text-dr-text bg-dr-elevated border border-dr-border px-3 py-2'
-              : 'text-dr-text general-markdown',
-          )}
-        >
-          {isCommander ? (
-            <CommanderContent content={content} />
-          ) : (
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
