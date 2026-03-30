@@ -1,8 +1,20 @@
 import { Server as SocketIOServer } from 'socket.io';
+import { startMetricsEmitter, isEmitterRunning } from '@/lib/system-metrics';
 
 export function setupSocketIO(io: SocketIOServer) {
   io.on('connection', (socket) => {
     console.log(`[Socket.IO] Client connected: ${socket.id}`);
+
+    socket.on('system:subscribe', () => {
+      socket.join('system:status');
+      if (!isEmitterRunning()) {
+        startMetricsEmitter(io);
+      }
+    });
+
+    socket.on('system:unsubscribe', () => {
+      socket.leave('system:status');
+    });
 
     socket.on('mission:subscribe', (id: string) => {
       socket.join(`mission:${id}`);

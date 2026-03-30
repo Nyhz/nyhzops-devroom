@@ -15,6 +15,7 @@ import { DevServerManager } from './src/lib/process/dev-server';
 import { Scheduler } from './src/lib/scheduler/scheduler';
 import { isEnabled as telegramIsEnabled, startPolling as startTelegramPolling, stopPolling as stopTelegramPolling } from './src/lib/telegram/telegram';
 import { handleTelegramCallback } from './src/lib/captain/escalation';
+import { setBootTimestamp } from './src/lib/system-metrics';
 
 // Typed globalThis for Socket.IO access
 declare global {
@@ -25,6 +26,7 @@ declare global {
 }
 
 const dev = process.env.NODE_ENV !== 'production';
+const SERVER_BOOT_TIME = Date.now();
 
 async function start() {
   // 1. Database setup
@@ -50,6 +52,7 @@ async function start() {
   const io = new SocketIOServer(httpServer, { path: '/socket.io' });
   globalThis.io = io;
   setupSocketIO(io);
+  setBootTimestamp(SERVER_BOOT_TIME);
 
   // 5b. Create orchestrator
   const orchestrator = new Orchestrator(io);
