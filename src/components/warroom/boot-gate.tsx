@@ -12,37 +12,42 @@ interface BootGateProps {
 /**
  * Shows the boot animation as a full-screen overlay on first visit.
  * Uses sessionStorage so it only plays once per browser session.
- * The children render underneath (no flash) — the overlay covers them.
  *
- * Starts with showOverlay=true on both server and client to avoid hydration mismatch,
- * then checks sessionStorage in useEffect to skip the animation if already booted.
+ * Renders a solid covering overlay from initial paint (server + client agree on 'pending')
+ * to prevent any flash of underlying content. useEffect then checks sessionStorage:
+ * - First visit → transitions to 'booting' (shows animation)
+ * - Returning visit → transitions to 'done' (overlay removed immediately)
  */
 export function BootGate({ children, battlefieldCount, inCombatCount }: BootGateProps) {
-  const [checked, setChecked] = useState(false);
-  const [shouldBoot, setShouldBoot] = useState(false);
+  const [state, setState] = useState<'pending' | 'booting' | 'done'>('pending');
 
   useEffect(() => {
-    if (sessionStorage.getItem('devroom-booted') !== 'true') {
-      setShouldBoot(true);
+    if (sessionStorage.getItem('devroom-booted') === 'true') {
+      setState('done');
+    } else {
+      setState('booting');
     }
-    setChecked(true);
   }, []);
 
   const handleBootComplete = useCallback(() => {
     sessionStorage.setItem('devroom-booted', 'true');
-    setShouldBoot(false);
+    setState('done');
   }, []);
 
   return (
     <>
       {children}
-      {checked && shouldBoot && (
+      {state !== 'done' && (
         <div className="fixed inset-0 z-[9999]">
-          <BootSequence
-            battlefieldCount={battlefieldCount}
-            inCombatCount={inCombatCount}
-            onComplete={handleBootComplete}
-          />
+          {state === 'booting' ? (
+            <BootSequence
+              battlefieldCount={battlefieldCount}
+              inCombatCount={inCombatCount}
+              onComplete={handleBootComplete}
+            />
+          ) : (
+            <div className="fixed inset-0 bg-dr-bg" />
+          )}
         </div>
       )}
     </>
