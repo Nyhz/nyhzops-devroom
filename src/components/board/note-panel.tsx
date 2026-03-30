@@ -235,7 +235,7 @@ export function NotePanel({
         <div className="px-5 py-4 border-t border-dr-border flex-shrink-0 space-y-3">
           {/* Created date */}
           {note && (
-            <p className="font-tactical text-dr-muted text-xs tracking-wider">
+            <p className="font-tactical text-dr-muted text-xs tracking-wider" suppressHydrationWarning>
               Created {formatRelativeTime(note.createdAt)}
             </p>
           )}

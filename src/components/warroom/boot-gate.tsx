@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BootSequence } from './boot-sequence';
 
 interface BootGateProps {
@@ -12,32 +12,42 @@ interface BootGateProps {
 /**
  * Shows the boot animation as a full-screen overlay on first visit.
  * Uses sessionStorage so it only plays once per browser session.
- * The children render underneath (no flash) — the overlay covers them.
+ *
+ * Renders a solid covering overlay from initial paint (server + client agree on 'pending')
+ * to prevent any flash of underlying content. useEffect then checks sessionStorage:
+ * - First visit → transitions to 'booting' (shows animation)
+ * - Returning visit → transitions to 'done' (overlay removed immediately)
  */
 export function BootGate({ children, battlefieldCount, inCombatCount }: BootGateProps) {
-  const [alreadyBooted] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('devroom-booted') === 'true';
+  const [state, setState] = useState<'pending' | 'booting' | 'done'>('pending');
+
+  useEffect(() => {
+    if (sessionStorage.getItem('devroom-booted') === 'true') {
+      setState('done');
+    } else {
+      setState('booting');
     }
-    return false;
-  });
-  const [showOverlay, setShowOverlay] = useState(!alreadyBooted);
+  }, []);
 
   const handleBootComplete = useCallback(() => {
     sessionStorage.setItem('devroom-booted', 'true');
-    setShowOverlay(false);
+    setState('done');
   }, []);
 
   return (
     <>
       {children}
-      {showOverlay && !alreadyBooted && (
+      {state !== 'done' && (
         <div className="fixed inset-0 z-[9999]">
-          <BootSequence
-            battlefieldCount={battlefieldCount}
-            inCombatCount={inCombatCount}
-            onComplete={handleBootComplete}
-          />
+          {state === 'booting' ? (
+            <BootSequence
+              battlefieldCount={battlefieldCount}
+              inCombatCount={inCombatCount}
+              onComplete={handleBootComplete}
+            />
+          ) : (
+            <div className="fixed inset-0 bg-dr-bg" />
+          )}
         </div>
       )}
     </>

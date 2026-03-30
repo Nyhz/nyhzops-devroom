@@ -67,6 +67,7 @@ export function ScheduleList({
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
+      timeZone: 'UTC',
     });
   }
 
@@ -160,7 +161,7 @@ export function ScheduleList({
                 <span className="text-dr-muted font-tactical text-xs break-all">
                   {formatCronHuman(task.cron)}
                 </span>
-                <span className="text-dr-dim font-tactical text-xs">
+                <span className="text-dr-dim font-tactical text-xs" suppressHydrationWarning>
                   {task.lastRunAt
                     ? `Last: ${formatRelativeTime(task.lastRunAt)}`
                     : 'Last: never'}
@@ -178,6 +179,7 @@ export function ScheduleList({
                   className={`font-tactical text-[10px] uppercase tracking-wider ${
                     task.enabled ? 'text-dr-green' : 'text-dr-dim'
                   }`}
+                  suppressHydrationWarning
                 >
                   {formatNextRun(task)}
                 </span>

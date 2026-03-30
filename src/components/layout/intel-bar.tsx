@@ -189,7 +189,7 @@ export function IntelBar() {
                         <p className="text-xs text-dr-muted truncate mt-0.5">
                           {n.detail}
                         </p>
-                        <span className="text-xs text-dr-dim mt-0.5 block">
+                        <span className="text-xs text-dr-dim mt-0.5 block" suppressHydrationWarning>
                           {formatRelativeTime(n.createdAt)}
                         </span>
                       </div>

@@ -130,7 +130,7 @@ export function BoardCard({ note, isSelected, onSelect, onClick, className }: Bo
           )}
         </span>
 
-        <span className="font-mono text-dr-muted/40 shrink-0 [font-size:10px]">
+        <span className="font-mono text-dr-muted/40 shrink-0 [font-size:10px]" suppressHydrationWarning>
           {formatRelativeTime(timeMs)}
         </span>
       </div>

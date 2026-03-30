@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useEffect, useRef, useTransition } from 'react';
 import { TacButton } from '@/components/ui/tac-button';
 import { GitDiff } from '@/components/git/git-diff';
 import { TacCard } from '@/components/ui/tac-card';
@@ -30,11 +30,15 @@ export function GitLog({ battlefieldId, initialCommits, className }: GitLogProps
     });
   }
 
-  const [now] = useState(Date.now);
+  const nowRef = useRef(Date.now());
+
+  useEffect(() => {
+    nowRef.current = Date.now();
+  }, []);
 
   function formatDate(dateStr: string): string {
     const date = new Date(dateStr);
-    const diff = now - date.getTime();
+    const diff = nowRef.current - date.getTime();
     const seconds = Math.floor(diff / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
@@ -74,7 +78,7 @@ export function GitLog({ battlefieldId, initialCommits, className }: GitLogProps
                       <span className="shrink-0 md:order-3">
                         {commit.author}
                       </span>
-                      <span className="shrink-0 md:w-16 md:text-right md:order-4">
+                      <span className="shrink-0 md:w-16 md:text-right md:order-4" suppressHydrationWarning>
                         {formatDate(commit.date)}
                       </span>
                     </div>

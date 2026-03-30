@@ -73,7 +73,7 @@ export function CommandOutput({ battlefieldId, commandHistory }: CommandOutputPr
                   </span>
                   <span className="text-dr-text text-xs font-data truncate">{entry.command}</span>
                 </div>
-                <span className="text-dr-dim text-xs font-data shrink-0">
+                <span className="text-dr-dim text-xs font-data shrink-0" suppressHydrationWarning>
                   {formatRelativeTime(entry.createdAt)}
                 </span>
               </button>
