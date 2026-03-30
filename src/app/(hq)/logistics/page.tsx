@@ -94,7 +94,7 @@ export default async function LogisticsPage() {
                 </div>
               )}
               <div className="text-dr-dim">
-                Updated: {new Date(rateLimit.lastUpdated).toLocaleTimeString()}
+                Updated: {new Date(rateLimit.lastUpdated).toLocaleTimeString('en-US', { timeZone: 'UTC', hour12: false })}
               </div>
             </div>
             {/* Progress bar indicator */}

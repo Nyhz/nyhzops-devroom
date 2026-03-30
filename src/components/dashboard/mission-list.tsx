@@ -69,7 +69,7 @@ export function MissionList({ missions, battlefieldId }: MissionListProps) {
                     </span>
                   )}
                 </div>
-                <div className="text-dr-dim font-tactical text-sm mt-1">
+                <div className="text-dr-dim font-tactical text-sm mt-1" suppressHydrationWarning>
                   {mission.assetCodename ?? 'UNASSIGNED'} &middot;{' '}
                   {formatRelativeTime(mission.createdAt)}
                 </div>
