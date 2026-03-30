@@ -104,6 +104,3 @@ export function stopMetricsEmitter(): void {
   prevCpuTicks = null;
 }
 
-export function isEmitterRunning(): boolean {
-  return timer !== null;
-}

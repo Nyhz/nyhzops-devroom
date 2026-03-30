@@ -15,7 +15,7 @@ import { DevServerManager } from './src/lib/process/dev-server';
 import { Scheduler } from './src/lib/scheduler/scheduler';
 import { isEnabled as telegramIsEnabled, startPolling as startTelegramPolling, stopPolling as stopTelegramPolling } from './src/lib/telegram/telegram';
 import { handleTelegramCallback } from './src/lib/captain/escalation';
-import { setBootTimestamp } from './src/lib/system-metrics';
+import { setBootTimestamp, stopMetricsEmitter } from './src/lib/system-metrics';
 
 // Typed globalThis for Socket.IO access
 declare global {
@@ -122,6 +122,7 @@ async function start() {
     shuttingDown = true;
 
     console.log('\n[DEVROOM] STANDING DOWN...');
+    stopMetricsEmitter();
     stopTelegramPolling();
     scheduler.stop();
     devServerManager.stopAll();

@@ -1,5 +1,5 @@
 import { Server as SocketIOServer } from 'socket.io';
-import { startMetricsEmitter, isEmitterRunning } from '@/lib/system-metrics';
+import { startMetricsEmitter } from '@/lib/system-metrics';
 
 export function setupSocketIO(io: SocketIOServer) {
   io.on('connection', (socket) => {
@@ -7,9 +7,7 @@ export function setupSocketIO(io: SocketIOServer) {
 
     socket.on('system:subscribe', () => {
       socket.join('system:status');
-      if (!isEmitterRunning()) {
-        startMetricsEmitter(io);
-      }
+      startMetricsEmitter(io);
     });
 
     socket.on('system:unsubscribe', () => {
