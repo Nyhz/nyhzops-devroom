@@ -42,10 +42,11 @@ function computeCoreUsage(): number[] {
 
 function getDiskUsage(): { used: number; total: number; percent: number } {
   try {
-    // Use /System/Volumes/Data on macOS — df -k / reports the read-only system snapshot
-    const output = execSync('df -k /System/Volumes/Data', { encoding: 'utf-8', timeout: 3000 });
+    // macOS: /System/Volumes/Data is where user data lives (/ is a read-only snapshot)
+    // Linux/Docker: / is the real root filesystem
+    const diskPath = os.platform() === 'darwin' ? '/System/Volumes/Data' : '/';
+    const output = execSync(`df -k ${diskPath}`, { encoding: 'utf-8', timeout: 3000 });
     const lines = output.trim().split('\n');
-    // Second line has the data; columns: Filesystem 1K-blocks Used Available Use% Mounted
     const parts = lines[1].split(/\s+/);
     const total = parseInt(parts[1], 10) * 1024; // bytes
     const used = parseInt(parts[2], 10) * 1024;
@@ -57,19 +58,22 @@ function getDiskUsage(): { used: number; total: number; percent: number } {
 }
 
 function getMemoryUsed(): number {
-  // Parse vm_stat to match Activity Monitor's "Memory Used" (active + wired pages)
-  // os.freemem() counts file cache as "used" which inflates the number
-  try {
-    const output = execSync('vm_stat', { encoding: 'utf-8', timeout: 3000 });
-    const pageSize = parseInt(output.match(/page size of (\d+)/)?.[1] ?? '16384', 10);
-    const active = parseInt(output.match(/Pages active:\s+(\d+)/)?.[1] ?? '0', 10);
-    const wired = parseInt(output.match(/Pages wired down:\s+(\d+)/)?.[1] ?? '0', 10);
-    const compressor = parseInt(output.match(/Pages occupied by compressor:\s+(\d+)/)?.[1] ?? '0', 10);
-    return (active + wired + compressor) * pageSize;
-  } catch {
-    // Fallback to os module if vm_stat fails
-    return os.totalmem() - os.freemem();
+  if (os.platform() === 'darwin') {
+    // Parse vm_stat to match Activity Monitor's "Memory Used" (active + wired pages)
+    // os.freemem() counts file cache as "used" which inflates the number
+    try {
+      const output = execSync('vm_stat', { encoding: 'utf-8', timeout: 3000 });
+      const pageSize = parseInt(output.match(/page size of (\d+)/)?.[1] ?? '16384', 10);
+      const active = parseInt(output.match(/Pages active:\s+(\d+)/)?.[1] ?? '0', 10);
+      const wired = parseInt(output.match(/Pages wired down:\s+(\d+)/)?.[1] ?? '0', 10);
+      const compressor = parseInt(output.match(/Pages occupied by compressor:\s+(\d+)/)?.[1] ?? '0', 10);
+      return (active + wired + compressor) * pageSize;
+    } catch {
+      return os.totalmem() - os.freemem();
+    }
   }
+  // Linux: os.freemem() already excludes buffers/cache, so this is accurate
+  return os.totalmem() - os.freemem();
 }
 
 function collectMetrics(): SystemMetrics {
