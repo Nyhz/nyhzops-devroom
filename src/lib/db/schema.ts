@@ -67,6 +67,7 @@ export const campaigns = sqliteTable('campaigns', {
   currentPhase: integer('current_phase').default(0),
   isTemplate: integer('is_template').default(0),
   templateId: text('template_id'),
+  debrief: text('debrief'),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });
@@ -232,6 +233,24 @@ export const generalMessages = sqliteTable('general_messages', {
   role: text('role').notNull(),                // 'commander' | 'general' | 'system'
   content: text('content').notNull(),
   timestamp: integer('timestamp').notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// Intel Notes (Board cards)
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Follow-Up Suggestions (extracted from debriefs)
+// ---------------------------------------------------------------------------
+export const followUpSuggestions = sqliteTable('follow_up_suggestions', {
+  id: text('id').primaryKey(),
+  battlefieldId: text('battlefield_id').notNull().references(() => battlefields.id),
+  missionId: text('mission_id').references(() => missions.id),
+  campaignId: text('campaign_id').references(() => campaigns.id),
+  suggestion: text('suggestion').notNull(),
+  status: text('status').notNull().default('pending'),  // 'pending' | 'added' | 'dismissed'
+  intelNoteId: text('intel_note_id').references(() => intelNotes.id),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
 });
 
 // ---------------------------------------------------------------------------

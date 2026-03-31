@@ -71,6 +71,13 @@
       "when": 1774788998341,
       "tag": "0009_majestic_madelyne_pryor",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1774951848389,
+      "tag": "0010_dazzling_dragon_lord",
+      "breakpoints": true
     }
   ]
 }
