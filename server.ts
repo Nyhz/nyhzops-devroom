@@ -63,8 +63,22 @@ async function start() {
   const devServerManager = new DevServerManager();
   globalThis.devServerManager = devServerManager;
 
-  // 5d. Startup recovery: pause any campaigns that were active when server stopped
+  // 5d. Startup recovery: reset orphaned missions and campaigns from previous run
   const db = getDatabase();
+
+  // Re-queue missions that were mid-flight when server stopped
+  const orphanedStatuses = ['in_combat', 'deploying'];
+  for (const s of orphanedStatuses) {
+    const orphaned = db.select().from(missions)
+      .where(eq(missions.status, s)).all();
+    for (const m of orphaned) {
+      db.update(missions).set({ status: 'queued', startedAt: null, updatedAt: Date.now() })
+        .where(eq(missions.id, m.id)).run();
+      console.log(`[DEVROOM] Mission ${m.id} re-queued — was ${s} when server stopped`);
+    }
+  }
+
+  // Pause active campaigns (they'll resume their orphaned missions when unpaused)
   const activeCampaigns = db.select().from(campaigns)
     .where(eq(campaigns.status, 'active')).all();
   for (const c of activeCampaigns) {
