@@ -9,6 +9,12 @@ import {
   dossiers,
   intelNotes,
   followUpSuggestions,
+  notifications,
+  captainLogs,
+  briefingSessions,
+  briefingMessages,
+  generalSessions,
+  generalMessages,
 } from '@/lib/db/schema';
 
 const now = Date.now();
@@ -184,6 +190,135 @@ export function createTestFollowUpSuggestion(
       status: 'pending',
       createdAt: now,
       updatedAt: now,
+      ...overrides,
+    })
+    .returning()
+    .get();
+  return record;
+}
+
+export function createTestNotification(
+  db: TestDB,
+  overrides: Partial<typeof notifications.$inferInsert> = {},
+) {
+  const id = overrides.id ?? ulid();
+  const record = db
+    .insert(notifications)
+    .values({
+      id,
+      level: 'info',
+      title: 'Test Notification',
+      detail: 'Test detail',
+      read: 0,
+      createdAt: now,
+      ...overrides,
+    })
+    .returning()
+    .get();
+  return record;
+}
+
+export function createTestCaptainLog(
+  db: TestDB,
+  params: { missionId: string; battlefieldId: string } & Partial<typeof captainLogs.$inferInsert>,
+) {
+  const { missionId, battlefieldId, ...overrides } = params;
+  const id = overrides.id ?? ulid();
+  const record = db
+    .insert(captainLogs)
+    .values({
+      id,
+      missionId,
+      battlefieldId,
+      question: 'Should we proceed?',
+      answer: 'Yes',
+      reasoning: 'All clear',
+      confidence: 'high',
+      escalated: 0,
+      timestamp: now,
+      ...overrides,
+    })
+    .returning()
+    .get();
+  return record;
+}
+
+export function createTestBriefingSession(
+  db: TestDB,
+  params: { campaignId: string } & Partial<typeof briefingSessions.$inferInsert>,
+) {
+  const { campaignId, ...overrides } = params;
+  const id = overrides.id ?? ulid();
+  const record = db
+    .insert(briefingSessions)
+    .values({
+      id,
+      campaignId,
+      status: 'open',
+      createdAt: now,
+      updatedAt: now,
+      ...overrides,
+    })
+    .returning()
+    .get();
+  return record;
+}
+
+export function createTestBriefingMessage(
+  db: TestDB,
+  params: { briefingId: string } & Partial<typeof briefingMessages.$inferInsert>,
+) {
+  const { briefingId, ...overrides } = params;
+  const id = overrides.id ?? ulid();
+  const record = db
+    .insert(briefingMessages)
+    .values({
+      id,
+      briefingId,
+      role: 'commander',
+      content: 'Test message',
+      timestamp: now,
+      ...overrides,
+    })
+    .returning()
+    .get();
+  return record;
+}
+
+export function createTestGeneralSession(
+  db: TestDB,
+  overrides: Partial<typeof generalSessions.$inferInsert> = {},
+) {
+  const id = overrides.id ?? ulid();
+  const record = db
+    .insert(generalSessions)
+    .values({
+      id,
+      name: 'Test Session',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+      ...overrides,
+    })
+    .returning()
+    .get();
+  return record;
+}
+
+export function createTestGeneralMessage(
+  db: TestDB,
+  params: { sessionId: string } & Partial<typeof generalMessages.$inferInsert>,
+) {
+  const { sessionId, ...overrides } = params;
+  const id = overrides.id ?? ulid();
+  const record = db
+    .insert(generalMessages)
+    .values({
+      id,
+      sessionId,
+      role: 'commander',
+      content: 'Test message',
+      timestamp: now,
       ...overrides,
     })
     .returning()
