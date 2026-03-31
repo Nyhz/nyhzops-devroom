@@ -7,6 +7,7 @@ import { runClaudePrint } from '@/lib/process/claude-print';
 import { escalate } from '@/lib/captain/escalation';
 import { handlePhaseFailure } from '@/lib/captain/phase-failure-handler';
 import { storeCaptainLog } from '@/lib/captain/captain-db';
+import { extractAndSaveSuggestions } from '@/actions/follow-up';
 import type { Mission } from '@/types';
 
 // Terminal statuses — a mission in one of these won't change further
@@ -640,6 +641,118 @@ export class CampaignExecutor {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Private: generateCampaignDebrief
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Generate a campaign-level debrief that synthesizes all phase debriefs,
+   * then extract follow-up suggestions from it.
+   * Called after the last phase completes, before marking the campaign accomplished.
+   */
+  private async generateCampaignDebrief(): Promise<void> {
+    const db = getDatabase();
+
+    const campaign = db.select().from(campaigns)
+      .where(eq(campaigns.id, this.campaignId)).get();
+    if (!campaign) return;
+
+    const battlefield = db.select().from(battlefields)
+      .where(eq(battlefields.id, campaign.battlefieldId)).get();
+    if (!battlefield) return;
+
+    // Gather all phase debriefs ordered by phaseNumber
+    const allPhases = db.select().from(phases)
+      .where(eq(phases.campaignId, this.campaignId)).all()
+      .sort((a, b) => a.phaseNumber - b.phaseNumber);
+
+    // Build CLAUDE.md content
+    let claudeMdContent = '';
+    if (battlefield.claudeMdPath) {
+      try {
+        claudeMdContent = fs.readFileSync(battlefield.claudeMdPath, 'utf-8');
+      } catch { /* skip */ }
+    }
+
+    // Build phase debriefs section
+    const phaseDebriefLines = allPhases.map(p =>
+      `#### Phase ${p.phaseNumber}: ${p.name}\n${p.debrief || 'No debrief available.'}`,
+    ).join('\n\n');
+
+    // Build prompt
+    const promptParts = [
+      claudeMdContent,
+      '---',
+      '',
+      '## Campaign Debrief Generation',
+      '',
+      `**Operation**: ${campaign.name}`,
+      `**Objective**: ${campaign.objective || 'Not specified'}`,
+      `**Phases Completed**: ${allPhases.length}`,
+      '',
+      '### Phase Debriefs',
+      '',
+      phaseDebriefLines,
+      '',
+      '### Orders',
+      '',
+      'Synthesize these phase debriefs into a comprehensive campaign debrief addressed to "Commander". Include:',
+      '1. Overall campaign outcome — was the objective achieved?',
+      '2. Key accomplishments across all phases',
+      '3. Issues encountered and how they were resolved',
+      '4. Lessons learned',
+      '5. ## Recommended Next Actions (concrete follow-up tasks as a bullet list)',
+      '',
+      'Keep under 500 words. Military briefing tone — factual, precise, actionable.',
+    ].join('\n');
+
+    let debrief: string;
+
+    try {
+      debrief = await this.runClaudeForDebrief(promptParts, battlefield.repoPath);
+      console.log(`[Campaign] ${this.campaignId} — Campaign debrief generated.`);
+    } catch (err) {
+      // Fallback: concatenated phase debriefs
+      console.error(`[Campaign] Campaign debrief generation failed, using fallback:`, err);
+      debrief = [
+        `CAMPAIGN DEBRIEF — ${campaign.name} (Fallback — AI generation failed)`,
+        '',
+        ...allPhases.map(p =>
+          `### Phase ${p.phaseNumber}: ${p.name} (${p.status})\n${p.debrief || 'No debrief available.'}`,
+        ),
+      ].join('\n\n');
+    }
+
+    // Store the campaign debrief
+    db.update(campaigns).set({ debrief })
+      .where(eq(campaigns.id, this.campaignId)).run();
+
+    // Emit campaign debrief event
+    this.io.to(`campaign:${this.campaignId}`).emit('campaign:debrief', {
+      campaignId: this.campaignId,
+      debrief,
+    });
+
+    // Extract and save follow-up suggestions
+    try {
+      const suggestions = await extractAndSaveSuggestions({
+        battlefieldId: campaign.battlefieldId,
+        campaignId: this.campaignId,
+        debrief,
+      });
+
+      if (suggestions.length > 0) {
+        this.io.to(`campaign:${this.campaignId}`).emit('campaign:suggestions', {
+          campaignId: this.campaignId,
+          suggestions,
+        });
+        console.log(`[Campaign] ${this.campaignId} — ${suggestions.length} follow-up suggestion(s) extracted.`);
+      }
+    } catch (err) {
+      console.error(`[Campaign] Follow-up suggestion extraction failed:`, err);
+    }
+  }
+
   /**
    * Spawn Claude Code in --print mode with a temp file prompt.
    * Returns the stdout output.
@@ -672,7 +785,9 @@ export class CampaignExecutor {
       )).get();
 
     if (!nextPhase) {
-      // No more phases — campaign accomplished
+      // No more phases — generate campaign debrief then mark accomplished
+      await this.generateCampaignDebrief();
+
       db.update(campaigns).set({
         status: 'accomplished',
         updatedAt: Date.now(),
