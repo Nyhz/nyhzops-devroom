@@ -50,7 +50,7 @@ export function MissionActions({
   const canContinue =
     (status === 'accomplished' || status === 'compromised') && sessionId != null;
   const canTacticalOverride = status === 'compromised' || status === 'abandoned';
-  const canRetryMerge = status === 'compromised' && !!worktreeBranch && debrief?.includes('MERGE FAILED');
+  const canRetryMerge = (status === 'compromised' || status === 'abandoned') && !!worktreeBranch;
   const canSkipMission = status === 'compromised' && !!campaignId;
 
   const handleAbandon = async () => {
