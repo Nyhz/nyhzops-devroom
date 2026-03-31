@@ -1,22 +1,33 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, defineProject } from 'vitest/config';
 import path from 'node:path';
 
+const alias = { '@': path.resolve(__dirname, './src') };
+
 export default defineConfig({
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
-  },
   test: {
-    // Component tests use // @vitest-environment jsdom directive
-    // Server action / unit tests run in default node environment
-    setupFiles: [
-      './src/lib/test/setup.ts',
-      './src/lib/test/component-setup.ts',
-    ],
-    include: [
-      'src/**/*.test.ts',
-      'src/**/*.test.tsx',
+    projects: [
+      defineProject({
+        resolve: { alias },
+        test: {
+          name: 'node',
+          environment: 'node',
+          setupFiles: ['./src/lib/test/setup.ts'],
+          include: ['src/**/*.test.ts'],
+          exclude: ['src/hooks/__tests__/**'],
+        },
+      }),
+      defineProject({
+        resolve: { alias },
+        test: {
+          name: 'jsdom',
+          environment: 'jsdom',
+          setupFiles: [
+            './src/lib/test/setup.ts',
+            './src/lib/test/component-setup.ts',
+          ],
+          include: ['src/**/*.test.tsx', 'src/hooks/__tests__/*.test.ts'],
+        },
+      }),
     ],
   },
 });
