@@ -132,6 +132,7 @@ Detailed docs are split into topic files under `.devroom/`. Reference these when
 | `.devroom/spec-prompts.md` | All prompt templates (standard, campaign, conflict, debrief, bootstrap) |
 | `.devroom/spec-captain-and-comms.md` | Captain AI, notifications, Telegram, logistics, War Room |
 | `.devroom/accessibility-audit.md` | Contrast and size violation audit — theme tokens, per-file violations, recommended fixes |
+| `.devroom/testing.md` | Test strategy, conventions, how to run and write tests |
 
 ---
 
@@ -162,6 +163,19 @@ Notification = In-app + Telegram alert
 **Phases:** `STANDBY → ACTIVE → SECURED / COMPROMISED`
 
 **Campaigns:** `DRAFT → PLANNING → ACTIVE → ACCOMPLISHED / COMPROMISED / ABANDONED`
+
+### Testing
+
+See `.devroom/testing.md` for full strategy, templates, and coverage details.
+
+| Command | Action |
+|---------|--------|
+| `pnpm test` | Run all Vitest tests |
+| `pnpm test:watch` | Vitest in watch mode |
+| `pnpm test:e2e` | Playwright E2E tests |
+| `pnpm test:e2e:ui` | E2E tests with visual UI |
+
+**Rule:** All new Server Actions must have corresponding tests. All new interactive components should have component tests.
 
 ---
 
