@@ -3,7 +3,7 @@ services:
     image: devroom:latest
     build:
       context: .
-      target: dev
+      target: production
     container_name: devroom
     restart: unless-stopped
     environment:
@@ -18,12 +18,6 @@ services:
       # - DEVROOM_TELEGRAM_BOT_TOKEN=your-token
       # - DEVROOM_TELEGRAM_CHAT_ID=your-chat-id
     volumes:
-      # Source code — mounted from host for hot-reload
-      - .:/app
-
-      # Preserve container's node_modules (Linux native bindings, not macOS)
-      - devroom-node-modules:/app/node_modules
-
       # Persistent database (host directory — survives volume wipes, backed by Time Machine)
       - /Users/nyhzdev/devroom/devroom-data:/data
 
@@ -54,6 +48,5 @@ services:
       - devroom
 
 volumes:
-  devroom-node-modules:
   caddy-data:
   caddy-config:
