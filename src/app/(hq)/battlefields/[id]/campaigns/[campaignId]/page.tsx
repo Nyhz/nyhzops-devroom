@@ -4,6 +4,7 @@ import { assets, battlefields, missions, phases } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getCampaign } from '@/actions/campaign';
 import { getBriefingMessages } from '@/actions/briefing';
+import { getSuggestions } from '@/actions/follow-up';
 import { TacBadge } from '@/components/ui/tac-badge';
 import { BriefingChat } from '@/components/campaign/briefing-chat';
 import { CampaignControls } from '@/components/campaign/campaign-controls';
@@ -146,9 +147,16 @@ export default async function CampaignDetailPage({
       .orderBy(phases.phaseNumber, missions.createdAt)
       .all();
 
+    const campaignSuggestions = await getSuggestions({ campaignId });
+
     return (
       <PageWrapper breadcrumb={breadcrumb} title={campaign.name} actions={statusBadge}>
-        <CampaignResults missions={resultMissions} battlefieldId={id} />
+        <CampaignResults
+          missions={resultMissions}
+          battlefieldId={id}
+          campaignDebrief={campaign.debrief}
+          suggestions={campaignSuggestions}
+        />
         {controls}
       </PageWrapper>
     );

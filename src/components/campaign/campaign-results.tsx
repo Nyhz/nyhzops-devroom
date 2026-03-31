@@ -1,6 +1,8 @@
 import { formatDuration, formatTokens, formatCost } from '@/lib/utils';
 import { TacCard } from '@/components/ui/tac-card';
 import { Markdown } from '@/components/ui/markdown';
+import { FollowUpCards } from '@/components/follow-up/follow-up-cards';
+import type { FollowUpSuggestion } from '@/types';
 
 interface ResultMission {
   id: string;
@@ -19,9 +21,11 @@ interface ResultMission {
 interface CampaignResultsProps {
   missions: ResultMission[];
   battlefieldId?: string;
+  campaignDebrief?: string | null;
+  suggestions?: FollowUpSuggestion[];
 }
 
-export function CampaignResults({ missions, battlefieldId }: CampaignResultsProps) {
+export function CampaignResults({ missions, battlefieldId, campaignDebrief, suggestions }: CampaignResultsProps) {
   const totalDuration = missions.reduce((sum, m) => sum + (m.durationMs || 0), 0);
   const totalInput = missions.reduce((sum, m) => sum + (m.costInput || 0), 0);
   const totalOutput = missions.reduce((sum, m) => sum + (m.costOutput || 0), 0);
@@ -117,6 +121,25 @@ export function CampaignResults({ missions, battlefieldId }: CampaignResultsProp
           )}
         </div>
       ))}
+
+      {/* Campaign debrief */}
+      {campaignDebrief && (
+        <div className="border border-dr-border border-l-2 border-l-dr-amber">
+          <div className="bg-dr-elevated px-4 py-2 border-b border-dr-border">
+            <span className="text-dr-amber font-tactical text-sm tracking-wider">
+              CAMPAIGN DEBRIEF
+            </span>
+          </div>
+          <div className="px-4 py-3">
+            <Markdown content={campaignDebrief} className="text-xs" />
+          </div>
+        </div>
+      )}
+
+      {/* Follow-up suggestion cards */}
+      {suggestions && suggestions.length > 0 && (
+        <FollowUpCards suggestions={suggestions} />
+      )}
     </div>
   );
 }
