@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { config } from '@/lib/config';
 
@@ -11,7 +12,9 @@ interface RunClaudePrintOptions {
 }
 
 /**
- * Set up a temporary HOME with host-synced credentials for a Claude CLI process.
+ * Set up an isolated HOME for a Claude CLI process.
+ * Prevents concurrent config/session corruption when multiple agents run in parallel.
+ * Auth is handled natively via macOS Keychain (no credential file copying needed).
  * Returns the temp HOME path. Caller is responsible for cleanup.
  */
 export function createAuthenticatedHome(): string {
@@ -19,22 +22,17 @@ export function createAuthenticatedHome(): string {
   const tempClaudeDir = path.join(tempHome, '.claude');
   fs.mkdirSync(tempClaudeDir, { recursive: true });
 
-  const realHome = process.env.HOME || '/home/devroom';
+  const realHome = process.env.HOME || os.homedir();
 
-  // Copy .claude.json (profile info)
+  // Copy .claude.json (profile info — prevents concurrent write corruption)
   try {
     fs.copyFileSync(path.join(realHome, '.claude.json'), path.join(tempHome, '.claude.json'));
   } catch { /* fine */ }
 
-  // Copy settings
+  // Copy settings (read-only usage — prevents concurrent write corruption)
   try {
     fs.copyFileSync(path.join(realHome, '.claude', 'settings.json'), path.join(tempClaudeDir, 'settings.json'));
   } catch { /* fine */ }
-
-  // Copy host-synced credentials
-  try {
-    fs.copyFileSync(config.hostCredentialsPath, path.join(tempClaudeDir, '.credentials.json'));
-  } catch { /* no host credentials available */ }
 
   return tempHome;
 }

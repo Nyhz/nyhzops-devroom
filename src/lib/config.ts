@@ -10,7 +10,6 @@ export interface DevRoomConfig {
   telegramBotToken: string;
   telegramChatId: string;
   telegramEnabled: boolean;
-  hostCredentialsPath: string;
 }
 
 function loadConfig(): DevRoomConfig {
@@ -26,7 +25,6 @@ function loadConfig(): DevRoomConfig {
     telegramBotToken: process.env.DEVROOM_TELEGRAM_BOT_TOKEN || '',
     telegramChatId: process.env.DEVROOM_TELEGRAM_CHAT_ID || '',
     telegramEnabled: process.env.DEVROOM_TELEGRAM_ENABLED === 'true',
-    hostCredentialsPath: process.env.DEVROOM_HOST_CREDENTIALS_PATH || '/host-credentials/claude-credentials.json',
   };
 }
 

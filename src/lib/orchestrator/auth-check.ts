@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { config } from '@/lib/config';
 
@@ -10,7 +11,7 @@ interface AuthCheckResult {
 
 /**
  * Pre-flight auth check — verifies the Claude CLI can authenticate
- * using the host-synced credentials before spawning a mission.
+ * via macOS Keychain before spawning a mission.
  */
 export async function checkCliAuth(): Promise<AuthCheckResult> {
   const tempHome = `/tmp/claude-auth-check-${Date.now()}`;
@@ -20,19 +21,13 @@ export async function checkCliAuth(): Promise<AuthCheckResult> {
     fs.mkdirSync(tempClaudeDir, { recursive: true });
 
     // Copy .claude.json (profile info)
-    const realHome = process.env.HOME || '/home/devroom';
+    const realHome = process.env.HOME || os.homedir();
     try {
       fs.copyFileSync(path.join(realHome, '.claude.json'), path.join(tempHome, '.claude.json'));
     } catch { /* fine — not strictly required for auth check */ }
 
-    // Copy host-synced credentials
-    try {
-      fs.copyFileSync(config.hostCredentialsPath, path.join(tempClaudeDir, '.credentials.json'));
-    } catch {
-      return { ok: false, error: `Host credentials file not found: ${config.hostCredentialsPath}` };
-    }
-
     // Run claude auth status with isolated HOME
+    // Auth is handled natively via macOS Keychain — no credential file needed
     const result = await new Promise<AuthCheckResult>((resolve) => {
       const timeout = setTimeout(() => {
         proc.kill();

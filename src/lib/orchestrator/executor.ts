@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { createInterface } from 'readline';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { eq } from 'drizzle-orm';
 import { Server as SocketIOServer } from 'socket.io';
@@ -119,7 +120,7 @@ export async function executeMission(
         escalate({
           level: 'critical',
           title: 'CLI Authentication Lost',
-          detail: 'Queue paused. All missions held.\nCheck host credential sync and re-login if needed.',
+          detail: 'Queue paused. All missions held.\nCheck `claude auth status` and re-login if needed.',
           actions: [
             { label: 'UNPAUSE', handler: 'unpause' },
           ],
@@ -238,23 +239,17 @@ export async function executeMission(
 
     // Isolate Claude config per mission to prevent concurrent write corruption
     // and session ID collisions. Each mission gets its own HOME.
-    // Fresh missions: only auth + settings (no shared sessions).
-    // Continued missions: also symlink sessions so they can resume context.
+    // Auth is handled natively via macOS Keychain — no credential file copying needed.
     const missionHome = `/tmp/claude-config/${mission.id}`;
     const missionClaudeDir = path.join(missionHome, '.claude');
     fs.mkdirSync(missionClaudeDir, { recursive: true });
-    const realHome = process.env.HOME || '/home/devroom';
+    const realHome = process.env.HOME || os.homedir();
     try {
       fs.copyFileSync(path.join(realHome, '.claude.json'), path.join(missionHome, '.claude.json'));
     } catch { /* no .claude.json — fine */ }
-    // Copy settings from container HOME
     try {
       fs.copyFileSync(path.join(realHome, '.claude', 'settings.json'), path.join(missionClaudeDir, 'settings.json'));
     } catch { /* skip missing */ }
-    // Copy auth credentials from host-synced Keychain extract (Docker volume mount)
-    try {
-      fs.copyFileSync(config.hostCredentialsPath, path.join(missionClaudeDir, '.credentials.json'));
-    } catch { /* no host credentials — auth check will catch this */ }
 
     const proc = spawn(config.claudePath, args, {
       cwd: workingDirectory,
