@@ -25,8 +25,12 @@
 
 - Execute the task described above.
 - Commit with clear, descriptive messages.
-- Upon completion, provide a debrief addressed to the Commander:
-  what was done, what changed, risks, and recommended next actions.
+- Upon completion, provide a debrief addressed to the Commander.
+  Structure your debrief with these sections:
+  - What was done
+  - What changed (files modified)
+  - Risks or concerns
+  - ## Recommended Next Actions (bullet list of concrete follow-up tasks, if any)
 ```
 
 ## Campaign Mission
@@ -66,6 +70,11 @@
 - Other missions run in parallel. Stay within your assigned scope.
 - Commit with messages prefixed by mission title.
 - Provide debrief addressed to the Commander.
+  Structure your debrief with these sections:
+  - What was done
+  - What changed (files modified)
+  - Risks or concerns
+  - ## Recommended Next Actions (bullet list of concrete follow-up tasks, if any)
 ```
 
 ## Conflict Resolution
@@ -115,6 +124,7 @@ Produce a concise debrief addressed to "Commander":
 2. Issues or partial failures.
 3. Readiness for next phase.
 4. Recommended adjustments.
+5. Recommended next actions for the Commander (use heading: ## Recommended Next Actions)
 
 Under 300 words. Military briefing tone — factual, precise, actionable.
 ```
