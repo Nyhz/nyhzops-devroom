@@ -56,10 +56,25 @@ function getDiskUsage(): { used: number; total: number; percent: number } {
   }
 }
 
+function getMemoryUsed(): number {
+  // Parse vm_stat to match Activity Monitor's "Memory Used" (active + wired pages)
+  // os.freemem() counts file cache as "used" which inflates the number
+  try {
+    const output = execSync('vm_stat', { encoding: 'utf-8', timeout: 3000 });
+    const pageSize = parseInt(output.match(/page size of (\d+)/)?.[1] ?? '16384', 10);
+    const active = parseInt(output.match(/Pages active:\s+(\d+)/)?.[1] ?? '0', 10);
+    const wired = parseInt(output.match(/Pages wired down:\s+(\d+)/)?.[1] ?? '0', 10);
+    const compressor = parseInt(output.match(/Pages occupied by compressor:\s+(\d+)/)?.[1] ?? '0', 10);
+    return (active + wired + compressor) * pageSize;
+  } catch {
+    // Fallback to os module if vm_stat fails
+    return os.totalmem() - os.freemem();
+  }
+}
+
 function collectMetrics(): SystemMetrics {
   const totalMem = os.totalmem();
-  const freeMem = os.freemem();
-  const usedMem = totalMem - freeMem;
+  const usedMem = getMemoryUsed();
 
   const orchestrator = globalThis.orchestrator;
 
