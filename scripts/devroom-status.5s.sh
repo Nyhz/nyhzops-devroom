@@ -29,7 +29,7 @@ if [ -f "$MODE_FILE" ]; then
 fi
 
 CADDY_RUNNING=false
-if brew services info caddy 2>/dev/null | grep -q "running"; then
+if brew services info caddy 2>/dev/null | grep -qi "running"; then
   CADDY_RUNNING=true
 fi
 

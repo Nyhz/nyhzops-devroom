@@ -127,7 +127,7 @@ cmd_status() {
   echo ""
 
   # Caddy status
-  if brew services info caddy 2>/dev/null | grep -q "running"; then
+  if brew services info caddy 2>/dev/null | grep -qi "running"; then
     echo -e "  Caddy:   ${GREEN}RUNNING${RESET}"
   else
     echo -e "  Caddy:   ${RED}STOPPED${RESET}"
