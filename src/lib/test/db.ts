@@ -4,61 +4,42 @@ import * as schema from '@/lib/db/schema';
 import { getTableColumns, sql } from 'drizzle-orm';
 import type { SQLiteTableWithColumns } from 'drizzle-orm/sqlite-core';
 
-type TestDB = ReturnType<typeof drizzle<typeof schema>>;
+export type TestDB = ReturnType<typeof drizzle<typeof schema>>;
 
-const tables = [
-  schema.battlefields,
-  schema.missions,
-  schema.campaigns,
-  schema.phases,
-  schema.briefingSessions,
-  schema.briefingMessages,
-  schema.assets,
-  schema.missionLogs,
-  schema.scheduledTasks,
-  schema.dossiers,
-  schema.captainLogs,
-  schema.notifications,
-  schema.commandLogs,
-  schema.generalSessions,
-  schema.generalMessages,
-  schema.followUpSuggestions,
-  schema.intelNotes,
-];
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function createTableSQL(table: SQLiteTableWithColumns<any>): string {
-  const tableName = table[Symbol.for('drizzle:Name') as unknown as keyof typeof table] as string;
-  const columns = getTableColumns(table);
-  const colDefs: string[] = [];
-
-  for (const [, col] of Object.entries(columns)) {
-    const c = col as { name: string; columnType: string; primary: boolean; notNull: boolean; hasDefault: boolean; default?: unknown };
-    let colType = 'text';
-    if (c.columnType === 'SQLiteInteger') colType = 'integer';
-
-    let def = `"${c.name}" ${colType}`;
-    if (c.primary) def += ' primary key';
-    if (c.notNull && !c.primary) def += ' not null';
-    if (c.hasDefault && c.default !== undefined) {
-      const val = typeof c.default === 'string' ? `'${c.default}'` : c.default;
-      def += ` default ${val}`;
-    }
-    colDefs.push(def);
-  }
-
-  return `CREATE TABLE IF NOT EXISTS "${tableName}" (${colDefs.join(', ')})`;
-}
-
+/**
+ * Create a fresh in-memory SQLite database with all schema tables.
+ * Each call returns a fully isolated database instance.
+ */
 export function getTestDb(): { db: TestDB; sqlite: Database.Database } {
   const sqlite = new Database(':memory:');
   sqlite.pragma('journal_mode = WAL');
   sqlite.pragma('foreign_keys = OFF'); // Simpler for test isolation
+
   const db = drizzle(sqlite, { schema });
 
+  // Create all tables from schema metadata
+  const tables = [
+    schema.battlefields,
+    schema.campaigns,
+    schema.phases,
+    schema.assets,
+    schema.missions,
+    schema.missionLogs,
+    schema.captainLogs,
+    schema.intelNotes,
+    schema.followUpSuggestions,
+    schema.notifications,
+    schema.dossiers,
+    schema.scheduledTasks,
+    schema.commandLogs,
+    schema.briefingSessions,
+    schema.briefingMessages,
+    schema.generalSessions,
+    schema.generalMessages,
+  ];
+
   for (const table of tables) {
-    const ddl = createTableSQL(table);
-    sqlite.exec(ddl);
+    createTable(sqlite, table);
   }
 
   return { db, sqlite };
@@ -68,4 +49,43 @@ export function closeTestDb(sqlite: Database.Database): void {
   sqlite.close();
 }
 
-export type { TestDB };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createTable(sqlite: Database.Database, table: SQLiteTableWithColumns<any>) {
+  const tableName = table[Symbol.for('drizzle:Name') as unknown as keyof typeof table] as string;
+  const columns = getTableColumns(table);
+
+  const colDefs: string[] = [];
+
+  for (const [, col] of Object.entries(columns)) {
+    const colMeta = col as unknown as {
+      name: string;
+      primary: boolean;
+      notNull: boolean;
+      hasDefault: boolean;
+      default: unknown;
+      columnType: string;
+    };
+
+    let colType = 'text';
+    if (colMeta.columnType === 'SQLiteInteger') colType = 'integer';
+
+    let def = `"${colMeta.name}" ${colType}`;
+    if (colMeta.primary) def += ' PRIMARY KEY';
+    if (colMeta.notNull && !colMeta.primary) def += ' NOT NULL';
+    if (colMeta.hasDefault && colMeta.default !== undefined) {
+      const defaultVal = colMeta.default;
+      if (typeof defaultVal === 'object' && defaultVal !== null && 'queryChunks' in (defaultVal as object)) {
+        // SQL expression default — skip for test tables
+      } else if (typeof defaultVal === 'string') {
+        def += ` DEFAULT '${defaultVal}'`;
+      } else if (typeof defaultVal === 'number') {
+        def += ` DEFAULT ${defaultVal}`;
+      }
+    }
+
+    colDefs.push(def);
+  }
+
+  const createSql = `CREATE TABLE IF NOT EXISTS "${tableName}" (${colDefs.join(', ')})`;
+  sqlite.exec(createSql);
+}

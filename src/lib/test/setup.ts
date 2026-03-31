@@ -14,22 +14,17 @@ vi.mock('next/headers', () => ({
 
 // --- Mock globalThis.orchestrator ---
 globalThis.orchestrator = {
-  execute: vi.fn(),
-  abort: vi.fn(),
-  getStatus: vi.fn(),
-  executeMission: vi.fn(),
-  abortMission: vi.fn(),
+  onMissionQueued: vi.fn(),
+  onMissionAbort: vi.fn(),
   queueMission: vi.fn(),
-  getRunningMissions: vi.fn(() => []),
-  getQueuedMissions: vi.fn(() => []),
-  getRunningCount: vi.fn().mockReturnValue(0),
-  getQueuedCount: vi.fn().mockReturnValue(0),
+  abortMission: vi.fn(),
 } as unknown as typeof globalThis.orchestrator;
 
 // --- Mock globalThis.io (Socket.IO) ---
 const mockEmit = vi.fn();
 const mockTo = vi.fn(() => ({ emit: mockEmit }));
 const mockIn = vi.fn(() => ({ emit: mockEmit }));
+
 globalThis.io = {
   emit: mockEmit,
   to: mockTo,

@@ -28,9 +28,9 @@ export function createTestBattlefield(
     .insert(battlefields)
     .values({
       id,
-      name: 'Test Battlefield',
-      codename: 'TESTFIELD',
-      repoPath: '/tmp/test-repo',
+      name: `Test Battlefield ${id.slice(-4)}`,
+      codename: `TESTFIELD-${id.slice(-4)}`,
+      repoPath: `/tmp/test-repo-${id.slice(-4)}`,
       status: 'active',
       createdAt: now,
       updatedAt: now,
@@ -52,9 +52,10 @@ export function createTestMission(
     .values({
       id,
       battlefieldId,
-      title: 'Test Mission',
-      briefing: 'Test briefing content',
+      title: `Test Mission ${id.slice(-4)}`,
+      briefing: 'Test mission briefing content',
       status: 'standby',
+      priority: 'normal',
       createdAt: now,
       updatedAt: now,
       ...overrides,
@@ -75,8 +76,8 @@ export function createTestCampaign(
     .values({
       id,
       battlefieldId,
-      name: 'Test Campaign',
-      objective: 'Test objective',
+      name: `Test Campaign ${id.slice(-4)}`,
+      objective: 'Test campaign objective',
       status: 'draft',
       createdAt: now,
       updatedAt: now,
@@ -99,7 +100,8 @@ export function createTestPhase(
       id,
       campaignId,
       phaseNumber: 1,
-      name: 'Test Phase',
+      name: `Test Phase ${id.slice(-4)}`,
+      status: 'standby',
       createdAt: now,
       ...overrides,
     })
@@ -117,8 +119,9 @@ export function createTestAsset(
     .insert(assets)
     .values({
       id,
-      codename: `ASSET-${id.slice(-4)}`,
+      codename: `AGENT-${id.slice(-4)}`,
       specialty: 'testing',
+      status: 'active',
       createdAt: now,
       ...overrides,
     })
