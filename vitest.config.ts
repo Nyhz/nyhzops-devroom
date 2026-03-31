@@ -10,7 +10,10 @@ export default defineConfig({
   test: {
     // Component tests use // @vitest-environment jsdom directive
     // Server action / unit tests run in default node environment
-    setupFiles: ['./src/lib/test/action-setup.ts'],
+    setupFiles: [
+      './src/lib/test/action-setup.ts',
+      './src/lib/test/setup.ts',
+    ],
     include: [
       'src/**/*.test.ts',
       'src/**/*.test.tsx',
