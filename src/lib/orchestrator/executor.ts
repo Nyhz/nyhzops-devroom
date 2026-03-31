@@ -17,6 +17,7 @@ import { askCaptain } from '@/lib/captain/captain';
 import { storeCaptainLog, getRecentCaptainLogs } from '@/lib/captain/captain-db';
 import { escalate } from '@/lib/captain/escalation';
 import { runCaptainReview } from '@/lib/captain/review-handler';
+import { extractAndSaveSuggestions } from '@/actions/follow-up';
 import { getCaptainLogs } from '@/actions/captain';
 import type { Mission, StreamResult } from '@/types';
 import { checkCliAuth } from './auth-check';
@@ -558,13 +559,28 @@ export async function executeMission(
     } else {
       // No result message — process exited without proper completion
       const compromisedDebrief = `Process exited with code ${exitCode}. ${stderrOutput ? 'Stderr: ' + stderrOutput.slice(0, 500) : 'No output captured.'}`;
+      const finalDebrief = worktreeBranch
+        ? compromisedDebrief + `\nBranch \`${worktreeBranch}\` preserved for inspection.`
+        : compromisedDebrief;
       updateStatus('compromised', {
         completedAt: Date.now(),
-        debrief: worktreeBranch
-          ? compromisedDebrief + `\nBranch \`${worktreeBranch}\` preserved for inspection.`
-          : compromisedDebrief,
+        debrief: finalDebrief,
       });
       emitActivity('mission:compromised', `Mission compromised: ${mission.title}`);
+
+      // Extract follow-up suggestions from compromised debrief
+      extractAndSaveSuggestions({
+        battlefieldId: mission.battlefieldId,
+        missionId: mission.id,
+        campaignId: mission.campaignId ?? undefined,
+        debrief: finalDebrief,
+      }).then(suggestions => {
+        if (suggestions.length > 0) {
+          io.to(room).emit('mission:suggestions', { missionId: mission.id, suggestions });
+        }
+      }).catch(err => {
+        console.error(`[Executor] Suggestion extraction failed for mission ${mission.id}:`, err);
+      });
     }
 
   } catch (err) {
@@ -618,10 +634,30 @@ export async function executeMission(
 
     // Preserve branch info for compromised missions
     if (!isAbort && worktreeBranch) {
+      const branchDebrief = `Mission compromised: ${errorMsg}\nBranch \`${worktreeBranch}\` preserved for inspection.`;
       db.update(missions).set({
-        debrief: `Mission compromised: ${errorMsg}\nBranch \`${worktreeBranch}\` preserved for inspection.`,
+        debrief: branchDebrief,
         updatedAt: Date.now(),
       }).where(eq(missions.id, mission.id)).run();
+    }
+
+    // Extract follow-up suggestions from compromised debrief
+    if (!isAbort) {
+      const catchDebrief = worktreeBranch
+        ? `Mission compromised: ${errorMsg}\nBranch \`${worktreeBranch}\` preserved for inspection.`
+        : `Mission compromised: ${errorMsg}`;
+      extractAndSaveSuggestions({
+        battlefieldId: mission.battlefieldId,
+        missionId: mission.id,
+        campaignId: mission.campaignId ?? undefined,
+        debrief: catchDebrief,
+      }).then(suggestions => {
+        if (suggestions.length > 0) {
+          io.to(room).emit('mission:suggestions', { missionId: mission.id, suggestions });
+        }
+      }).catch(extractErr => {
+        console.error(`[Executor] Suggestion extraction failed for mission ${mission.id}:`, extractErr);
+      });
     }
   }
 }
