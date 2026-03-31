@@ -41,6 +41,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# playwright
+e2e/results/
+playwright-report/
+test-results/
+
 # DEVROOM
 devroom.db
 devroom.db-wal
