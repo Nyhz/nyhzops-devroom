@@ -78,6 +78,17 @@ async function start() {
     }
   }
 
+  // Re-trigger Captain review for missions stuck in reviewing
+  const { runCaptainReview } = await import('./src/lib/captain/review-handler');
+  const reviewingMissions = db.select().from(missions)
+    .where(eq(missions.status, 'reviewing')).all();
+  for (const m of reviewingMissions) {
+    console.log(`[DEVROOM] Mission ${m.id} re-triggering Captain review — was reviewing when server stopped`);
+    runCaptainReview(m.id).catch(err => {
+      console.error(`[DEVROOM] Captain review retry failed for ${m.id}:`, err);
+    });
+  }
+
   // Pause active campaigns (they'll resume their orphaned missions when unpaused)
   const activeCampaigns = db.select().from(campaigns)
     .where(eq(campaigns.status, 'active')).all();
