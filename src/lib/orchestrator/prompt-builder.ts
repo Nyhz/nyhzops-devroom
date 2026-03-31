@@ -71,6 +71,40 @@ function buildCampaignMissionPrompt(
         ? prevPhaseSections.join('\n\n---\n\n')
         : 'This is Phase 1 — no previous work to reference.';
 
+      // Build sibling missions context (current phase, excluding self)
+      const currentPhaseMissions = db.select().from(missionsTable)
+        .where(eq(missionsTable.phaseId, phase.id))
+        .all()
+        .filter(m => m.id !== mission.id);
+
+      let siblingContext = '';
+      if (currentPhaseMissions.length > 0) {
+        const siblingLines = currentPhaseMissions
+          .map(m => `- ${m.title} (${m.status})`)
+          .join('\n');
+        siblingContext = `### Other Missions in This Phase\n${siblingLines}`;
+      }
+
+      // Build future phases context
+      const futurePhases = db.select().from(phases)
+        .where(eq(phases.campaignId, campaign.id))
+        .orderBy(phases.phaseNumber)
+        .all()
+        .filter(p => p.phaseNumber > phase.phaseNumber);
+
+      let futureContext = '';
+      if (futurePhases.length > 0) {
+        const futureLines: string[] = [];
+        for (const fp of futurePhases) {
+          const fpMissions = db.select().from(missionsTable)
+            .where(eq(missionsTable.phaseId, fp.id))
+            .all();
+          const missionList = fpMissions.map(m => `  - ${m.title}`).join('\n');
+          futureLines.push(`**Phase ${fp.phaseNumber}: ${fp.name}**\n${missionList}`);
+        }
+        futureContext = `### Upcoming Phases\n${futureLines.join('\n\n')}`;
+      }
+
       phaseContext = [
         '## Campaign Context',
         '',
@@ -80,6 +114,10 @@ function buildCampaignMissionPrompt(
         '',
         '### Previous Phase Results',
         prevContext,
+        ...(siblingContext ? ['', siblingContext] : []),
+        ...(futureContext ? ['', futureContext] : []),
+        '',
+        '*Do not recommend actions that are already covered by missions listed above.*',
       ].join('\n');
     }
   }
