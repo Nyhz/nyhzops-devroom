@@ -88,6 +88,7 @@ export default async function MissionDetailPage({
         initialSessionId={mission.sessionId || null}
         campaignId={mission.campaignId}
         briefing={mission.briefing}
+        worktreeBranch={mission.worktreeBranch}
       />
 
       {/* Follow-Up Suggestions */}

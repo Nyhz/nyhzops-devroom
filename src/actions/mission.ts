@@ -469,3 +469,88 @@ export async function removeMission(id: string): Promise<{ battlefieldId: string
 
   return { battlefieldId };
 }
+
+/**
+ * Retry merging a mission's worktree branch after a previous merge failure.
+ * Only works on compromised missions that have a preserved worktree branch.
+ */
+export async function retryMerge(missionId: string): Promise<void> {
+  const db = getDatabase();
+  const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
+  if (!mission) throw new Error('Mission not found');
+  if (mission.status !== 'compromised') throw new Error('Mission is not compromised');
+  if (!mission.worktreeBranch) throw new Error('No worktree branch to merge');
+
+  const battlefield = db.select().from(battlefields)
+    .where(eq(battlefields.id, mission.battlefieldId)).get();
+  if (!battlefield) throw new Error('Battlefield not found');
+
+  const { mergeBranch } = await import('@/lib/orchestrator/merger');
+  const { removeWorktree } = await import('@/lib/orchestrator/worktree');
+  const path = await import('path');
+  const fs = await import('fs');
+
+  // Update status to reviewing while merge is in progress
+  db.update(missions).set({ status: 'reviewing', updatedAt: Date.now() })
+    .where(eq(missions.id, missionId)).run();
+
+  const mergeResult = await mergeBranch(
+    battlefield.repoPath,
+    mission.worktreeBranch,
+    battlefield.defaultBranch || 'main',
+    mission as Mission,
+    battlefield.claudeMdPath,
+  );
+
+  if (mergeResult.success) {
+    // Clean up worktree
+    const worktreePath = path.join(
+      battlefield.repoPath, '.worktrees',
+      mission.worktreeBranch.replace(/\//g, '-'),
+    );
+    try {
+      await removeWorktree(battlefield.repoPath, worktreePath, mission.worktreeBranch);
+    } catch { /* best effort */ }
+
+    // Clean up isolated HOME
+    try {
+      fs.rmSync(`/tmp/claude-config/${missionId}`, { recursive: true, force: true });
+    } catch { /* best effort */ }
+
+    // Promote to accomplished
+    db.update(missions).set({
+      status: 'accomplished',
+      completedAt: Date.now(),
+      updatedAt: Date.now(),
+    }).where(eq(missions.id, missionId)).run();
+
+    const logMsg = mergeResult.conflictResolved
+      ? `[RETRY MERGE] Merged ${mission.worktreeBranch} (conflicts auto-resolved). Worktree cleaned up.`
+      : `[RETRY MERGE] Merged ${mission.worktreeBranch}. Worktree cleaned up.`;
+
+    db.insert(missionLogs).values({
+      id: generateId(),
+      missionId,
+      timestamp: Date.now(),
+      type: 'status',
+      content: logMsg,
+    }).run();
+
+    // Notify campaign executor if applicable
+    if (mission.campaignId) {
+      const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
+      if (executor) {
+        executor.onCampaignMissionComplete(missionId).catch(() => {});
+      }
+    }
+  } else {
+    // Merge failed again
+    db.update(missions).set({
+      status: 'compromised',
+      debrief: (mission.debrief || '') + `\n\n---\n\nRETRY MERGE FAILED: ${mergeResult.error}\nBranch \`${mission.worktreeBranch}\` preserved for inspection.`,
+      updatedAt: Date.now(),
+    }).where(eq(missions.id, missionId)).run();
+  }
+
+  revalidatePath(`/battlefields/${mission.battlefieldId}/missions/${missionId}`);
+}

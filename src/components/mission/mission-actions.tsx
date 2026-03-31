@@ -11,6 +11,7 @@ import {
   continueMission,
   deployMission,
   removeMission,
+  retryMerge,
 } from '@/actions/mission';
 import { tacticalOverride, skipMission, commanderOverride } from '@/actions/campaign';
 import { tacTooltip } from '@/components/ui/tac-tooltip';
@@ -22,6 +23,8 @@ interface MissionActionsProps {
   sessionId: string | null;
   campaignId?: string | null;
   briefing?: string;
+  worktreeBranch?: string | null;
+  debrief?: string | null;
 }
 
 export function MissionActions({
@@ -31,6 +34,8 @@ export function MissionActions({
   sessionId,
   campaignId,
   briefing,
+  worktreeBranch,
+  debrief,
 }: MissionActionsProps) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
@@ -45,6 +50,7 @@ export function MissionActions({
   const canContinue =
     (status === 'accomplished' || status === 'compromised') && sessionId != null;
   const canTacticalOverride = status === 'compromised' || status === 'abandoned';
+  const canRetryMerge = status === 'compromised' && !!worktreeBranch && debrief?.includes('MERGE FAILED');
   const canSkipMission = status === 'compromised' && !!campaignId;
 
   const handleAbandon = async () => {
@@ -203,6 +209,27 @@ export function MissionActions({
               disabled={isPending}
             >
               APPROVE
+            </TacButton>
+          )}
+          {canRetryMerge && (
+            <TacButton
+              variant="primary"
+              {...tacTooltip('Retry merging the worktree branch into the target branch.')}
+              onClick={async () => {
+                setIsPending(true);
+                try {
+                  await retryMerge(missionId);
+                  toast.success('Branch merged — mission accomplished');
+                  router.refresh();
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'Merge failed');
+                } finally {
+                  setIsPending(false);
+                }
+              }}
+              disabled={isPending}
+            >
+              {isPending ? 'MERGING...' : 'RETRY MERGE'}
             </TacButton>
           )}
           {canSkipMission && (
