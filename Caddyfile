@@ -1,6 +1,6 @@
 devroom.lan {
 	tls internal
-	reverse_proxy devroom:7777 {
+	reverse_proxy localhost:7777 {
 		transport http {
 			versions 1.1
 		}
