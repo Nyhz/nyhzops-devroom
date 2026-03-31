@@ -69,5 +69,5 @@ export function useCampaignComms(
     };
   }, [socket, campaignId, reconnectKey]);
 
-  return { status, phaseStatuses, phaseDebriefs, missionStatuses };
+  return { status, phaseStatuses, phaseDebriefs, missionStatuses, socket };
 }

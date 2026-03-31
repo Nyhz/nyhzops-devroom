@@ -105,6 +105,7 @@ export default async function CampaignDetailPage({
           initialStatus={status}
           initialPhases={campaign.phases}
           battlefieldId={id}
+          stallReason={campaign.stallReason}
         />
         {controls}
       </PageWrapper>

@@ -1,9 +1,12 @@
 'use client';
 
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCampaignComms } from '@/hooks/use-campaign-comms';
 import { PhaseTimeline } from '@/components/campaign/phase-timeline';
+import { TacButton } from '@/components/ui/tac-button';
+import { retryPhaseDebrief, skipPhaseDebrief } from '@/actions/campaign';
+import { toast } from 'sonner';
 import type { CampaignStatus } from '@/types';
 
 interface CampaignLiveViewProps {
@@ -30,6 +33,7 @@ interface CampaignLiveViewProps {
     }>;
   }>;
   battlefieldId: string;
+  stallReason?: string | null;
 }
 
 const TERMINAL_STATUSES: CampaignStatus[] = ['accomplished', 'compromised'];
@@ -39,11 +43,31 @@ export function CampaignLiveView({
   initialStatus,
   initialPhases,
   battlefieldId,
+  stallReason: initialStallReason,
 }: CampaignLiveViewProps) {
   const router = useRouter();
+  const [stallReason, setStallReason] = useState(initialStallReason ?? null);
+  const [isPending, setIsPending] = useState(false);
 
-  const { status, phaseStatuses, phaseDebriefs, missionStatuses } =
+  const { status, phaseStatuses, phaseDebriefs, missionStatuses, socket } =
     useCampaignComms(campaignId, initialStatus);
+
+  // Listen for stall events
+  useEffect(() => {
+    if (!socket) return;
+    const onStalled = (data: { reason: string }) => {
+      setStallReason(data.reason);
+    };
+    socket.on('campaign:stalled', onStalled);
+    return () => { socket.off('campaign:stalled', onStalled); };
+  }, [socket]);
+
+  // Clear stall reason when campaign becomes active again
+  useEffect(() => {
+    if (status === 'active') {
+      setStallReason(null);
+    }
+  }, [status]);
 
   // Merge live statuses onto initial phase data
   const mergedPhases = useMemo(() => {
@@ -76,6 +100,58 @@ export function CampaignLiveView({
       {status === 'active' && (
         <div className="bg-dr-surface border border-dr-amber/30 px-4 py-2 font-tactical text-sm text-dr-amber">
           ACTIVE{activePhase ? ` — Phase ${activePhase.phaseNumber} in progress` : ''}
+        </div>
+      )}
+      {status === 'paused' && stallReason && (
+        <div className="bg-dr-surface border border-dr-amber/30 px-4 py-3 space-y-2">
+          <div className="font-tactical text-sm text-dr-amber">
+            STALLED — {stallReason}
+          </div>
+          <div className="flex gap-3">
+            <TacButton
+              variant="primary"
+              size="sm"
+              onClick={async () => {
+                setIsPending(true);
+                try {
+                  await retryPhaseDebrief(campaignId);
+                  toast.success('Retrying debrief generation...');
+                  router.refresh();
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'Retry failed');
+                } finally {
+                  setIsPending(false);
+                }
+              }}
+              disabled={isPending}
+            >
+              {isPending ? 'RETRYING...' : 'RETRY DEBRIEF'}
+            </TacButton>
+            <TacButton
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                setIsPending(true);
+                try {
+                  await skipPhaseDebrief(campaignId);
+                  toast('Debrief skipped — advancing to next phase');
+                  router.refresh();
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'Skip failed');
+                } finally {
+                  setIsPending(false);
+                }
+              }}
+              disabled={isPending}
+            >
+              SKIP DEBRIEF
+            </TacButton>
+          </div>
+        </div>
+      )}
+      {status === 'paused' && !stallReason && (
+        <div className="bg-dr-surface border border-dr-amber/30 px-4 py-2 font-tactical text-sm text-dr-amber">
+          PAUSED
         </div>
       )}
       {status === 'compromised' && (

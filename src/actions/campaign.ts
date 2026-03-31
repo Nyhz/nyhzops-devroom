@@ -935,3 +935,90 @@ export async function skipMission(missionId: string): Promise<void> {
 
   revalidatePath(`/battlefields/${mission.battlefieldId}`);
 }
+
+// ---------------------------------------------------------------------------
+// retryPhaseDebrief — Retry debrief generation for a stalled campaign
+// ---------------------------------------------------------------------------
+
+export async function retryPhaseDebrief(campaignId: string): Promise<void> {
+  const db = getDatabase();
+  const campaign = getOrThrow(campaigns, campaignId, 'retryPhaseDebrief');
+
+  if (campaign.status !== 'paused' || !campaign.stalledPhaseId) {
+    throw new Error('Campaign is not stalled');
+  }
+
+  // Clear stall state and reactivate
+  db.update(campaigns).set({
+    status: 'active',
+    stallReason: null,
+    stalledPhaseId: null,
+    updatedAt: Date.now(),
+  }).where(eq(campaigns.id, campaignId)).run();
+
+  // Re-trigger generateAndAdvance via the campaign executor
+  const executor = globalThis.orchestrator?.activeCampaigns.get(campaignId);
+  if (executor) {
+    executor.retryGenerateAndAdvance(campaign.stalledPhaseId).catch((err: Error) => {
+      console.error('[Campaign] Retry phase debrief failed:', err);
+    });
+  } else {
+    globalThis.orchestrator?.startCampaign(campaignId);
+  }
+
+  revalidateCampaignPaths(campaign.battlefieldId, campaignId);
+}
+
+// ---------------------------------------------------------------------------
+// skipPhaseDebrief — Skip debrief and advance to next phase
+// ---------------------------------------------------------------------------
+
+export async function skipPhaseDebrief(campaignId: string): Promise<void> {
+  const db = getDatabase();
+  const campaign = getOrThrow(campaigns, campaignId, 'skipPhaseDebrief');
+
+  if (campaign.status !== 'paused' || !campaign.stalledPhaseId) {
+    throw new Error('Campaign is not stalled');
+  }
+
+  const phaseId = campaign.stalledPhaseId;
+
+  // Write a fallback debrief from mission debriefs
+  const phaseMissions = db.select().from(missions)
+    .where(eq(missions.phaseId, phaseId)).all();
+  const phase = db.select().from(phases)
+    .where(eq(phases.id, phaseId)).get();
+
+  if (phase) {
+    const fallback = [
+      `PHASE DEBRIEF — ${phase.name} (Skipped by Commander)`,
+      '',
+      ...phaseMissions.map(m =>
+        `### ${m.title} (${m.status})\n${m.debrief || 'No debrief available.'}`,
+      ),
+    ].join('\n\n');
+
+    db.update(phases).set({ debrief: fallback })
+      .where(eq(phases.id, phaseId)).run();
+  }
+
+  // Clear stall state and reactivate
+  db.update(campaigns).set({
+    status: 'active',
+    stallReason: null,
+    stalledPhaseId: null,
+    updatedAt: Date.now(),
+  }).where(eq(campaigns.id, campaignId)).run();
+
+  // Advance to next phase
+  const executor = globalThis.orchestrator?.activeCampaigns.get(campaignId);
+  if (executor) {
+    executor.retryAdvanceToNextPhase().catch((err: Error) => {
+      console.error('[Campaign] Skip + advance failed:', err);
+    });
+  } else {
+    globalThis.orchestrator?.startCampaign(campaignId);
+  }
+
+  revalidateCampaignPaths(campaign.battlefieldId, campaignId);
+}

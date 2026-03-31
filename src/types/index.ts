@@ -22,7 +22,7 @@ import type {
 // ---------------------------------------------------------------------------
 export type BattlefieldStatus = 'initializing' | 'active' | 'archived';
 export type MissionStatus = 'standby' | 'queued' | 'deploying' | 'in_combat' | 'reviewing' | 'accomplished' | 'compromised' | 'abandoned';
-export type CampaignStatus = 'draft' | 'planning' | 'active' | 'accomplished' | 'compromised' | 'abandoned';
+export type CampaignStatus = 'draft' | 'planning' | 'active' | 'paused' | 'accomplished' | 'compromised' | 'abandoned';
 export type PhaseStatus = 'standby' | 'active' | 'secured' | 'compromised';
 export type AssetStatus = 'active' | 'offline';
 export type MissionType = 'standard' | 'bootstrap' | 'conflict_resolution' | 'phase_debrief';

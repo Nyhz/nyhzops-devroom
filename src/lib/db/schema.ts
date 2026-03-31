@@ -68,6 +68,8 @@ export const campaigns = sqliteTable('campaigns', {
   isTemplate: integer('is_template').default(0),
   templateId: text('template_id'),
   debrief: text('debrief'),
+  stallReason: text('stall_reason'),
+  stalledPhaseId: text('stalled_phase_id'),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });

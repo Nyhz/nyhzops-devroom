@@ -516,10 +516,10 @@ export class CampaignExecutor {
 
     console.log(`[Campaign] ${this.campaignId} — Phase ${phase.phaseNumber} secured.`);
 
-    // Fire-and-forget: generate debrief then advance
-    // Don't block — emit secured immediately, debrief generation may take 15-30s
+    // Generate debrief then advance — non-blocking but with error recovery
     this.generateAndAdvance(phaseId).catch(err => {
       console.error('[Campaign] Phase advance failed:', err);
+      this.stallCampaign(phaseId, `Phase debrief generation failed: ${err instanceof Error ? err.message : String(err)}`);
     });
   }
 
@@ -527,12 +527,27 @@ export class CampaignExecutor {
   // Private: generateAndAdvance
   // ---------------------------------------------------------------------------
 
+  /** Retry wrapper for stalled campaigns — called from server actions. */
+  async retryGenerateAndAdvance(phaseId: string): Promise<void> {
+    return this.generateAndAdvance(phaseId);
+  }
+
+  /** Retry wrapper for skip-debrief — called from server actions. */
+  async retryAdvanceToNextPhase(): Promise<void> {
+    return this.advanceToNextPhase();
+  }
+
   /**
    * Async wrapper: generate phase debrief then advance to next phase.
-   * Called fire-and-forget from onPhaseComplete so event handlers aren't blocked.
+   * Called from onPhaseComplete — stalls campaign on failure so Commander can intervene.
    */
   private async generateAndAdvance(phaseId: string): Promise<void> {
-    await this.generatePhaseDebrief(phaseId);
+    try {
+      await this.generatePhaseDebrief(phaseId);
+    } catch (err) {
+      this.stallCampaign(phaseId, `Phase debrief generation failed: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
 
     // Emit debrief event
     const db = getDatabase();
@@ -547,7 +562,44 @@ export class CampaignExecutor {
       });
     }
 
-    await this.advanceToNextPhase();
+    try {
+      await this.advanceToNextPhase();
+    } catch (err) {
+      this.stallCampaign(phaseId, `Phase advancement failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  /**
+   * Stall the campaign — pause with a reason so the UI can show recovery options.
+   */
+  private stallCampaign(phaseId: string, reason: string): void {
+    const db = getDatabase();
+    db.update(campaigns).set({
+      status: 'paused',
+      stallReason: reason,
+      stalledPhaseId: phaseId,
+      updatedAt: Date.now(),
+    }).where(eq(campaigns.id, this.campaignId)).run();
+
+    this.emitCampaignStatus('paused');
+
+    this.io.to(`campaign:${this.campaignId}`).emit('campaign:stalled', {
+      campaignId: this.campaignId,
+      phaseId,
+      reason,
+    });
+
+    console.log(`[Campaign] ${this.campaignId} — STALLED: ${reason}`);
+
+    escalate({
+      level: 'warning',
+      title: `Campaign Stalled: ${this.campaignId}`,
+      detail: reason,
+      entityType: 'campaign',
+      entityId: this.campaignId,
+    }).catch(err => {
+      console.error('[Campaign] Stall escalation failed:', err);
+    });
   }
 
   // ---------------------------------------------------------------------------
