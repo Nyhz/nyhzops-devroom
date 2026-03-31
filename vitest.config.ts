@@ -8,9 +8,6 @@ export default defineConfig({
     },
   },
   test: {
-    // Component tests use // @vitest-environment jsdom directive
-    // Server action / unit tests run in default node environment
-    setupFiles: ['./src/lib/test/component-setup.ts'],
     include: [
       'src/**/*.test.ts',
       'src/**/*.test.tsx',
