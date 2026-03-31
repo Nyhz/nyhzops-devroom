@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { eq, and, desc, isNull, sql } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
-import { intelNotes, missions, assets } from '@/lib/db/schema';
+import { intelNotes, missions, assets, followUpSuggestions } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import type { IntelNote, IntelNoteWithMission, IntelNoteColumn } from '@/types';
 
@@ -145,11 +145,11 @@ export async function deleteNote(noteId: string): Promise<void> {
   const db = getDatabase();
   const note = getOrThrow(intelNotes, noteId, 'deleteNote');
 
-  if (note.missionId) {
-    throw new Error(
-      `deleteNote: note ${noteId} is linked to a mission and cannot be deleted`,
-    );
-  }
+  // Clear any follow_up_suggestions that reference this note
+  db.update(followUpSuggestions)
+    .set({ intelNoteId: null })
+    .where(eq(followUpSuggestions.intelNoteId, noteId))
+    .run();
 
   db.delete(intelNotes).where(eq(intelNotes.id, noteId)).run();
 
