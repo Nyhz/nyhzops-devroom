@@ -8,20 +8,14 @@ import {
 } from '@/lib/test/fixtures';
 import { followUpSuggestions, intelNotes } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { createMockDbModule } from '@/lib/test/mock-db';
 import type Database from 'better-sqlite3';
 
 let db: TestDB;
 let sqlite: Database.Database;
 
 // Mock the DB module to inject test database
-vi.mock('@/lib/db/index', () => ({
-  getDatabase: () => db,
-  getOrThrow: (table: { id: unknown }, id: string, label: string) => {
-    const row = db.select().from(table).where(eq(table.id, id)).get();
-    if (!row) throw new Error(`${label}: ${id} not found`);
-    return row;
-  },
-}));
+vi.mock('@/lib/db/index', () => createMockDbModule(() => db));
 
 // Mock generateId
 let idCounter = 0;

@@ -10,6 +10,7 @@ import {
 } from '@/lib/test/fixtures';
 import { campaigns, phases, missions, intelNotes, missionLogs } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { createMockDbModule } from '@/lib/test/mock-db';
 import type { DB } from '@/lib/db/index';
 import type { PlanJSON } from '@/types';
 
@@ -50,14 +51,7 @@ vi.mock('@/lib/orchestrator/campaign-executor', () => ({
 let testDb: DB;
 let sqlite: Database.Database;
 
-vi.mock('@/lib/db/index', () => ({
-  getDatabase: () => testDb,
-  getOrThrow: (table: { id: unknown }, id: string, label: string) => {
-    const row = testDb.select().from(table).where(eq(table.id, id)).get();
-    if (!row) throw new Error(`${label}: ${id} not found`);
-    return row;
-  },
-}));
+vi.mock('@/lib/db/index', () => createMockDbModule(() => testDb));
 
 // ---------------------------------------------------------------------------
 // Mock globalThis.orchestrator and io

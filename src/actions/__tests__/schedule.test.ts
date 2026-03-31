@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from '@/lib/db/schema';
+import { createMockDbModule } from '@/lib/test/mock-db';
 
 // ---------------------------------------------------------------------------
 // In-memory test database
@@ -116,15 +117,7 @@ function createTestDb() {
 // Mock @/lib/db/index — must be before imports of the module under test
 // ---------------------------------------------------------------------------
 
-vi.mock('@/lib/db/index', () => ({
-  getDatabase: vi.fn(() => testDb),
-  getOrThrow: vi.fn((table: schema.ScheduledTasks extends never ? never : typeof schema.scheduledTasks, id: string, label: string) => {
-    const { eq } = require('drizzle-orm');
-    const row = testDb.select().from(table).where(eq(table.id, id)).get();
-    if (!row) throw new Error(`${label}: ${id} not found`);
-    return row;
-  }),
-}));
+vi.mock('@/lib/db/index', () => createMockDbModule(() => testDb));
 
 // ---------------------------------------------------------------------------
 // Import after mocks

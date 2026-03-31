@@ -3,6 +3,7 @@ import { getTestDb, closeTestDb } from '@/lib/test/db';
 import { createTestBattlefield, createTestMission, createTestAsset } from '@/lib/test/fixtures';
 import { missions, intelNotes, missionLogs, captainLogs } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { createMockDbModule } from '@/lib/test/mock-db';
 import type Database from 'better-sqlite3';
 import type { DB } from '@/lib/db/index';
 
@@ -12,14 +13,7 @@ import type { DB } from '@/lib/db/index';
 let testDb: DB;
 let testSqlite: Database.Database;
 
-vi.mock('@/lib/db/index', () => ({
-  getDatabase: () => testDb,
-  getOrThrow: (table: { id: unknown }, id: string, label: string) => {
-    const row = testDb.select().from(table).where(eq(table.id, id)).get();
-    if (!row) throw new Error(`${label}: ${id} not found`);
-    return row;
-  },
-}));
+vi.mock('@/lib/db/index', () => createMockDbModule(() => testDb));
 
 vi.mock('@/lib/utils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/utils')>();
