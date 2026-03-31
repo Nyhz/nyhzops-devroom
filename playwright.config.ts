@@ -23,6 +23,7 @@ export default defineConfig({
     reuseExistingServer: true,
     env: {
       E2E_TEST_MODE: 'true',
+      DEVROOM_PORT: '3000',
     },
   },
 });
