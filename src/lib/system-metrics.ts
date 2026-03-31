@@ -42,7 +42,8 @@ function computeCoreUsage(): number[] {
 
 function getDiskUsage(): { used: number; total: number; percent: number } {
   try {
-    const output = execSync('df -k /', { encoding: 'utf-8', timeout: 3000 });
+    // Use /System/Volumes/Data on macOS — df -k / reports the read-only system snapshot
+    const output = execSync('df -k /System/Volumes/Data', { encoding: 'utf-8', timeout: 3000 });
     const lines = output.trim().split('\n');
     // Second line has the data; columns: Filesystem 1K-blocks Used Available Use% Mounted
     const parts = lines[1].split(/\s+/);
