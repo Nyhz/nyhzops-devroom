@@ -535,6 +535,35 @@ export async function launchCampaign(
   const { deleteBriefingData } = await import('@/lib/briefing/briefing-engine');
   deleteBriefingData(campaignId);
 
+  // Replace original backlog notes with mission-linked notes.
+  // The original notes (selected from the intel board) no longer match the actual
+  // missions after planning with GENERAL. Delete them and create new notes that
+  // track real mission status on the board.
+  const originalNotes = db.select().from(intelNotes)
+    .where(eq(intelNotes.campaignId, campaignId)).all();
+  for (const note of originalNotes) {
+    db.delete(intelNotes).where(eq(intelNotes.id, note.id)).run();
+  }
+
+  // Create a note for each mission in the campaign
+  const now = Date.now();
+  const allCampaignMissions = db.select().from(missions)
+    .where(eq(missions.campaignId, campaignId)).all();
+  for (const m of allCampaignMissions) {
+    db.insert(intelNotes).values({
+      id: generateId(),
+      battlefieldId: campaign.battlefieldId,
+      title: m.title,
+      description: m.briefing,
+      column: 'planned',
+      missionId: m.id,
+      campaignId,
+      position: 0,
+      createdAt: now,
+      updatedAt: now,
+    }).run();
+  }
+
   // Trigger orchestrator to begin campaign execution
   globalThis.orchestrator?.startCampaign(campaignId);
 
