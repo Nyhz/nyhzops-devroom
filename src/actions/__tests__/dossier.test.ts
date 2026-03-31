@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { getTestDb, closeTestDb } from '@/lib/test/db';
 import { createTestDossier } from '@/lib/test/fixtures';
 import type Database from 'better-sqlite3';
-import type { DB } from '@/lib/db/index';
+import type { TestDB } from '@/lib/test/db';
 
-let db: DB;
+let db: TestDB;
 let sqlite: Database.Database;
 
 // Mock db module to return test database
