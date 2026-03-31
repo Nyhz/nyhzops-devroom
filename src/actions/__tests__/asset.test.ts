@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { getTestDb, closeTestDb } from '@/lib/test/db';
 import { createTestBattlefield, createTestAsset, createTestMission } from '@/lib/test/fixtures';
+import { createMockDbModule } from '@/lib/test/mock-db';
 import type Database from 'better-sqlite3';
 import type { TestDB } from '@/lib/test/db';
 
@@ -8,17 +9,7 @@ let db: TestDB;
 let sqlite: Database.Database;
 
 // Mock db module to return test database
-vi.mock('@/lib/db/index', async () => {
-  const { eq } = await import('drizzle-orm');
-  return {
-    getDatabase: () => db,
-    getOrThrow: (table: { id: unknown }, id: string, label: string) => {
-      const row = db.select().from(table).where(eq(table.id, id)).get();
-      if (!row) throw new Error(`${label}: ${id} not found`);
-      return row;
-    },
-  };
-});
+vi.mock('@/lib/db/index', () => createMockDbModule(() => db));
 
 // Import actions after mocking
 const { getAssetDeployment, createAsset, updateAsset, toggleAssetStatus, deleteAsset } =
