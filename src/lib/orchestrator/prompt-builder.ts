@@ -116,11 +116,12 @@ function buildCampaignMissionPrompt(
     '4. **COMMIT DISCIPLINE.** Commit with clear, descriptive messages. Only commit files related to',
     '   your mission objective.',
     '',
-    '5. **DEBRIEF IS MANDATORY.** Upon completion, provide a debrief addressed to the Commander:',
+    '5. **DEBRIEF IS MANDATORY.** Upon completion, provide a debrief addressed to the Commander.',
+    '   Structure your debrief with these sections:',
     '   - What was done (precise changes, not summaries)',
     '   - What changed (files modified)',
     '   - Risks (anything that could break)',
-    '   - Recommended next actions (issues you observed but did NOT fix)',
+    '   - ## Recommended Next Actions (bullet list of concrete follow-up tasks, if any)',
     '',
     '- Other missions may run in parallel. Stay within your assigned scope.',
   ].join('\n'));
@@ -245,11 +246,12 @@ export function buildPrompt(
     '4. **COMMIT DISCIPLINE.** Commit with clear, descriptive messages. Only commit files related to',
     '   your mission objective.',
     '',
-    '5. **DEBRIEF IS MANDATORY.** Upon completion, provide a debrief addressed to the Commander:',
+    '5. **DEBRIEF IS MANDATORY.** Upon completion, provide a debrief addressed to the Commander.',
+    '   Structure your debrief with these sections:',
     '   - What was done (precise changes, not summaries)',
     '   - What changed (files modified)',
     '   - Risks (anything that could break)',
-    '   - Recommended next actions (issues you observed but did NOT fix)',
+    '   - ## Recommended Next Actions (bullet list of concrete follow-up tasks, if any)',
   ].join('\n');
   sections.push(parameters);
 

@@ -613,6 +613,7 @@ export class CampaignExecutor {
       '2. Issues or partial failures.',
       '3. Readiness for next phase.',
       '4. Recommended adjustments.',
+      '5. Recommended next actions for the Commander (use heading: ## Recommended Next Actions)',
       '',
       'Under 300 words. Military briefing tone — factual, precise, actionable.',
     ].join('\n');
