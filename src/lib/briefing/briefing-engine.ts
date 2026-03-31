@@ -4,6 +4,7 @@ import os from 'os';
 import { eq } from 'drizzle-orm';
 import type { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
+import { extractKeychainCredentials } from '@/lib/process/claude-print';
 import {
   briefingSessions,
   briefingMessages,
@@ -155,6 +156,11 @@ export async function sendBriefingMessage(
   const realHome = process.env.HOME || os.homedir();
   try { fs.copyFileSync(`${realHome}/.claude.json`, `${persistentHome}/.claude.json`); } catch { /* fine */ }
   try { fs.copyFileSync(`${realHome}/.claude/settings.json`, `${persistentClaudeDir}/settings.json`); } catch { /* fine */ }
+  // Extract credentials from macOS Keychain into isolated HOME
+  const cred = extractKeychainCredentials();
+  if (cred) {
+    fs.writeFileSync(`${persistentClaudeDir}/.credentials.json`, cred, { mode: 0o600 });
+  }
 
   const abortController = new AbortController();
   const proc = spawn(config.claudePath, cliArgs, {

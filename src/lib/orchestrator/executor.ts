@@ -11,6 +11,7 @@ import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
 import { buildPrompt } from './prompt-builder';
 import { StreamParser } from './stream-parser';
+import { extractKeychainCredentials } from '@/lib/process/claude-print';
 import { createWorktree, removeWorktree } from './worktree';
 import { askCaptain } from '@/lib/captain/captain';
 import { storeCaptainLog, getRecentCaptainLogs } from '@/lib/captain/captain-db';
@@ -250,6 +251,11 @@ export async function executeMission(
     try {
       fs.copyFileSync(path.join(realHome, '.claude', 'settings.json'), path.join(missionClaudeDir, 'settings.json'));
     } catch { /* skip missing */ }
+    // Extract credentials from macOS Keychain into isolated HOME
+    const cred = extractKeychainCredentials();
+    if (cred) {
+      fs.writeFileSync(path.join(missionClaudeDir, '.credentials.json'), cred, { mode: 0o600 });
+    }
 
     const proc = spawn(config.claudePath, args, {
       cwd: workingDirectory,

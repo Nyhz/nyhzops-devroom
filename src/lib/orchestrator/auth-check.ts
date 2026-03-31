@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { config } from '@/lib/config';
+import { extractKeychainCredentials } from '@/lib/process/claude-print';
 
 interface AuthCheckResult {
   ok: boolean;
@@ -26,8 +27,11 @@ export async function checkCliAuth(): Promise<AuthCheckResult> {
       fs.copyFileSync(path.join(realHome, '.claude.json'), path.join(tempHome, '.claude.json'));
     } catch { /* fine — not strictly required for auth check */ }
 
-    // Run claude auth status with isolated HOME
-    // Auth is handled natively via macOS Keychain — no credential file needed
+    // Extract credentials from macOS Keychain into isolated HOME
+    const cred = extractKeychainCredentials();
+    if (cred) {
+      fs.writeFileSync(path.join(tempClaudeDir, '.credentials.json'), cred, { mode: 0o600 });
+    }
     const result = await new Promise<AuthCheckResult>((resolve) => {
       const timeout = setTimeout(() => {
         proc.kill();

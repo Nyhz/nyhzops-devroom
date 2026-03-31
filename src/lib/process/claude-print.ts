@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -12,9 +12,29 @@ interface RunClaudePrintOptions {
 }
 
 /**
+ * Extract Claude Code OAuth credentials from the macOS Keychain.
+ * Returns the credential JSON string, or null if extraction fails.
+ */
+export function extractKeychainCredentials(): string | null {
+  try {
+    const raw = execSync(
+      'security find-generic-password -s "Claude Code-credentials" -g 2>&1 | grep "^password:"',
+      { encoding: 'utf-8', timeout: 5000 },
+    );
+    const cred = raw.replace(/^password: "/, '').replace(/"$/, '').trim();
+    if (!cred || cred === '') return null;
+    // Validate it's JSON
+    JSON.parse(cred);
+    return cred;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Set up an isolated HOME for a Claude CLI process.
  * Prevents concurrent config/session corruption when multiple agents run in parallel.
- * Auth is handled natively via macOS Keychain (no credential file copying needed).
+ * Extracts auth credentials from macOS Keychain into the isolated HOME.
  * Returns the temp HOME path. Caller is responsible for cleanup.
  */
 export function createAuthenticatedHome(): string {
@@ -33,6 +53,12 @@ export function createAuthenticatedHome(): string {
   try {
     fs.copyFileSync(path.join(realHome, '.claude', 'settings.json'), path.join(tempClaudeDir, 'settings.json'));
   } catch { /* fine */ }
+
+  // Extract credentials from macOS Keychain into isolated HOME
+  const cred = extractKeychainCredentials();
+  if (cred) {
+    fs.writeFileSync(path.join(tempClaudeDir, '.credentials.json'), cred, { mode: 0o600 });
+  }
 
   return tempHome;
 }
