@@ -162,3 +162,20 @@ Notification = In-app + Telegram alert
 **Phases:** `STANDBY → ACTIVE → SECURED / COMPROMISED`
 
 **Campaigns:** `DRAFT → PLANNING → ACTIVE → ACCOMPLISHED / COMPROMISED / ABANDONED`
+
+---
+
+## Native Deployment
+
+DEVROOM runs natively on the Mac Mini via `launchd`. No Docker.
+
+| Command | Action |
+|---------|--------|
+| `devroom status` | Service status, mode, uptime |
+| `devroom dev` | Switch to dev mode (hot reload) |
+| `devroom prod` | Switch to prod mode (optimized build) |
+| `devroom restart` | Restart the service |
+| `devroom logs` | Tail the service log |
+
+Menu bar: xbar plugin shows live status with one-click controls.
+Reverse proxy: Caddy via Homebrew at `https://devroom.lan`.
