@@ -2,10 +2,12 @@ import { notFound } from 'next/navigation';
 import { eq } from 'drizzle-orm';
 import { getMission } from '@/actions/mission';
 import { getCaptainLogs } from '@/actions/captain';
+import { getSuggestions } from '@/actions/follow-up';
 import { getDatabase } from '@/lib/db/index';
 import { missionLogs } from '@/lib/db/schema';
 import { LiveStatusBadge } from '@/components/mission/live-status-badge';
 import { MissionComms } from '@/components/mission/mission-comms';
+import { FollowUpCardsLive } from '@/components/follow-up/follow-up-cards-live';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { TacCard } from '@/components/ui/tac-card';
 import { Markdown } from '@/components/ui/markdown';
@@ -32,8 +34,10 @@ export default async function MissionDetailPage({
     .all();
 
   const captainLogEntries = await getCaptainLogs({ missionId });
+  const suggestions = await getSuggestions({ missionId });
 
   const status = mission.status ?? 'standby';
+  const isTerminal = status === 'accomplished' || status === 'compromised';
 
   return (
     <PageWrapper
@@ -85,6 +89,14 @@ export default async function MissionDetailPage({
         campaignId={mission.campaignId}
         briefing={mission.briefing}
       />
+
+      {/* Follow-Up Suggestions */}
+      {isTerminal && (
+        <FollowUpCardsLive
+          missionId={missionId}
+          initialSuggestions={suggestions}
+        />
+      )}
 
       {/* Captain's Log */}
       {captainLogEntries.length > 0 && (

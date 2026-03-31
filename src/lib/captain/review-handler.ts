@@ -9,6 +9,7 @@ import { storeCaptainLog } from './captain-db';
 import { escalate } from './escalation';
 import { mergeBranch } from '@/lib/orchestrator/merger';
 import { removeWorktree } from '@/lib/orchestrator/worktree';
+import { extractAndSaveSuggestions } from '@/actions/follow-up';
 import type { Mission } from '@/types';
 
 function emitMissionLog(missionId: string, content: string) {
@@ -27,6 +28,30 @@ function emitMissionLog(missionId: string, content: string) {
     type: 'status',
     content: content + '\n',
   });
+}
+
+async function extractSuggestionsAndEmit(
+  missionId: string,
+  battlefieldId: string,
+  debrief: string,
+  campaignId?: string | null,
+): Promise<void> {
+  try {
+    const suggestions = await extractAndSaveSuggestions({
+      battlefieldId,
+      missionId,
+      campaignId: campaignId ?? undefined,
+      debrief,
+    });
+    if (suggestions.length > 0) {
+      globalThis.io?.to(`mission:${missionId}`).emit('mission:suggestions', {
+        missionId,
+        suggestions,
+      });
+    }
+  } catch (err) {
+    console.error(`[Captain] Failed to extract suggestions for mission ${missionId}:`, err);
+  }
 }
 
 // Max retries: 2 for reviewing (successful missions), 1 for compromised (failed missions)
@@ -129,6 +154,11 @@ export async function runCaptainReview(missionId: string): Promise<void> {
     // Captain approves — merge + promote
     await promoteMission(missionId, 'accomplished');
 
+    // Extract follow-up suggestions from debrief
+    if (mission.debrief) {
+      await extractSuggestionsAndEmit(missionId, mission.battlefieldId, mission.debrief, mission.campaignId);
+    }
+
     if (review.concerns.length > 0) {
       // Satisfactory but with concerns — info notification
       await escalate({
@@ -158,6 +188,11 @@ export async function runCaptainReview(missionId: string): Promise<void> {
     }
 
     emitStatusChange(missionId, isReviewing ? 'compromised' : mission.status!, mission.battlefieldId);
+
+    // Extract follow-up suggestions from compromised debrief
+    if (mission.debrief) {
+      await extractSuggestionsAndEmit(missionId, mission.battlefieldId, mission.debrief, mission.campaignId);
+    }
 
     await escalate({
       level: 'warning',
@@ -310,6 +345,13 @@ function exhaustRetries(mission: Mission, review: DebriefReview): void {
   }
 
   emitStatusChange(mission.id, 'compromised', mission.battlefieldId);
+
+  // Extract follow-up suggestions from compromised debrief
+  if (mission.debrief) {
+    extractSuggestionsAndEmit(mission.id, mission.battlefieldId, mission.debrief, mission.campaignId).catch(err => {
+      console.error(`[Captain] Suggestion extraction failed in exhaustRetries:`, err);
+    });
+  }
 
   escalate({
     level: 'warning',
