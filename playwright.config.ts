@@ -21,5 +21,8 @@ export default defineConfig({
     command: 'npm run dev',
     port: 3000,
     reuseExistingServer: true,
+    env: {
+      E2E_TEST_MODE: 'true',
+    },
   },
 });

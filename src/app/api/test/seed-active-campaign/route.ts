@@ -14,6 +14,9 @@ export async function POST() {
   if (process.env.NODE_ENV === 'production') {
     return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
   }
+  if (!process.env.E2E_TEST_MODE) {
+    return NextResponse.json({ error: 'E2E_TEST_MODE not enabled' }, { status: 403 });
+  }
 
   const db = getDatabase();
   const now = Date.now();
