@@ -7,7 +7,7 @@ import next from 'next';
 import os from 'os';
 import { eq } from 'drizzle-orm';
 import { getDatabase, runMigrations, closeDatabase } from './src/lib/db/index';
-import { battlefields, campaigns } from './src/lib/db/schema';
+import { battlefields, campaigns, missions } from './src/lib/db/schema';
 import { setupSocketIO } from './src/lib/socket/server';
 import { config } from './src/lib/config';
 import { Orchestrator } from './src/lib/orchestrator/orchestrator';
