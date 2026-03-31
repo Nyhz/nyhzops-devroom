@@ -21,8 +21,13 @@ export function extractKeychainCredentials(): string | null {
       'security find-generic-password -s "Claude Code-credentials" -g 2>&1 | grep "^password:"',
       { encoding: 'utf-8', timeout: 5000 },
     );
-    const cred = raw.replace(/^password: "/, '').replace(/"$/, '').trim();
-    if (!cred || cred === '') return null;
+    // Format is either: `password: {json}` or `password: "{json}"`
+    let cred = raw.replace(/^password: /, '').trim();
+    // Strip outer quotes if present
+    if (cred.startsWith('"') && cred.endsWith('"')) {
+      cred = cred.slice(1, -1);
+    }
+    if (!cred) return null;
     // Validate it's JSON
     JSON.parse(cred);
     return cred;
