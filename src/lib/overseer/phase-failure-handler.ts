@@ -1,6 +1,8 @@
 import { eq, and, like } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { runClaudePrint } from '@/lib/process/claude-print';
+import { getSystemAsset } from '@/actions/asset';
+import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
 import { overseerLogs } from '@/lib/db/schema';
 import type { Campaign, Phase, Mission } from '@/types';
 
@@ -8,6 +10,18 @@ export interface PhaseFailureDecision {
   decision: 'retry' | 'skip' | 'escalate';
   reasoning: string;
   retryBriefings?: Record<string, string>; // missionId -> modified briefing
+}
+
+/**
+ * Filter a flag and its value from an args array.
+ */
+function filterFlag(args: string[], flag: string): string[] {
+  const result: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === flag) { i++; continue; }
+    result.push(args[i]);
+  }
+  return result;
 }
 
 const FALLBACK_DECISION: PhaseFailureDecision = {
@@ -147,8 +161,15 @@ export async function handlePhaseFailure(params: {
 
   const prompt = buildPhaseFailurePrompt(params);
 
+  const overseer = getSystemAsset('OVERSEER');
+  const assetArgs = buildAssetCliArgs(overseer);
+  const filtered = filterFlag(assetArgs, '--max-turns');
+
   try {
-    const stdout = await runClaudePrint(prompt);
+    const stdout = await runClaudePrint(prompt, {
+      maxTurns: 1,
+      extraArgs: filtered,
+    });
     const decision = parseDecision(stdout);
     if (decision.decision === 'retry' && retryCount >= 2) {
       return {

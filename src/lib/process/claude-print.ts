@@ -9,6 +9,7 @@ interface RunClaudePrintOptions {
   cwd?: string;
   outputFormat?: string;
   jsonSchema?: string;
+  extraArgs?: string[];
 }
 
 /**
@@ -82,6 +83,7 @@ export function runClaudePrint(
     cwd = '/tmp',
     outputFormat,
     jsonSchema,
+    extraArgs,
   } = options;
 
   const tempHome = createAuthenticatedHome();
@@ -98,6 +100,10 @@ export function runClaudePrint(
     }
     if (jsonSchema) {
       args.push('--json-schema', jsonSchema);
+    }
+
+    if (extraArgs) {
+      args.push(...extraArgs);
     }
 
     const proc = spawn(config.claudePath, args, {

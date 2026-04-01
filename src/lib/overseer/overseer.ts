@@ -1,4 +1,6 @@
 import { runClaudePrint } from '@/lib/process/claude-print';
+import { getSystemAsset } from '@/actions/asset';
+import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
 import type { OverseerLog, OverseerConfidence } from '@/types';
 
 export interface OverseerDecision {
@@ -130,11 +132,30 @@ function parseDecision(raw: string): OverseerDecision {
   }
 }
 
+/**
+ * Filter a flag and its value from an args array.
+ */
+function filterFlag(args: string[], flag: string): string[] {
+  const result: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === flag) { i++; continue; }
+    result.push(args[i]);
+  }
+  return result;
+}
+
 export async function askOverseer(params: AskOverseerParams): Promise<OverseerDecision> {
   const prompt = buildOverseerPrompt(params);
 
+  const overseer = getSystemAsset('OVERSEER');
+  const assetArgs = buildAssetCliArgs(overseer);
+  const filtered = filterFlag(assetArgs, '--max-turns');
+
   try {
-    const stdout = await runClaudePrint(prompt);
+    const stdout = await runClaudePrint(prompt, {
+      maxTurns: 1,
+      extraArgs: filtered,
+    });
     return parseDecision(stdout);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

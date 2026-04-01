@@ -10,7 +10,9 @@ import { missions, missionLogs, battlefields, assets, campaigns } from '@/lib/db
 import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
 import { buildPrompt } from './prompt-builder';
+import { buildAssetCliArgs } from './asset-cli';
 import { StreamParser } from './stream-parser';
+import type { SkillOverrides } from '@/types';
 import { extractKeychainCredentials } from '@/lib/process/claude-print';
 import { createWorktree, removeWorktree } from './worktree';
 import { askOverseer } from '@/lib/overseer/overseer';
@@ -232,15 +234,27 @@ export async function executeMission(
     }
 
     // Step 3: Spawn Claude Code
+    // Parse skill overrides from mission
+    const skillOverrides: SkillOverrides | null = mission.skillOverrides
+      ? (JSON.parse(mission.skillOverrides) as SkillOverrides)
+      : null;
+
     const args = [
       '--print',
       '--verbose',
       '--output-format', 'stream-json',
       '--include-partial-messages',
       '--dangerously-skip-permissions',
-      '--max-turns', '100',
-      fullPrompt,
     ];
+
+    // Asset args (model, max-turns, effort, system prompt, skills, MCPs)
+    if (asset) {
+      args.push(...buildAssetCliArgs(asset, skillOverrides));
+    } else {
+      args.push('--max-turns', '100');
+    }
+
+    args.push(fullPrompt);
 
     // Isolate Claude config per mission to prevent concurrent write corruption
     // and session ID collisions. Each mission gets its own HOME.
