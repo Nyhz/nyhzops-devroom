@@ -575,3 +575,28 @@ export async function retryMerge(missionId: string): Promise<void> {
 
   revalidatePath(`/battlefields/${mission.battlefieldId}/missions/${missionId}`);
 }
+
+// ---------------------------------------------------------------------------
+// overrideApprove — Commander override: mark a compromised mission as approved
+// ---------------------------------------------------------------------------
+export async function overrideApprove(missionId: string): Promise<void> {
+  const db = getDatabase();
+  const mission = getOrThrow(missions, missionId, 'overrideApprove');
+
+  if (mission.status !== 'compromised') {
+    throw new Error('Can only override-approve compromised missions');
+  }
+
+  db.update(missions).set({
+    status: 'approved',
+    compromiseReason: null,
+    updatedAt: Date.now(),
+  }).where(eq(missions.id, missionId)).run();
+
+  emitStatusChange('mission', missionId, 'approved');
+
+  const { triggerQuartermaster } = await import('@/lib/quartermaster/quartermaster');
+  triggerQuartermaster(missionId);
+
+  revalidatePath(`/battlefields/${mission.battlefieldId}`);
+}
