@@ -1,7 +1,7 @@
 import { eq, and, like } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { runClaudePrint } from '@/lib/process/claude-print';
-import { getSystemAsset } from '@/actions/asset';
+import { getSystemAsset } from '@/lib/orchestrator/system-asset';
 import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
 import { overseerLogs } from '@/lib/db/schema';
 import type { Campaign, Phase, Mission } from '@/types';

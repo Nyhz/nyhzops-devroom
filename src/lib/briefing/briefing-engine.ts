@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import type { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
 import { extractKeychainCredentials } from '@/lib/process/claude-print';
-import { getSystemAsset } from '@/actions/asset';
+import { getSystemAsset } from '@/lib/orchestrator/system-asset';
 import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
 import {
   briefingSessions,

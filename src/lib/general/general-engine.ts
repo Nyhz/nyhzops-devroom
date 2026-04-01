@@ -10,7 +10,7 @@ import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
 import { buildGeneralPrompt } from './general-prompt';
 import { parseCommand } from './general-commands';
-import { getSystemAsset } from '@/actions/asset';
+import { getSystemAsset } from '@/lib/orchestrator/system-asset';
 import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
 
 // ---------------------------------------------------------------------------

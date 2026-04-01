@@ -4,7 +4,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
 import { campaigns, phases, missions, battlefields } from '@/lib/db/schema';
 import { runClaudePrint } from '@/lib/process/claude-print';
-import { getSystemAsset } from '@/actions/asset';
+import { getSystemAsset } from '@/lib/orchestrator/system-asset';
 import { buildAssetCliArgs } from './asset-cli';
 import { escalate } from '@/lib/overseer/escalation';
 import { handlePhaseFailure } from '@/lib/overseer/phase-failure-handler';

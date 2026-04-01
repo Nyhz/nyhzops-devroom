@@ -3,7 +3,7 @@ import fs from 'fs';
 import simpleGit from 'simple-git';
 import { config } from '@/lib/config';
 import { createAuthenticatedHome } from '@/lib/process/claude-print';
-import { getSystemAsset } from '@/actions/asset';
+import { getSystemAsset } from '@/lib/orchestrator/system-asset';
 import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
 import type { Mission } from '@/types';
 

@@ -1,5 +1,5 @@
 import { runClaudePrint } from '@/lib/process/claude-print';
-import { getSystemAsset } from '@/actions/asset';
+import { getSystemAsset } from '@/lib/orchestrator/system-asset';
 import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
 import { parseReviewOutput } from './review-parser';
 import type { OverseerReview } from '@/types';
