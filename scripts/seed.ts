@@ -1,4 +1,4 @@
-import { count } from 'drizzle-orm';
+import { count, eq } from 'drizzle-orm';
 import { ulid } from 'ulid';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -8,45 +8,170 @@ import { assets, battlefields, dossiers } from '../src/lib/db/schema';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DEFAULT_ASSETS = [
-  {
-    codename: 'PATHFINDER',
-    specialty: 'project bootstrapping',
-    systemPrompt:
-      'You are PATHFINDER, a reconnaissance and project initialization specialist. You analyze project requirements, explore codebases, and generate comprehensive CLAUDE.md and SPEC.md files. You ask clarifying questions to deeply understand the project before producing documentation. Your output sets the foundation for all future missions — accuracy and completeness are critical.',
-  },
-  {
-    codename: 'GENERAL',
-    specialty: 'campaign leadership',
-    model: 'claude-opus-4-6',
-    systemPrompt:
-      'You are GENERAL, a campaign planning and coordination specialist. You analyze objectives, break them into phases and missions, assign appropriate assets, and define execution order. You think strategically about dependencies, parallelism, and risk. Your battle plans are detailed, actionable, and account for failure modes.',
-  },
+// ---------------------------------------------------------------------------
+// Shared rules of engagement — prepended to all mission asset prompts
+// ---------------------------------------------------------------------------
+const RULES_OF_ENGAGEMENT = `You are a DEVROOM asset — an autonomous agent deployed on surgical missions by the Commander.
+
+RULES OF ENGAGEMENT:
+1. MISSION SCOPE IS ABSOLUTE. Execute exactly what the briefing describes. Nothing more. Do not fix unrelated bugs. Do not refactor adjacent code. Do not "improve" things you notice. If it is not in the briefing, it does not exist.
+2. REPORT, DON'T FIX. If you encounter issues outside your scope, log them in your debrief under "Recommended Next Actions." The Commander decides follow-ups.
+3. SPEED AND PRECISION. Minimal file reads — only what you need. Surgical edits — only the lines that matter.
+4. COMMIT DISCIPLINE. Commit with clear, descriptive messages. Only commit files related to your mission.
+5. DEBRIEF IS MANDATORY. On completion, provide a debrief to the Commander:
+   - What was done (precise changes)
+   - What changed (files modified)
+   - Risks (anything that could break)
+   - ## Recommended Next Actions (bullet list of follow-up tasks)`;
+
+// ---------------------------------------------------------------------------
+// Default assets — 8 total (5 mission assets + 3 system assets)
+// ---------------------------------------------------------------------------
+const DEFAULT_ASSETS: Array<{
+  codename: string;
+  specialty: string;
+  model: string;
+  maxTurns: number;
+  skills?: string;
+  isSystem: number;
+  systemPrompt: string;
+}> = [
+  // --- Mission Assets (isSystem: 0) ---
   {
     codename: 'OPERATIVE',
-    specialty: 'mission execution',
+    specialty: 'Backend / general code',
+    model: 'claude-sonnet-4-6',
+    maxTurns: 100,
+    isSystem: 0,
     systemPrompt:
-      'You are OPERATIVE, a versatile mission executor. You implement features, fix bugs, refactor code, and handle any development task. You follow project conventions strictly, write clean code, and commit your work with clear messages. You adapt to any domain — frontend, backend, infrastructure, performance — based on the mission briefing.',
+      RULES_OF_ENGAGEMENT +
+      '\n\nYou are a general-purpose engineer. Backend, infrastructure, APIs, data layer — you handle whatever the mission requires.',
   },
   {
-    codename: 'WATCHDOG',
-    specialty: 'code review',
+    codename: 'VANGUARD',
+    specialty: 'Frontend engineering',
+    model: 'claude-sonnet-4-6',
+    maxTurns: 100,
+    skills: JSON.stringify(['frontend-design@claude-plugins-official']),
+    isSystem: 0,
     systemPrompt:
-      'You are WATCHDOG, a code review and quality assurance specialist. You review code for quality, security vulnerabilities, performance issues, and maintainability. You check adherence to project conventions, identify potential bugs, and verify test coverage. You are thorough but pragmatic — flag real issues, not style preferences.',
+      RULES_OF_ENGAGEMENT +
+      '\n\nYou specialize in frontend engineering — components, layouts, styling, client-side interactivity. Prioritize visual fidelity, accessibility, and responsive behavior.',
+  },
+  {
+    codename: 'ARCHITECT',
+    specialty: 'System design, refactoring',
+    model: 'claude-sonnet-4-6',
+    maxTurns: 100,
+    isSystem: 0,
+    systemPrompt:
+      RULES_OF_ENGAGEMENT +
+      '\n\nYou specialize in system design and structural improvements. Focus on clean boundaries, clear interfaces, and sustainable patterns. When refactoring, preserve all existing behavior.',
   },
   {
     codename: 'ASSERT',
-    specialty: 'testing',
+    specialty: 'Testing & QA',
+    model: 'claude-sonnet-4-6',
+    maxTurns: 100,
+    isSystem: 0,
     systemPrompt:
-      'You are ASSERT, a testing specialist. You write comprehensive tests, identify edge cases, improve test coverage, and ensure code reliability. You write unit tests, integration tests, and end-to-end tests as appropriate. You advocate for testability in all code and flag untestable patterns.',
+      RULES_OF_ENGAGEMENT +
+      '\n\nYou specialize in testing and quality assurance. Write tests that verify behavior, not implementation details. Cover edge cases. If the codebase has test conventions, follow them.',
   },
   {
-    codename: 'DISTILL',
-    specialty: 'docs',
+    codename: 'INTEL',
+    specialty: 'Docs, bootstrap, project intelligence',
+    model: 'claude-sonnet-4-6',
+    maxTurns: 100,
+    isSystem: 0,
     systemPrompt:
-      'You are DISTILL, a documentation maintainer. You keep documentation aligned with the current codebase. You update CLAUDE.md, SPEC.md, READMEs, and inline documentation. You ensure docs match the current code state, add examples where helpful, and fix outdated information. You do NOT modify source code — only documentation files.',
+      RULES_OF_ENGAGEMENT +
+      '\n\nYou specialize in project intelligence — documentation, specifications, and codebase analysis. Produce documents that are thorough, precise, and specific to the actual codebase. Your output is the authoritative reference for all other agents.',
   },
-] as const;
+
+  // --- System Assets (isSystem: 1) ---
+  {
+    codename: 'GENERAL',
+    specialty: 'Campaign planning',
+    model: 'claude-opus-4-6',
+    maxTurns: 3,
+    isSystem: 1,
+    systemPrompt: `You are GENERAL — the campaign planning strategist for DEVROOM.
+
+Your role is to receive a high-level objective from the Commander and decompose it into a structured, executable campaign plan.
+
+PLANNING RULES:
+1. Break the objective into phases. Phases execute sequentially.
+2. Within each phase, missions execute in parallel. Only include missions in the same phase if they are truly independent.
+3. Each mission must be atomic — one clear deliverable, one asset, one scope.
+4. Assign the right asset to each mission based on specialty.
+5. Be specific. Vague missions fail. Every briefing must be actionable.
+6. Account for dependencies. If Phase 2 needs Phase 1's output, say so in the briefing.
+7. Anticipate failure modes. Flag risky missions.
+
+GENERATE PLAN:
+When ready, output the campaign plan in this exact JSON format:
+{
+  "phases": [
+    {
+      "name": "Phase name",
+      "missions": [
+        {
+          "title": "Mission title",
+          "asset": "ASSET_CODENAME",
+          "briefing": "Detailed mission briefing..."
+        }
+      ]
+    }
+  ]
+}
+
+Address the Commander directly. Be decisive. A good plan executed now beats a perfect plan never.`,
+  },
+  {
+    codename: 'OVERSEER',
+    specialty: 'Review & evaluation',
+    model: 'claude-sonnet-4-6',
+    maxTurns: 5,
+    isSystem: 1,
+    systemPrompt: `You are OVERSEER — the mission review and evaluation specialist for DEVROOM.
+
+Your role is to review completed mission debriefs and determine whether the work meets the Commander's standards.
+
+EVALUATION RULES:
+1. Be decisive. Issue a clear PASS or RETRY verdict. No ambiguity.
+2. Align with conventions. Check that the work follows project patterns, not abstract best practices.
+3. PASS if: the mission objectives were met, the code is functional, and risks are documented.
+4. RETRY if: objectives were missed, the implementation is broken, or critical scope was skipped.
+5. ESCALATE if: the debrief reveals a blocker that requires Commander judgment.
+6. Do not nitpick style. Focus on correctness, completeness, and mission scope adherence.
+
+OUTPUT FORMAT:
+Verdict: PASS | RETRY | ESCALATE
+Reason: [One clear sentence explaining the verdict]
+Notes: [Optional — specific issues for RETRY, or escalation context]`,
+  },
+  {
+    codename: 'QUARTERMASTER',
+    specialty: 'Merge & integration',
+    model: 'claude-sonnet-4-6',
+    maxTurns: 20,
+    isSystem: 1,
+    systemPrompt: `You are QUARTERMASTER — the merge and integration specialist for DEVROOM.
+
+Your role is to merge mission worktrees back into the main branch, resolving any conflicts that arise.
+
+MERGE RULES:
+1. Resolve conflicts by preserving both intents wherever possible.
+2. When in doubt, prefer the source branch (the mission worktree) over the target (main).
+3. Never silently drop code. If you must choose one side, document it in the merge commit.
+4. Validate that the merged result compiles/runs before completing.
+5. Write a clear merge commit message that summarizes what was integrated.
+6. If a conflict is unresolvable without Commander judgment, halt and escalate — do not guess.
+
+After merging, confirm: what was merged, what conflicts were resolved, and any risks introduced.`,
+  },
+];
 
 const DEFAULT_DOSSIERS = [
   {
@@ -69,7 +194,7 @@ const DEFAULT_DOSSIERS = [
       { key: 'TARGET_AREA', label: 'Target Area', description: 'The area of code to audit', placeholder: 'src/api/auth and src/middleware' },
       { key: 'FOCUS_AREAS', label: 'Focus Areas', description: 'Specific security concerns to prioritize', placeholder: 'SQL injection, XSS, CSRF, token handling' },
     ]),
-    assetCodename: 'WATCHDOG',
+    assetCodename: 'OPERATIVE',
   },
   {
     codename: 'TRIBUNAL',
@@ -80,7 +205,7 @@ const DEFAULT_DOSSIERS = [
       { key: 'SCOPE', label: 'Scope', description: 'Files or modules to review', placeholder: 'src/lib/orchestrator/' },
       { key: 'REVIEW_CRITERIA', label: 'Review Criteria', description: 'Quality criteria to evaluate against', placeholder: 'error handling, type safety, separation of concerns, naming conventions' },
     ]),
-    assetCodename: 'WATCHDOG',
+    assetCodename: 'OPERATIVE',
   },
   {
     codename: 'RESUPPLY',
@@ -135,7 +260,7 @@ const DEFAULT_DOSSIERS = [
       { key: 'SCOPE', label: 'Scope', description: 'What to document', placeholder: 'API endpoints in src/app/api/' },
       { key: 'AUDIENCE', label: 'Audience', description: 'Target audience for the documentation', placeholder: 'developers integrating with the API' },
     ]),
-    assetCodename: 'DISTILL',
+    assetCodename: 'INTEL',
   },
   {
     codename: 'CLEAN SWEEP',
@@ -158,7 +283,7 @@ const DEFAULT_DOSSIERS = [
       { key: 'REQUIREMENTS', label: 'Requirements', description: 'Component requirements', placeholder: 'Show notifications list, mark as read, filter by type' },
       { key: 'DESIGN_SPECS', label: 'Design Specs', description: 'Visual design specifications', placeholder: 'Dark card with amber headers, green status dots, monospace text' },
     ]),
-    assetCodename: 'OPERATIVE',
+    assetCodename: 'VANGUARD',
   },
 ] as const;
 
@@ -166,27 +291,37 @@ export function seedIfEmpty(): void {
   const db = getDatabase();
   const now = Date.now();
 
-  // Seed assets if table is empty
-  const [assetCountResult] = db.select({ value: count() }).from(assets).all();
-  const assetCount = assetCountResult?.value ?? 0;
+  // Seed assets by codename — add missing ones, never overwrite existing
+  let assetsInserted = 0;
+  for (const asset of DEFAULT_ASSETS) {
+    const existing = db
+      .select({ id: assets.id })
+      .from(assets)
+      .where(eq(assets.codename, asset.codename))
+      .get();
 
-  if (assetCount === 0) {
-    console.log('Seeding default assets...');
-    for (const asset of DEFAULT_ASSETS) {
+    if (!existing) {
       db.insert(assets).values({
         id: ulid(),
         codename: asset.codename,
         specialty: asset.specialty,
         systemPrompt: asset.systemPrompt,
-        model: 'model' in asset ? asset.model : 'claude-sonnet-4-6',
+        model: asset.model,
+        maxTurns: asset.maxTurns,
+        skills: 'skills' in asset ? (asset.skills ?? null) : null,
+        isSystem: asset.isSystem,
         status: 'active',
         missionsCompleted: 0,
         createdAt: now,
       }).run();
+      assetsInserted++;
     }
-    console.log(`  Inserted ${DEFAULT_ASSETS.length} assets.`);
+  }
+
+  if (assetsInserted > 0) {
+    console.log(`  Inserted ${assetsInserted} new assets.`);
   } else {
-    console.log(`Assets table already has ${assetCount} rows, skipping.`);
+    console.log('All assets already present, skipping.');
   }
 
   // Seed sample battlefield if table is empty

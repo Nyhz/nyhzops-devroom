@@ -149,6 +149,10 @@ export async function updateAsset(
   const updates: Record<string, unknown> = {};
 
   if (data.codename !== undefined) {
+    // System assets cannot have their codename changed
+    if (existing.isSystem) {
+      throw new Error('Cannot change codename of system assets');
+    }
     const upperCodename = data.codename.toUpperCase().trim();
     if (!upperCodename) {
       throw new Error('Codename is required');
@@ -206,6 +210,10 @@ export async function toggleAssetStatus(id: string) {
   const db = getDatabase();
   const asset = getOrThrow(assets, id, 'toggleAssetStatus');
 
+  if (asset.isSystem) {
+    throw new Error('Cannot toggle system asset status');
+  }
+
   const newStatus: AssetStatus = asset.status === 'active' ? 'offline' : 'active';
   db.update(assets)
     .set({ status: newStatus })
@@ -220,7 +228,11 @@ export async function toggleAssetStatus(id: string) {
 // ---------------------------------------------------------------------------
 export async function deleteAsset(id: string) {
   const db = getDatabase();
-  getOrThrow(assets, id, 'deleteAsset');
+  const asset = getOrThrow(assets, id, 'deleteAsset');
+
+  if (asset.isSystem) {
+    throw new Error('Cannot delete system assets');
+  }
 
   // Check if any missions reference this asset
   const [missionRef] = db
