@@ -13,7 +13,7 @@ Detailed specifications are split into topic files under `.devroom/`. Reference 
 | `.devroom/spec-campaigns.md` | Campaign creation, phase execution, templates, campaign detail page |
 | `.devroom/spec-operations.md` | Git dashboard, console & dev server, scheduled tasks |
 | `.devroom/spec-prompts.md` | All prompt templates: standard, campaign, conflict resolution, phase debrief, bootstrap |
-| `.devroom/spec-captain-and-comms.md` | Captain AI decision layer, notifications & Telegram, logistics, War Room boot sequence |
+| `.devroom/spec-overseer-and-comms.md` | Overseer AI, notifications & Telegram, logistics, War Room boot sequence |
 
 ---
 
@@ -48,7 +48,7 @@ Fixed-width left sidebar:
 - `◇ GENERAL` — Standalone Claude Code chat sessions.
 
 **Global navigation** (bottom):
-- `⚓ CAPTAIN'S LOG` — AI decision log viewer.
+- `⚓ OVERSEER LOG` — AI decision log viewer.
 - `◎ ASSETS` — Agent profiles and specialties.
 - `◈ LOGISTICS` — Token usage & rate limits.
 
@@ -83,7 +83,7 @@ See `.devroom/spec-battlefields.md` for full details on creation, bootstrap proc
 
 See `.devroom/spec-missions.md` for full details on mission lifecycle, execution flow, session reuse, debriefs, asset management, and dossier templates.
 
-**Mission lifecycle**: `STANDBY → QUEUED → DEPLOYING → IN COMBAT → REVIEWING → ACCOMPLISHED / COMPROMISED / ABANDONED`
+**Mission lifecycle**: `STANDBY → QUEUED → DEPLOYING → IN COMBAT → REVIEWING → APPROVED → MERGING → ACCOMPLISHED / COMPROMISED / ABANDONED`
 
 ---
 
@@ -91,7 +91,7 @@ See `.devroom/spec-missions.md` for full details on mission lifecycle, execution
 
 See `.devroom/spec-campaigns.md` for full details on campaign creation, phase execution, templates, and the campaign detail page.
 
-**Campaign lifecycle**: `DRAFT → PLANNING → ACTIVE → ACCOMPLISHED / COMPROMISED / ABANDONED`
+**Campaign lifecycle**: `DRAFT → PLANNING → ACTIVE → PAUSED → ACCOMPLISHED / COMPROMISED / ABANDONED`
 
 **Phase lifecycle**: `STANDBY → ACTIVE → SECURED / COMPROMISED`
 
@@ -181,9 +181,9 @@ SQLite with WAL mode, foreign keys, 5s busy timeout. Single file. Schema in `lib
 
 ---
 
-## 15. Captain, Notifications, Logistics & War Room
+## 15. Overseer, Notifications, Logistics & War Room
 
-See `.devroom/spec-captain-and-comms.md` for full details on the Captain AI decision layer, notification levels & Telegram integration, logistics dashboard, and War Room boot sequence.
+See `.devroom/spec-overseer-and-comms.md` for full details on the Overseer AI review layer, notification levels & Telegram integration, logistics dashboard, and War Room boot sequence.
 
 **Notifications page** at `/notifications`: lists all notifications with level filtering and "mark all read" action. Accessible via the bell icon in the Intel Bar (not in sidebar nav).
 
@@ -195,15 +195,15 @@ See `.devroom/spec-captain-and-comms.md` for full details on the Captain AI deci
 - [ ] Cost dashboard with token graphs over time (basic cost tracking exists in Logistics).
 - [ ] Mobile-optimized UI pass.
 - [x] Push notifications on completion (implemented via Telegram integration).
-- [ ] Mission dependencies (DAG within phases — `dependsOn` field exists but no UI).
+- [x] Mission dependencies (DAG within phases — `dependsOn` field with plan editor UI and dependency graph).
 - [ ] Multi-repo campaigns.
 - [ ] Audit log.
 - [ ] Log retention cleanup (config exists, logic not yet wired).
 - [ ] Export/import state.
 - [ ] Voice debriefs (TTS).
 - [x] Dossier library (saved briefing templates — fully implemented).
-- [x] Captain AI decision layer (autonomous judgment, escalation, debrief review).
+- [x] Overseer AI (debrief review, verdicts, escalation).
 - [x] War Room boot sequence animation.
 - [x] Logistics / token usage dashboard.
 - [x] Intel Board (kanban planning board per battlefield — fully implemented).
-- [ ] Image paste in briefing textarea (Cmd+V, base64 — component exists but not fully wired).
+- [x] Image paste in briefing textarea (Cmd+V, base64 — wired in deploy-mission and note-panel).
