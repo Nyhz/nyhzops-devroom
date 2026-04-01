@@ -53,7 +53,8 @@ The interface follows a tactical operations center aesthetic. Dark backgrounds, 
 | Logs          | **Comms**         | Real-time output stream from a running mission.                |
 | Dashboard     | **HQ**            | The main overview screen.                                      |
 | Template      | **Dossier**       | Reusable mission briefing template with variable placeholders. |
-| AI Layer      | **Captain**       | Autonomous decision engine — judges, escalates, reviews.       |
+| AI Layer      | **Overseer**      | Mission review specialist — reviews debriefs, issues verdicts, escalates. |
+| Merge Layer   | **Quartermaster** | Merge and integration specialist — worktree merging, conflict resolution, follow-up extraction. |
 | Alert         | **Notification**  | In-app + Telegram alert for events and escalations.            |
 | Startup       | **War Room**      | Boot sequence animation shown on first visit.                  |
 | Planning Chat | **Briefing**      | Interactive campaign planning chat with GENERAL asset.         |
@@ -68,10 +69,13 @@ The interface follows a tactical operations center aesthetic. Dark backgrounds, 
 | `QUEUED`       | muted   | Waiting for an available agent slot.         |
 | `DEPLOYING`    | amber   | Setting up worktree / preparing process.     |
 | `IN COMBAT`    | amber   | Claude Code process actively running.        |
-| `REVIEWING`    | blue    | Captain AI reviewing debrief quality.        |
+| `REVIEWING`    | blue    | Overseer reviewing debrief quality.          |
+| `APPROVED`     | green   | Overseer approved, awaiting merge.           |
+| `MERGING`      | amber   | Quartermaster merging worktree.              |
 | `ACCOMPLISHED` | green   | Completed successfully.                      |
 | `COMPROMISED`  | red     | Failed or errored.                           |
 | `ABANDONED`    | dim     | Cancelled by Commander or interrupted.       |
+| `PAUSED`       | amber   | Campaign paused — Commander intervention needed. |
 | `SECURED`      | green   | Phase completed (all missions accomplished). |
 
 ---
@@ -130,7 +134,7 @@ Detailed docs are split into topic files under `.devroom/`. Reference these when
 | `.devroom/spec-campaigns.md` | Campaign creation, phase execution, templates, detail page |
 | `.devroom/spec-operations.md` | Git dashboard, console & dev server, scheduled tasks |
 | `.devroom/spec-prompts.md` | All prompt templates (standard, campaign, conflict, debrief, bootstrap) |
-| `.devroom/spec-captain-and-comms.md` | Captain AI, notifications, Telegram, logistics, War Room |
+| `.devroom/spec-overseer-and-comms.md` | Overseer AI, notifications, Telegram, logistics, War Room |
 | `.devroom/accessibility-audit.md` | Contrast and size violation audit — theme tokens, per-file violations, recommended fixes |
 | `.devroom/testing.md` | Test strategy, conventions, how to run and write tests |
 
@@ -147,7 +151,8 @@ Mission      = Single task (one Claude Code process)
 Asset        = Agent profile (specialty + system prompt)
 Dossier      = Reusable mission briefing template
 Briefing     = Interactive campaign planning chat with GENERAL
-Captain      = AI decision layer (autonomous judgment + escalation)
+Overseer     = Mission review specialist (debrief verdicts + escalation)
+Quartermaster= Merge and integration specialist (worktree merging, conflict resolution)
 Debrief      = Post-mission report to Commander
 Comms        = Real-time log stream
 HQ           = Main dashboard
@@ -158,11 +163,11 @@ Notification = In-app + Telegram alert
 
 **Battlefields:** `INITIALIZING → ACTIVE → ARCHIVED`
 
-**Missions:** `STANDBY → QUEUED → DEPLOYING → IN COMBAT → REVIEWING → ACCOMPLISHED / COMPROMISED / ABANDONED`
+**Missions:** `STANDBY → QUEUED → DEPLOYING → IN COMBAT → REVIEWING → APPROVED → MERGING → ACCOMPLISHED / COMPROMISED / ABANDONED`
 
 **Phases:** `STANDBY → ACTIVE → SECURED / COMPROMISED`
 
-**Campaigns:** `DRAFT → PLANNING → ACTIVE → ACCOMPLISHED / COMPROMISED / ABANDONED`
+**Campaigns:** `DRAFT → PLANNING → ACTIVE → PAUSED → ACCOMPLISHED / COMPROMISED / ABANDONED`
 
 ### Testing
 
