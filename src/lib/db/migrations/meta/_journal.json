@@ -95,8 +95,8 @@
     },
     {
       "idx": 13,
-      "version": "7",
-      "when": 1743523200000,
+      "version": "6",
+      "when": 1775002000000,
       "tag": "0013_asset_skills",
       "breakpoints": true
     }
