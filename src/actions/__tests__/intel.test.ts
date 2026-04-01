@@ -189,16 +189,16 @@ describe('intel actions', () => {
       expect(found).toBeUndefined();
     });
 
-    it('throws when note is linked to a mission', async () => {
+    it('deletes a note linked to a mission', async () => {
       const mission = createTestMission(db, { battlefieldId: battlefield.id });
       const note = createTestIntelNote(db, {
         battlefieldId: battlefield.id,
         missionId: mission.id,
       });
 
-      await expect(deleteNote(note.id)).rejects.toThrow(
-        'linked to a mission and cannot be deleted',
-      );
+      await deleteNote(note.id);
+      const found = db.select().from(intelNotes).where(eq(intelNotes.id, note.id)).get();
+      expect(found).toBeUndefined();
     });
 
     it('throws on non-existent note', async () => {

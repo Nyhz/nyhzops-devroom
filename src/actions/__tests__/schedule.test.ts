@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS campaigns (
   is_template INTEGER DEFAULT 0,
   template_id TEXT,
   debrief TEXT,
+  stall_reason TEXT,
+  stalled_phase_id TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
