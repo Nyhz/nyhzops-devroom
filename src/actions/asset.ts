@@ -11,7 +11,7 @@ import type { Asset, AssetStatus } from '@/types';
 export interface AssetDeploymentEntry {
   id: string;
   codename: string;
-  status: 'in_combat' | 'queued';
+  status: 'in_combat' | 'queued' | 'reviewing' | 'merging';
   missionTitle: string;
 }
 
@@ -27,7 +27,7 @@ export async function getAssetDeployment(): Promise<AssetDeploymentData> {
   const db = getDatabase();
   const activeAssets = db.select().from(assets).where(eq(assets.status, 'active')).all();
 
-  // Find all missions currently in active states
+  // Find all missions currently in active states (including Overseer/Quartermaster work)
   const activeMissions = db
     .select({
       id: missions.id,
@@ -36,7 +36,7 @@ export async function getAssetDeployment(): Promise<AssetDeploymentData> {
       assetId: missions.assetId,
     })
     .from(missions)
-    .where(inArray(missions.status, ['in_combat', 'deploying', 'reviewing', 'queued']))
+    .where(inArray(missions.status, ['in_combat', 'deploying', 'reviewing', 'approved', 'merging', 'queued']))
     .all();
 
   const active: AssetDeploymentEntry[] = [];
@@ -47,19 +47,47 @@ export async function getAssetDeployment(): Promise<AssetDeploymentData> {
     if (!asset) continue;
 
     busyAssetIds.add(asset.id);
-    const status: 'in_combat' | 'queued' =
-      mission.status === 'queued' ? 'queued' : 'in_combat';
 
+    // Map mission status to deployment display status
+    let status: AssetDeploymentEntry['status'];
+    if (mission.status === 'queued') {
+      status = 'queued';
+    } else if (mission.status === 'approved' || mission.status === 'merging') {
+      status = 'merging';
+    } else if (mission.status === 'reviewing') {
+      status = 'reviewing';
+    } else {
+      status = 'in_combat';
+    }
+
+    // Show the assigned asset for executor states
     active.push({
       id: mission.id,
       codename: asset.codename,
       status,
       missionTitle: mission.title,
     });
+
+    // Add system asset entries for Overseer (reviewing) and Quartermaster (approved/merging)
+    if (mission.status === 'reviewing') {
+      active.push({
+        id: `${mission.id}:overseer`,
+        codename: 'OVERSEER',
+        status: 'reviewing',
+        missionTitle: mission.title,
+      });
+    } else if (mission.status === 'approved' || mission.status === 'merging') {
+      active.push({
+        id: `${mission.id}:quartermaster`,
+        codename: 'QUARTERMASTER',
+        status: 'merging',
+        missionTitle: mission.title,
+      });
+    }
   }
 
   const idle = activeAssets
-    .filter((a) => !busyAssetIds.has(a.id))
+    .filter((a) => !busyAssetIds.has(a.id) && !a.isSystem)
     .map((a) => a.codename);
 
   return { active, idle };

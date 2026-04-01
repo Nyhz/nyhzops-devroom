@@ -32,7 +32,7 @@ export function AppShell({ children }: AppShellProps) {
     campaignCounts[bf.id] = cResult[0]?.value ?? 0;
   }
 
-  const activeAgents = globalThis.orchestrator?.getActiveCount() ?? 0;
+  const activeAgents = globalThis.orchestrator?.getWorkingCount() ?? 0;
 
   return (
     <AppShellClient

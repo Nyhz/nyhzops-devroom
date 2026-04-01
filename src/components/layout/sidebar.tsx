@@ -34,7 +34,7 @@ export function Sidebar() {
       battlefields={allBattlefields}
       missionCounts={missionCounts}
       campaignCounts={campaignCounts}
-      activeAgents={globalThis.orchestrator?.getActiveCount() ?? 0}
+      activeAgents={globalThis.orchestrator?.getWorkingCount() ?? 0}
     />
   );
 }

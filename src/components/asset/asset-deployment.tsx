@@ -87,32 +87,44 @@ export function AssetDeployment({ initialData }: AssetDeploymentProps) {
       ) : (
         /* Active deployments — one row per mission */
         <div className="px-3 pb-3 space-y-1.5">
-          {active.map((entry) => (
-            <div key={entry.id} className="flex items-center gap-2">
-              <span
-                className={`text-sm ${
-                  entry.status === 'in_combat' ? 'text-dr-amber' : 'text-dr-blue'
-                }`}
-              >
-                ●
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="text-dr-text font-tactical text-xs truncate">
-                  {entry.codename}
+          {active.map((entry) => {
+            const colorClass =
+              entry.status === 'in_combat'
+                ? 'text-dr-amber'
+                : entry.status === 'reviewing'
+                  ? 'text-dr-blue'
+                  : entry.status === 'merging'
+                    ? 'text-dr-green'
+                    : 'text-dr-muted';
+
+            const label =
+              entry.status === 'in_combat'
+                ? 'ACTIVE'
+                : entry.status === 'reviewing'
+                  ? 'REVIEWING'
+                  : entry.status === 'merging'
+                    ? 'MERGING'
+                    : 'QUEUED';
+
+            return (
+              <div key={entry.id} className="flex items-center gap-2">
+                <span className={`text-sm ${colorClass}`}>●</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-dr-text font-tactical text-xs truncate">
+                    {entry.codename}
+                  </div>
+                  <div className="text-dr-muted font-data text-xs truncate">
+                    {entry.missionTitle}
+                  </div>
                 </div>
-                <div className="text-dr-muted font-data text-xs truncate">
-                  {entry.missionTitle}
-                </div>
+                <span
+                  className={`font-tactical text-xs tracking-wider shrink-0 ${colorClass}`}
+                >
+                  {label}
+                </span>
               </div>
-              <span
-                className={`font-tactical text-xs tracking-wider shrink-0 ${
-                  entry.status === 'in_combat' ? 'text-dr-amber' : 'text-dr-blue'
-                }`}
-              >
-                {entry.status === 'in_combat' ? 'ACTIVE' : 'QUEUED'}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

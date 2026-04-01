@@ -40,7 +40,7 @@ export class Orchestrator {
 
   private emitAgentCount(): void {
     this.io.to('hq:activity').emit('orchestrator:agents', {
-      active: this.activeJobs.size,
+      active: this.getWorkingCount(),
       max: this.maxAgents,
     });
   }
@@ -132,6 +132,22 @@ export class Orchestrator {
 
   getActiveCount(): number {
     return this.activeJobs.size;
+  }
+
+  /**
+   * Count all missions consuming agent resources — includes executor slots
+   * (deploying/in_combat) plus Overseer (reviewing) and Quartermaster
+   * (approved/merging) work that runs outside the activeJobs map.
+   */
+  getWorkingCount(): number {
+    const db = getDatabase();
+    const WORKING_STATUSES = ['deploying', 'in_combat', 'reviewing', 'approved', 'merging'] as const;
+    const [row] = db
+      .select({ total: sql<number>`count(*)` })
+      .from(missions)
+      .where(inArray(missions.status, [...WORKING_STATUSES]))
+      .all();
+    return row?.total ?? 0;
   }
 
   isExecuting(missionId: string): boolean {

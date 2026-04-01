@@ -92,7 +92,7 @@ function collectMetrics(): SystemMetrics {
     disk: getDiskUsage(),
     uptime: Date.now() - bootTimestamp,
     assets: {
-      active: orchestrator?.getActiveCount() ?? 0,
+      active: orchestrator?.getWorkingCount() ?? 0,
       max: config.maxAgents,
     },
   };
