@@ -114,7 +114,7 @@ export function AssetSkillsTab({ asset, discovery }: AssetSkillsTabProps) {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <span className="text-dr-muted font-mono text-xs">
+        <span className="text-dr-muted font-tactical text-xs tracking-wider">
           Last scanned: {timeAgo(lastScanned)}
         </span>
         <TacButton
@@ -129,7 +129,7 @@ export function AssetSkillsTab({ asset, discovery }: AssetSkillsTabProps) {
       </div>
 
       <div>
-        <h2 className="font-mono text-sm text-tac-green uppercase tracking-wider mb-3">
+        <h2 className="font-tactical text-xs text-dr-amber uppercase tracking-widest mb-3">
           Skills
         </h2>
         <SkillToggleList
@@ -140,7 +140,7 @@ export function AssetSkillsTab({ asset, discovery }: AssetSkillsTabProps) {
       </div>
 
       <div>
-        <h2 className="font-mono text-sm text-tac-green uppercase tracking-wider mb-3">
+        <h2 className="font-tactical text-xs text-dr-amber uppercase tracking-widest mb-3">
           MCP Servers
         </h2>
         <SkillToggleList

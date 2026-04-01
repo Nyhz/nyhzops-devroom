@@ -38,7 +38,7 @@ export function AssetPromptTab({ asset }: AssetPromptTabProps) {
         className="min-h-[400px] bg-dr-surface border-dr-border font-mono text-sm text-tac-dim"
       />
       <div className="flex items-center justify-between">
-        <span className="text-dr-muted font-mono text-xs">
+        <span className="text-dr-muted font-tactical text-xs tracking-wider">
           {systemPrompt.length} characters
         </span>
         <TacButton

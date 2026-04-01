@@ -76,7 +76,7 @@ export function AssetProfileTab({ asset }: AssetProfileTabProps) {
   return (
     <div className="space-y-5 max-w-xl">
       <div>
-        <label className="block text-dr-muted font-tactical text-xs tracking-wider uppercase mb-1">
+        <label className="block text-dr-muted font-tactical text-xs tracking-widest uppercase mb-1">
           Specialty
         </label>
         <TacInput
@@ -87,7 +87,7 @@ export function AssetProfileTab({ asset }: AssetProfileTabProps) {
       </div>
 
       <div>
-        <label className="block text-dr-muted font-tactical text-xs tracking-wider uppercase mb-1">
+        <label className="block text-dr-muted font-tactical text-xs tracking-widest uppercase mb-1">
           Model
         </label>
         <TacSelect value={model} onValueChange={(val) => { if (val) setModel(val); }}>
@@ -105,7 +105,7 @@ export function AssetProfileTab({ asset }: AssetProfileTabProps) {
       </div>
 
       <div>
-        <label className="block text-dr-muted font-tactical text-xs tracking-wider uppercase mb-1">
+        <label className="block text-dr-muted font-tactical text-xs tracking-widest uppercase mb-1">
           Effort
         </label>
         <TacSelect value={effort} onValueChange={(val) => setEffort(val)}>
@@ -123,7 +123,7 @@ export function AssetProfileTab({ asset }: AssetProfileTabProps) {
       </div>
 
       <div>
-        <label className="block text-dr-muted font-tactical text-xs tracking-wider uppercase mb-1">
+        <label className="block text-dr-muted font-tactical text-xs tracking-widest uppercase mb-1">
           Max Turns
         </label>
         <TacInput

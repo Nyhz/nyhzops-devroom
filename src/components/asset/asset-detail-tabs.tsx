@@ -29,10 +29,10 @@ export function AssetDetailTabs({ asset, discovery }: AssetDetailTabsProps) {
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={cn(
-              'font-mono text-xs uppercase tracking-wider px-4 py-2 transition-colors',
+              'font-tactical text-xs uppercase tracking-widest px-4 py-2 transition-colors',
               'min-h-[44px] md:min-h-0',
               activeTab === tab
-                ? 'text-tac-green border-b-2 border-tac-green'
+                ? 'text-dr-amber border-b-2 border-dr-amber'
                 : 'text-dr-muted hover:text-dr-text',
             )}
           >
