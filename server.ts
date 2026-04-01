@@ -14,7 +14,7 @@ import { Orchestrator } from './src/lib/orchestrator/orchestrator';
 import { DevServerManager } from './src/lib/process/dev-server';
 import { Scheduler } from './src/lib/scheduler/scheduler';
 import { isEnabled as telegramIsEnabled, startPolling as startTelegramPolling, stopPolling as stopTelegramPolling } from './src/lib/telegram/telegram';
-import { handleTelegramCallback } from './src/lib/captain/escalation';
+import { handleTelegramCallback } from './src/lib/overseer/escalation';
 import { setBootTimestamp, stopMetricsEmitter } from './src/lib/system-metrics';
 
 // Typed globalThis for Socket.IO access
@@ -78,14 +78,14 @@ async function start() {
     }
   }
 
-  // Re-trigger Captain review for missions stuck in reviewing
-  const { runCaptainReview } = await import('./src/lib/captain/review-handler');
+  // Re-trigger Overseer review for missions stuck in reviewing
+  const { runOverseerReview } = await import('./src/lib/overseer/review-handler');
   const reviewingMissions = db.select().from(missions)
     .where(eq(missions.status, 'reviewing')).all();
   for (const m of reviewingMissions) {
-    console.log(`[DEVROOM] Mission ${m.id} re-triggering Captain review — was reviewing when server stopped`);
-    runCaptainReview(m.id).catch(err => {
-      console.error(`[DEVROOM] Captain review retry failed for ${m.id}:`, err);
+    console.log(`[DEVROOM] Mission ${m.id} re-triggering Overseer review — was reviewing when server stopped`);
+    runOverseerReview(m.id).catch(err => {
+      console.error(`[DEVROOM] Overseer review retry failed for ${m.id}:`, err);
     });
   }
 
