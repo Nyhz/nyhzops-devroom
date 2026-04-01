@@ -6,6 +6,8 @@ import { eq, desc, and, inArray } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { campaigns, phases, missions, missionLogs, assets, battlefields, intelNotes } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
+import { emitStatusChange } from '@/lib/socket/emit';
+import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
 import type { Campaign, CampaignWithPlan, PlanJSON } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -23,6 +25,7 @@ function reactivateCampaignIfNeeded(campaignId: string) {
       status: 'active',
       updatedAt: Date.now(),
     }).where(eq(campaigns.id, campaignId)).run();
+    emitStatusChange('campaign', campaignId, 'active');
   }
 }
 
@@ -440,6 +443,7 @@ export async function backToDraft(campaignId: string): Promise<void> {
     updatedAt: Date.now(),
   }).where(eq(campaigns.id, campaignId)).run();
 
+  emitStatusChange('campaign', campaignId, 'draft');
   revalidatePath(`/battlefields/${campaign.battlefieldId}/campaigns/${campaignId}`);
 }
 
@@ -567,6 +571,8 @@ export async function launchCampaign(
     }
   });
 
+  emitStatusChange('campaign', campaignId, 'active');
+
   // Trigger orchestrator to begin campaign execution — outside transaction
   globalThis.orchestrator?.startCampaign(campaignId);
 
@@ -590,6 +596,7 @@ export async function completeCampaign(id: string): Promise<void> {
     .where(eq(campaigns.id, id))
     .run();
 
+  emitStatusChange('campaign', id, 'accomplished');
   revalidateCampaignPaths(campaign.battlefieldId, id);
 }
 
@@ -648,6 +655,7 @@ export async function abandonCampaign(id: string): Promise<void> {
       .run();
   });
 
+  emitStatusChange('campaign', id, 'abandoned');
   revalidateCampaignPaths(campaign.battlefieldId, id);
 }
 
@@ -798,6 +806,7 @@ export async function resumeCampaign(campaignId: string): Promise<void> {
     .where(eq(campaigns.id, campaignId))
     .run();
 
+  emitStatusChange('campaign', campaignId, 'active');
   globalThis.orchestrator?.resumeCampaign(campaignId);
 
   revalidateCampaignPaths(campaign.battlefieldId, campaignId);
@@ -851,8 +860,9 @@ export async function tacticalOverride(
     reactivateCampaignIfNeeded(mission.campaignId);
   }
 
+  emitStatusChange('mission', missionId, 'queued');
   revalidatePath(`/battlefields/${mission.battlefieldId}`);
-  globalThis.orchestrator?.onMissionQueued(missionId);
+  safeQueueMission(missionId);
 }
 
 // ---------------------------------------------------------------------------
@@ -877,13 +887,7 @@ export async function commanderOverride(missionId: string): Promise<void> {
     await notifyCampaignExecutor(mission.campaignId, missionId);
   }
 
-  // Emit status change via socket
-  if (globalThis.io) {
-    const statusPayload = { missionId, status: 'accomplished', timestamp: now };
-    globalThis.io.to(`mission:${missionId}`).emit('mission:status', statusPayload);
-    globalThis.io.to(`battlefield:${mission.battlefieldId}`).emit('mission:status', statusPayload);
-  }
-
+  emitStatusChange('mission', missionId, 'accomplished');
   revalidatePath(`/battlefields/${mission.battlefieldId}`);
 }
 
@@ -933,6 +937,8 @@ export async function skipMission(missionId: string): Promise<void> {
     }
   });
 
+  emitStatusChange('mission', missionId, 'abandoned');
+
   if (mission.campaignId) {
     reactivateCampaignIfNeeded(mission.campaignId);
     if (mission.phaseId) {
@@ -962,6 +968,7 @@ export async function retryPhaseDebrief(campaignId: string): Promise<void> {
     stalledPhaseId: null,
     updatedAt: Date.now(),
   }).where(eq(campaigns.id, campaignId)).run();
+  emitStatusChange('campaign', campaignId, 'active');
 
   // Re-trigger generateAndAdvance via the campaign executor
   const executor = globalThis.orchestrator?.activeCampaigns.get(campaignId);
@@ -1016,6 +1023,7 @@ export async function skipPhaseDebrief(campaignId: string): Promise<void> {
     stalledPhaseId: null,
     updatedAt: Date.now(),
   }).where(eq(campaigns.id, campaignId)).run();
+  emitStatusChange('campaign', campaignId, 'active');
 
   // Advance to next phase
   const executor = globalThis.orchestrator?.activeCampaigns.get(campaignId);
