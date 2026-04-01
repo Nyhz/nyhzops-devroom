@@ -14,7 +14,6 @@ import {
   TacModalHeader,
   TacModalTitle,
 } from '@/components/ui/modal';
-import { AssetForm } from '@/components/asset/asset-form';
 import { toggleAssetStatus, deleteAsset } from '@/actions/asset';
 import { cn } from '@/lib/utils';
 import type { Asset } from '@/types';
@@ -33,25 +32,8 @@ interface AssetListProps {
 
 export function AssetList({ assets, title, showSystemBadge = false }: AssetListProps) {
   const router = useRouter();
-  const [showForm, setShowForm] = useState(false);
-  const [editingAsset, setEditingAsset] = useState<Asset | undefined>(undefined);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-
-  function handleEdit(asset: Asset) {
-    setEditingAsset(asset);
-    setShowForm(true);
-  }
-
-  function handleCreate() {
-    setEditingAsset(undefined);
-    setShowForm(true);
-  }
-
-  function handleCloseForm() {
-    setShowForm(false);
-    setEditingAsset(undefined);
-  }
 
   function handleToggle(id: string) {
     startTransition(async () => {
@@ -84,22 +66,7 @@ export function AssetList({ assets, title, showSystemBadge = false }: AssetListP
         <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase">
           {title ?? 'ASSETS // AGENT ROSTER'}
         </div>
-        <TacButton variant="success" size="sm" onClick={handleCreate} className="w-full sm:w-auto min-h-[44px] sm:min-h-0">
-          + RECRUIT ASSET
-        </TacButton>
       </div>
-
-      {/* Create/Edit Modal */}
-      <TacModal open={showForm} onOpenChange={(open) => { if (!open) handleCloseForm(); }}>
-        <TacModalContent>
-          <TacModalHeader>
-            <TacModalTitle>
-              {editingAsset ? 'MODIFY ASSET' : 'RECRUIT NEW ASSET'}
-            </TacModalTitle>
-          </TacModalHeader>
-          <AssetForm editAsset={editingAsset} onClose={handleCloseForm} />
-        </TacModalContent>
-      </TacModal>
 
       {/* Delete Confirmation Modal */}
       <TacModal open={!!confirmDeleteId} onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}>
@@ -206,14 +173,6 @@ export function AssetList({ assets, title, showSystemBadge = false }: AssetListP
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <TacButton
-                      variant="primary"
-                      size="sm"
-                      onClick={() => handleEdit(asset)}
-                      className="text-xs px-2 py-0.5 min-h-[44px] sm:min-h-0"
-                    >
-                      EDIT
-                    </TacButton>
                     <TacButton
                       variant="danger"
                       size="sm"
