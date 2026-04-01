@@ -3,9 +3,23 @@ import fs from 'fs';
 import simpleGit from 'simple-git';
 import { config } from '@/lib/config';
 import { createAuthenticatedHome } from '@/lib/process/claude-print';
+import { getSystemAsset } from '@/actions/asset';
+import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
 import type { Mission } from '@/types';
 
 const RESOLUTION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Filter a flag and its value from an args array.
+ */
+function filterFlag(args: string[], flag: string): string[] {
+  const result: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === flag) { i++; continue; }
+    result.push(args[i]);
+  }
+  return result;
+}
 
 /**
  * Spawn Claude Code to resolve merge conflicts with rich context.
@@ -95,14 +109,20 @@ export async function resolveConflicts(params: {
 
   const prompt = sections.join('\n\n---\n\n');
 
-  // Spawn Claude Code for conflict resolution
+  // Spawn Claude Code for conflict resolution with QUARTERMASTER asset config
   const authHome = createAuthenticatedHome();
+
+  const quartermaster = getSystemAsset('QUARTERMASTER');
+  const assetArgs = buildAssetCliArgs(quartermaster);
+  // Filter --max-turns (we set our own)
+  const filteredArgs = filterFlag(assetArgs, '--max-turns');
 
   return new Promise<boolean>((resolve) => {
     const proc = spawn(config.claudePath, [
       '--print',
       '--dangerously-skip-permissions',
       '--max-turns', '20',
+      ...filteredArgs,
     ], {
       cwd: repoPath,
       env: { ...process.env, HOME: authHome },

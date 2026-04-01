@@ -155,6 +155,24 @@ describe('asset actions', () => {
       // Should not throw
       await updateAsset(asset.id, {});
     });
+
+    it('throws when attempting to change codename of a system asset', async () => {
+      const asset = createTestAsset(db, { codename: 'SYS_FIXED', isSystem: 1 });
+      await expect(updateAsset(asset.id, { codename: 'RENAMED' })).rejects.toThrow(
+        'Cannot change codename of system assets',
+      );
+    });
+
+    it('allows updating non-codename fields on a system asset', async () => {
+      const asset = createTestAsset(db, { codename: 'SYS_UPDATE', isSystem: 1 });
+      // Updating specialty should be allowed
+      await updateAsset(asset.id, { specialty: 'Updated specialty' });
+
+      const { assets } = await import('@/lib/db/schema');
+      const { eq } = await import('drizzle-orm');
+      const row = db.select().from(assets).where(eq(assets.id, asset.id)).get();
+      expect(row!.specialty).toBe('Updated specialty');
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -183,6 +201,11 @@ describe('asset actions', () => {
 
     it('throws for non-existent asset', async () => {
       await expect(toggleAssetStatus('nonexistent')).rejects.toThrow('not found');
+    });
+
+    it('throws when attempting to toggle a system asset', async () => {
+      const asset = createTestAsset(db, { codename: 'SYS_TOGGLE', isSystem: 1 });
+      await expect(toggleAssetStatus(asset.id)).rejects.toThrow('Cannot toggle system asset status');
     });
   });
 
@@ -216,6 +239,11 @@ describe('asset actions', () => {
 
     it('throws for non-existent asset', async () => {
       await expect(deleteAsset('nonexistent')).rejects.toThrow('not found');
+    });
+
+    it('throws when attempting to delete a system asset', async () => {
+      const asset = createTestAsset(db, { codename: 'SYSTEM_ASSET', isSystem: 1 });
+      await expect(deleteAsset(asset.id)).rejects.toThrow('Cannot delete system assets');
     });
   });
 

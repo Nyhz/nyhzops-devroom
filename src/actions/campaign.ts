@@ -332,6 +332,7 @@ export async function getCampaign(
         reviewAttempts: missions.reviewAttempts,
         compromiseReason: missions.compromiseReason,
         mergeRetryAt: missions.mergeRetryAt,
+        skillOverrides: missions.skillOverrides,
         durationMs: missions.durationMs,
         startedAt: missions.startedAt,
         completedAt: missions.completedAt,
@@ -983,6 +984,26 @@ export async function retryPhaseDebrief(campaignId: string): Promise<void> {
   }
 
   revalidateCampaignPaths(campaign.battlefieldId, campaignId);
+}
+
+// ---------------------------------------------------------------------------
+// updateMissionSkillOverrides — Persist per-mission skill/MCP overrides
+// ---------------------------------------------------------------------------
+
+export async function updateMissionSkillOverrides(
+  missionId: string,
+  overrides: { added?: string[]; removed?: string[] } | null,
+): Promise<void> {
+  const db = getDatabase();
+  db.update(missions).set({
+    skillOverrides: overrides ? JSON.stringify(overrides) : null,
+    updatedAt: Date.now(),
+  }).where(eq(missions.id, missionId)).run();
+
+  const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
+  if (mission?.battlefieldId) {
+    revalidatePath(`/battlefields/${mission.battlefieldId}`);
+  }
 }
 
 // ---------------------------------------------------------------------------

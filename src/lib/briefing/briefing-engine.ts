@@ -5,6 +5,8 @@ import { eq } from 'drizzle-orm';
 import type { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
 import { extractKeychainCredentials } from '@/lib/process/claude-print';
+import { getSystemAsset } from '@/actions/asset';
+import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
 import {
   briefingSessions,
   briefingMessages,
@@ -30,6 +32,19 @@ interface ActiveProcess {
 }
 
 const activeProcesses = new Map<string, ActiveProcess>();
+
+/**
+ * Filter multiple flags (and their values) from an args array.
+ */
+function filterFlags(args: string[], flags: string[]): string[] {
+  const flagSet = new Set(flags);
+  const result: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (flagSet.has(args[i])) { i++; continue; }
+    result.push(args[i]);
+  }
+  return result;
+}
 
 // ---------------------------------------------------------------------------
 // sendBriefingMessage — core entry point
@@ -101,11 +116,13 @@ export async function sendBriefingMessage(
   // 4. Load all active assets
   const allAssets = db.select().from(assets).all();
 
-  // 5. Find GENERAL asset to get model
-  const generalAsset = allAssets.find(
-    (a) => a.codename === 'GENERAL' && a.status === 'active',
-  );
-  const generalModel = generalAsset?.model || 'claude-sonnet-4-6';
+  // 5. Load GENERAL asset for full config (model, system prompt, skills, MCPs)
+  const generalAsset = getSystemAsset('GENERAL');
+
+  // Build asset CLI args, filtering --max-turns (we set our own).
+  // --append-system-prompt carries the GENERAL's identity and is kept.
+  const assetArgs = buildAssetCliArgs(generalAsset);
+  const filteredAssetArgs = filterFlags(assetArgs, ['--max-turns']);
 
   // 6. Build CLI args
   const isFirstMessage = !session.sessionId;
@@ -116,7 +133,7 @@ export async function sendBriefingMessage(
     '--include-partial-messages',
     '--dangerously-skip-permissions',
     '--max-turns', '3',
-    '--model', generalModel,
+    ...filteredAssetArgs,
   ];
 
   if (!isFirstMessage && session.sessionId) {

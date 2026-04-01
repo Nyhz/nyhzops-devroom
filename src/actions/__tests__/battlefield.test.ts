@@ -104,7 +104,7 @@ describe('battlefield actions', () => {
   describe('createBattlefield', () => {
     it('creates a battlefield with repoPath (link flow)', async () => {
       // Need an asset for bootstrap mission
-      createTestAsset(testDb, { codename: 'PATHFINDER' });
+      createTestAsset(testDb, { codename: 'INTEL' });
 
       const result = await createBattlefield({
         name: 'Test Project',
@@ -120,7 +120,7 @@ describe('battlefield actions', () => {
     });
 
     it('creates battlefield with initialBriefing and triggers bootstrap', async () => {
-      const asset = createTestAsset(testDb, { codename: 'PATHFINDER' });
+      const asset = createTestAsset(testDb, { codename: 'INTEL' });
 
       const result = await createBattlefield({
         name: 'Bootstrap Test',
@@ -137,7 +137,7 @@ describe('battlefield actions', () => {
     });
 
     it('does not trigger orchestrator when scaffoldCommand is present', async () => {
-      createTestAsset(testDb, { codename: 'PATHFINDER' });
+      createTestAsset(testDb, { codename: 'INTEL' });
 
       const result = await createBattlefield({
         name: 'Scaffold Test',
@@ -169,7 +169,7 @@ describe('battlefield actions', () => {
     });
 
     it('creates new project directory when no repoPath given', async () => {
-      createTestAsset(testDb, { codename: 'PATHFINDER' });
+      createTestAsset(testDb, { codename: 'INTEL' });
 
       // New project: directory should NOT exist yet
       vi.mocked(fs.existsSync).mockReturnValue(false);
@@ -223,11 +223,11 @@ describe('battlefield actions', () => {
           repoPath: '/tmp/no-asset-repo',
           initialBriefing: 'Needs an asset',
         }),
-      ).rejects.toThrow('PATHFINDER asset required for bootstrap');
+      ).rejects.toThrow('INTEL asset required for bootstrap');
     });
 
     it('seeds maintenance tasks', async () => {
-      createTestAsset(testDb, { codename: 'PATHFINDER' });
+      createTestAsset(testDb, { codename: 'INTEL' });
 
       // existsSync returns true so link flow validation passes
       vi.mocked(fs.existsSync).mockReturnValue(true);
@@ -473,7 +473,7 @@ describe('battlefield actions', () => {
   // -------------------------------------------------------------------------
   describe('regenerateBootstrap', () => {
     it('deletes files, creates new mission, and triggers orchestrator', async () => {
-      const asset = createTestAsset(testDb, { codename: 'PATHFINDER' });
+      const asset = createTestAsset(testDb, { codename: 'INTEL' });
       const bf = createTestBattlefield(testDb, {
         status: 'initializing',
         repoPath: '/tmp/regen-repo',

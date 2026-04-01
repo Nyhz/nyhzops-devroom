@@ -75,11 +75,11 @@ function createBootstrapMission(
   const asset = db
     .select()
     .from(assets)
-    .where(eq(assets.codename, 'PATHFINDER'))
+    .where(eq(assets.codename, 'INTEL'))
     .get();
 
   if (!asset) {
-    throw new Error('PATHFINDER asset required for bootstrap — no fallback to other assets');
+    throw new Error('INTEL asset required for bootstrap — no fallback to other assets');
   }
 
   const missionId = generateId();

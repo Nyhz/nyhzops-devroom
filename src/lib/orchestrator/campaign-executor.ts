@@ -4,6 +4,8 @@ import { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
 import { campaigns, phases, missions, battlefields } from '@/lib/db/schema';
 import { runClaudePrint } from '@/lib/process/claude-print';
+import { getSystemAsset } from '@/actions/asset';
+import { buildAssetCliArgs } from './asset-cli';
 import { escalate } from '@/lib/overseer/escalation';
 import { handlePhaseFailure } from '@/lib/overseer/phase-failure-handler';
 import { storeOverseerLog } from '@/lib/overseer/overseer-db';
@@ -823,11 +825,31 @@ export class CampaignExecutor {
   }
 
   /**
-   * Spawn Claude Code in --print mode with a temp file prompt.
+   * Spawn Claude Code in --print mode with OVERSEER asset config.
    * Returns the stdout output.
    */
   private runClaudeForDebrief(prompt: string, cwd: string): Promise<string> {
-    return runClaudePrint(prompt, { maxTurns: 5, cwd });
+    const overseer = getSystemAsset('OVERSEER');
+    const assetArgs = buildAssetCliArgs(overseer);
+    const filtered = CampaignExecutor.filterFlag(assetArgs, '--max-turns');
+
+    return runClaudePrint(prompt, {
+      maxTurns: 5,
+      cwd,
+      extraArgs: filtered,
+    });
+  }
+
+  /**
+   * Filter a flag and its value from an args array.
+   */
+  private static filterFlag(args: string[], flag: string): string[] {
+    const result: string[] = [];
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === flag) { i++; continue; }
+      result.push(args[i]);
+    }
+    return result;
   }
 
   // ---------------------------------------------------------------------------

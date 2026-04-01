@@ -1,0 +1,51 @@
+'use client';
+
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
+import { AssetProfileTab } from '@/components/asset/asset-profile-tab';
+import { AssetPromptTab } from '@/components/asset/asset-prompt-tab';
+import { AssetSkillsTab } from '@/components/asset/asset-skills-tab';
+import type { Asset, DiscoveredSkill, DiscoveredMcp } from '@/types';
+
+const TABS = ['PROFILE', 'SYSTEM PROMPT', 'SKILLS & MCPs'] as const;
+type Tab = (typeof TABS)[number];
+
+interface AssetDetailTabsProps {
+  asset: Asset;
+  discovery: {
+    skills: DiscoveredSkill[];
+    mcpServers: DiscoveredMcp[];
+  };
+}
+
+export function AssetDetailTabs({ asset, discovery }: AssetDetailTabsProps) {
+  const [activeTab, setActiveTab] = useState<Tab>('PROFILE');
+
+  return (
+    <div>
+      <div className="flex gap-0 border-b border-dr-border mb-6">
+        {TABS.map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              'font-mono text-xs uppercase tracking-wider px-4 py-2 transition-colors',
+              'min-h-[44px] md:min-h-0',
+              activeTab === tab
+                ? 'text-tac-green border-b-2 border-tac-green'
+                : 'text-dr-muted hover:text-dr-text',
+            )}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'PROFILE' && <AssetProfileTab asset={asset} />}
+      {activeTab === 'SYSTEM PROMPT' && <AssetPromptTab asset={asset} />}
+      {activeTab === 'SKILLS & MCPs' && (
+        <AssetSkillsTab asset={asset} discovery={discovery} />
+      )}
+    </div>
+  );
+}

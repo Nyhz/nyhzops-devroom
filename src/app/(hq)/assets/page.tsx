@@ -7,13 +7,18 @@ import type { Asset } from '@/types';
 export default async function AssetsPage() {
   const db = getDatabase();
   const allAssets = db.select().from(assets).all() as Asset[];
+  const missionAssets = allAssets.filter(a => !a.isSystem);
+  const systemAssets = allAssets.filter(a => a.isSystem);
 
   return (
     <PageWrapper
       breadcrumb={['NYHZ OPS', 'ASSETS']}
       title="AGENT ROSTER"
     >
-      <AssetList assets={allAssets} />
+      <div className="space-y-8">
+        <AssetList title="MISSION ASSETS" assets={missionAssets} showSystemBadge={false} />
+        <AssetList title="SYSTEM ASSETS" assets={systemAssets} showSystemBadge={true} />
+      </div>
     </PageWrapper>
   );
 }

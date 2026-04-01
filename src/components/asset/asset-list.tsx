@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { TacCard } from '@/components/ui/tac-card';
 import { TacBadge } from '@/components/ui/tac-badge';
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/modal';
 import { AssetForm } from '@/components/asset/asset-form';
 import { toggleAssetStatus, deleteAsset } from '@/actions/asset';
+import { cn } from '@/lib/utils';
 import type { Asset } from '@/types';
 
 const MODEL_LABELS: Record<string, string> = {
@@ -25,9 +27,11 @@ const MODEL_LABELS: Record<string, string> = {
 
 interface AssetListProps {
   assets: Asset[];
+  title?: string;
+  showSystemBadge?: boolean;
 }
 
-export function AssetList({ assets }: AssetListProps) {
+export function AssetList({ assets, title, showSystemBadge = false }: AssetListProps) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | undefined>(undefined);
@@ -78,7 +82,7 @@ export function AssetList({ assets }: AssetListProps) {
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div className="text-dr-amber font-tactical text-xs tracking-widest uppercase">
-          ASSETS // AGENT ROSTER
+          {title ?? 'ASSETS // AGENT ROSTER'}
         </div>
         <TacButton variant="success" size="sm" onClick={handleCreate} className="w-full sm:w-auto min-h-[44px] sm:min-h-0">
           + RECRUIT ASSET
@@ -137,60 +141,97 @@ export function AssetList({ assets }: AssetListProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {assets.map((asset) => (
-            <TacCard
-              key={asset.id}
-              status={asset.status === 'active' ? 'green' : undefined}
-            >
-              <div className="flex items-start justify-between mb-2 gap-2">
-                <div className="text-dr-amber font-tactical text-sm tracking-wider uppercase truncate min-w-0">
-                  {asset.codename}
-                </div>
-                <button
-                  onClick={() => handleToggle(asset.id)}
-                  disabled={isPending}
-                  className="cursor-pointer disabled:cursor-not-allowed min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center shrink-0"
-                  title={`Toggle status (currently ${asset.status})`}
-                >
-                  <TacBadge status={asset.status ?? 'active'} />
-                </button>
-              </div>
-              <div className="text-dr-text font-tactical text-xs mb-1 truncate">
-                {asset.specialty}
-              </div>
-              <div className="text-dr-muted font-tactical text-xs mb-2">
-                {MODEL_LABELS[asset.model ?? 'claude-sonnet-4-6'] ?? asset.model}
-              </div>
-              <div className="border-t border-dr-border pt-2 mt-2">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-dr-muted font-tactical text-xs uppercase tracking-wider">
-                    Missions completed
-                  </span>
-                  <span className="text-dr-text font-tactical text-xs">
-                    {asset.missionsCompleted ?? 0}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <TacButton
-                    variant="primary"
-                    size="sm"
-                    onClick={() => handleEdit(asset)}
-                    className="text-xs px-2 py-0.5 min-h-[44px] sm:min-h-0"
+          {assets.map((asset) => {
+            const isSystem = Boolean(asset.isSystem);
+            let skillCount = 0;
+            try {
+              const parsed = JSON.parse(asset.skills ?? '[]');
+              skillCount = Array.isArray(parsed) ? parsed.length : 0;
+            } catch {
+              skillCount = 0;
+            }
+
+            return (
+              <TacCard
+                key={asset.id}
+                status={asset.status === 'active' ? 'green' : undefined}
+              >
+                <div className="flex items-start justify-between mb-2 gap-2">
+                  <Link
+                    href={`/assets/${asset.id}`}
+                    className="text-dr-amber font-tactical text-sm tracking-wider uppercase truncate min-w-0 hover:text-tac-amber transition-colors"
                   >
-                    EDIT
-                  </TacButton>
-                  <TacButton
-                    variant="danger"
-                    size="sm"
-                    onClick={() => setConfirmDeleteId(asset.id)}
-                    className="text-xs px-2 py-0.5 min-h-[44px] sm:min-h-0"
-                  >
-                    DELETE
-                  </TacButton>
+                    {asset.codename}
+                  </Link>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {showSystemBadge && isSystem && (
+                      <span className="text-xs px-2 py-0.5 bg-tac-amber/20 text-tac-amber border border-tac-amber/30 rounded font-mono uppercase">
+                        SYSTEM
+                      </span>
+                    )}
+                    <button
+                      onClick={() => !isSystem && handleToggle(asset.id)}
+                      disabled={isPending || isSystem}
+                      className={cn(
+                        'min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center',
+                        isSystem ? 'cursor-not-allowed opacity-60' : 'cursor-pointer disabled:cursor-not-allowed',
+                      )}
+                      title={isSystem ? 'System assets cannot be toggled' : `Toggle status (currently ${asset.status})`}
+                    >
+                      <TacBadge status={asset.status ?? 'active'} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </TacCard>
-          ))}
+                <div className="text-dr-text font-tactical text-xs mb-1 truncate">
+                  {asset.specialty}
+                </div>
+                <div className="text-dr-muted font-tactical text-xs mb-2">
+                  {MODEL_LABELS[asset.model ?? 'claude-sonnet-4-6'] ?? asset.model}
+                </div>
+                <div className="border-t border-dr-border pt-2 mt-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-dr-muted font-tactical text-xs uppercase tracking-wider">
+                      Missions completed
+                    </span>
+                    <span className="text-dr-text font-tactical text-xs">
+                      {asset.missionsCompleted ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-dr-muted font-tactical text-xs uppercase tracking-wider">
+                      Active skills
+                    </span>
+                    <span className="text-dr-text font-tactical text-xs">
+                      {skillCount}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <TacButton
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleEdit(asset)}
+                      className="text-xs px-2 py-0.5 min-h-[44px] sm:min-h-0"
+                    >
+                      EDIT
+                    </TacButton>
+                    <TacButton
+                      variant="danger"
+                      size="sm"
+                      onClick={() => !isSystem && setConfirmDeleteId(asset.id)}
+                      disabled={isSystem}
+                      className={cn(
+                        'text-xs px-2 py-0.5 min-h-[44px] sm:min-h-0',
+                        isSystem && 'opacity-40 cursor-not-allowed',
+                      )}
+                      title={isSystem ? 'System assets cannot be deleted' : undefined}
+                    >
+                      DELETE
+                    </TacButton>
+                  </div>
+                </div>
+              </TacCard>
+            );
+          })}
         </div>
       )}
     </div>

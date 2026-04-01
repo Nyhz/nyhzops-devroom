@@ -76,7 +76,7 @@ Rules:
 - Missions within a phase can execute IN PARALLEL if no dependencies
 - dependsOn references mission titles within the SAME phase only
 - Each mission briefing must be self-contained and detailed
-- Assign assets by specialty: OPERATIVE for code, ASSERT for testing, DISTILL for docs, WATCHDOG for reviews`);
+- Assign assets by specialty: OPERATIVE for backend code, VANGUARD for frontend, ARCHITECT for system design/refactoring, ASSERT for testing, INTEL for docs/project intelligence`);
 
   return sections.join('\n\n---\n\n');
 }

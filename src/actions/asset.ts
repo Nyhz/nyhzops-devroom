@@ -5,7 +5,27 @@ import { eq, count, inArray } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { assets, missions } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
-import type { AssetStatus } from '@/types';
+import type { Asset, AssetStatus } from '@/types';
+
+// ---------------------------------------------------------------------------
+// getSystemAsset — cached lookup for system assets (OVERSEER, GENERAL, etc.)
+// ---------------------------------------------------------------------------
+
+const systemAssetCache = new Map<string, { asset: Asset; cachedAt: number }>();
+const SYSTEM_ASSET_CACHE_TTL = 60_000;
+
+export function getSystemAsset(codename: string): Asset {
+  const now = Date.now();
+  const cached = systemAssetCache.get(codename);
+  if (cached && (now - cached.cachedAt) < SYSTEM_ASSET_CACHE_TTL) {
+    return cached.asset;
+  }
+  const db = getDatabase();
+  const asset = db.select().from(assets).where(eq(assets.codename, codename)).get();
+  if (!asset) throw new Error(`System asset ${codename} not found. Run seed.`);
+  systemAssetCache.set(codename, { asset, cachedAt: now });
+  return asset;
+}
 
 export interface AssetDeploymentEntry {
   id: string;
@@ -140,6 +160,10 @@ export async function updateAsset(
     systemPrompt?: string;
     model?: string;
     status?: AssetStatus;
+    maxTurns?: number | null;
+    effort?: string | null;
+    skills?: string | null;
+    mcpServers?: string | null;
   },
 ) {
   const db = getDatabase();
@@ -149,6 +173,10 @@ export async function updateAsset(
   const updates: Record<string, unknown> = {};
 
   if (data.codename !== undefined) {
+    // System assets cannot have their codename changed
+    if (existing.isSystem) {
+      throw new Error('Cannot change codename of system assets');
+    }
     const upperCodename = data.codename.toUpperCase().trim();
     if (!upperCodename) {
       throw new Error('Codename is required');
@@ -190,6 +218,22 @@ export async function updateAsset(
     updates.status = data.status;
   }
 
+  if (data.maxTurns !== undefined) {
+    updates.maxTurns = data.maxTurns;
+  }
+
+  if (data.effort !== undefined) {
+    updates.effort = data.effort;
+  }
+
+  if (data.skills !== undefined) {
+    updates.skills = data.skills;
+  }
+
+  if (data.mcpServers !== undefined) {
+    updates.mcpServers = data.mcpServers;
+  }
+
   if (Object.keys(updates).length === 0) {
     return;
   }
@@ -206,6 +250,10 @@ export async function toggleAssetStatus(id: string) {
   const db = getDatabase();
   const asset = getOrThrow(assets, id, 'toggleAssetStatus');
 
+  if (asset.isSystem) {
+    throw new Error('Cannot toggle system asset status');
+  }
+
   const newStatus: AssetStatus = asset.status === 'active' ? 'offline' : 'active';
   db.update(assets)
     .set({ status: newStatus })
@@ -220,7 +268,11 @@ export async function toggleAssetStatus(id: string) {
 // ---------------------------------------------------------------------------
 export async function deleteAsset(id: string) {
   const db = getDatabase();
-  getOrThrow(assets, id, 'deleteAsset');
+  const asset = getOrThrow(assets, id, 'deleteAsset');
+
+  if (asset.isSystem) {
+    throw new Error('Cannot delete system assets');
+  }
 
   // Check if any missions reference this asset
   const [missionRef] = db

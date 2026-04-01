@@ -19,12 +19,7 @@ function buildCampaignMissionPrompt(
     } catch { /* skip */ }
   }
 
-  // 2. Asset system prompt
-  if (asset?.systemPrompt) {
-    sections.push(asset.systemPrompt);
-  }
-
-  // 3. Campaign context
+  // 2. Campaign context
   const campaign = db.select().from(campaigns)
     .where(eq(campaigns.id, mission.campaignId!)).get();
 
@@ -124,7 +119,7 @@ function buildCampaignMissionPrompt(
 
   if (phaseContext) sections.push(phaseContext);
 
-  // 4. Mission briefing
+  // 3. Mission briefing
   sections.push([
     '## Mission Briefing',
     '',
@@ -132,36 +127,6 @@ function buildCampaignMissionPrompt(
     `**Priority**: ${mission.priority || 'normal'}`,
     '',
     mission.briefing,
-  ].join('\n'));
-
-  // 5. Operational parameters (campaign-specific)
-  sections.push([
-    '## Operational Parameters',
-    '',
-    'You are a black ops asset deployed on a surgical mission. Rules of engagement:',
-    '',
-    '1. **MISSION SCOPE IS ABSOLUTE.** Execute exactly what the briefing describes. Nothing more.',
-    '   Do not fix unrelated bugs. Do not refactor adjacent code. Do not "improve" things you notice.',
-    '   If it is not in the briefing, it does not exist.',
-    '',
-    '2. **REPORT, DON\'T FIX.** If you encounter errors, warnings, code smells, or issues outside',
-    '   your mission scope — log them in your debrief under "Recommended Next Actions". The Commander',
-    '   will decide whether to deploy a follow-up mission. Unsanctioned detours compromise the operation.',
-    '',
-    '3. **SPEED AND PRECISION.** Get in, execute, get out. Minimal file reads — only what you need.',
-    '   Surgical edits — only the lines that matter. Every unnecessary change is noise.',
-    '',
-    '4. **COMMIT DISCIPLINE.** Commit with clear, descriptive messages. Only commit files related to',
-    '   your mission objective.',
-    '',
-    '5. **DEBRIEF IS MANDATORY.** Upon completion, provide a debrief addressed to the Commander.',
-    '   Structure your debrief with these sections:',
-    '   - What was done (precise changes, not summaries)',
-    '   - What changed (files modified)',
-    '   - Risks (anything that could break)',
-    '   - ## Recommended Next Actions (bullet list of concrete follow-up tasks, if any)',
-    '',
-    '- Other missions may run in parallel. Stay within your assigned scope.',
   ].join('\n'));
 
   return sections.join('\n\n---\n\n');
@@ -247,12 +212,7 @@ export function buildPrompt(
     }
   }
 
-  // 2. Asset system prompt (SEMI-STATIC — cached per asset)
-  if (asset?.systemPrompt) {
-    sections.push(asset.systemPrompt);
-  }
-
-  // 3. Mission briefing (DYNAMIC — unique per mission)
+  // 2. Mission briefing (DYNAMIC — unique per mission)
   const briefingSection = [
     '## Mission Briefing',
     '',
@@ -263,35 +223,6 @@ export function buildPrompt(
     mission.briefing,
   ].join('\n');
   sections.push(briefingSection);
-
-  // 4. Operational parameters (STATIC suffix)
-  const parameters = [
-    '## Operational Parameters',
-    '',
-    'You are a black ops asset deployed on a surgical mission. Rules of engagement:',
-    '',
-    '1. **MISSION SCOPE IS ABSOLUTE.** Execute exactly what the briefing describes. Nothing more.',
-    '   Do not fix unrelated bugs. Do not refactor adjacent code. Do not "improve" things you notice.',
-    '   If it is not in the briefing, it does not exist.',
-    '',
-    '2. **REPORT, DON\'T FIX.** If you encounter errors, warnings, code smells, or issues outside',
-    '   your mission scope — log them in your debrief under "Recommended Next Actions". The Commander',
-    '   will decide whether to deploy a follow-up mission. Unsanctioned detours compromise the operation.',
-    '',
-    '3. **SPEED AND PRECISION.** Get in, execute, get out. Minimal file reads — only what you need.',
-    '   Surgical edits — only the lines that matter. Every unnecessary change is noise.',
-    '',
-    '4. **COMMIT DISCIPLINE.** Commit with clear, descriptive messages. Only commit files related to',
-    '   your mission objective.',
-    '',
-    '5. **DEBRIEF IS MANDATORY.** Upon completion, provide a debrief addressed to the Commander.',
-    '   Structure your debrief with these sections:',
-    '   - What was done (precise changes, not summaries)',
-    '   - What changed (files modified)',
-    '   - Risks (anything that could break)',
-    '   - ## Recommended Next Actions (bullet list of concrete follow-up tasks, if any)',
-  ].join('\n');
-  sections.push(parameters);
 
   return sections.join('\n\n---\n\n');
 }
