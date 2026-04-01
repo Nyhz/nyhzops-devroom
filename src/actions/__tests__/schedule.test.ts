@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS missions (
   review_attempts INTEGER DEFAULT 0,
   compromise_reason TEXT,
   merge_retry_at INTEGER,
+  skill_overrides TEXT,
   duration_ms INTEGER DEFAULT 0,
   started_at INTEGER,
   completed_at INTEGER,

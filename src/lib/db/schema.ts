@@ -49,6 +49,7 @@ export const missions = sqliteTable('missions', {
   reviewAttempts: integer('review_attempts').default(0),
   compromiseReason: text('compromise_reason'),
   mergeRetryAt: integer('merge_retry_at'),
+  skillOverrides: text('skill_overrides'),
   durationMs: integer('duration_ms').default(0),
   startedAt: integer('started_at'),
   completedAt: integer('completed_at'),
@@ -127,6 +128,11 @@ export const assets = sqliteTable('assets', {
   model: text('model').default('claude-sonnet-4-6'),
   status: text('status').default('active'),
   missionsCompleted: integer('missions_completed').default(0),
+  skills: text('skills'),
+  mcpServers: text('mcp_servers'),
+  maxTurns: integer('max_turns'),
+  effort: text('effort'),
+  isSystem: integer('is_system').default(0),
   createdAt: integer('created_at').notNull(),
 });
 

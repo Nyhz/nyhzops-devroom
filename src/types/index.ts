@@ -26,6 +26,7 @@ export type CompromiseReason = 'timeout' | 'merge-failed' | 'review-failed' | 'e
 export type CampaignStatus = 'draft' | 'planning' | 'active' | 'paused' | 'accomplished' | 'compromised' | 'abandoned';
 export type PhaseStatus = 'standby' | 'active' | 'secured' | 'compromised';
 export type AssetStatus = 'active' | 'offline';
+export type AssetEffort = 'low' | 'medium' | 'high' | 'max';
 export type MissionType = 'standard' | 'bootstrap' | 'conflict_resolution' | 'phase_debrief';
 export type MissionPriority = 'low' | 'normal' | 'high' | 'critical';
 export type WorktreeMode = 'none' | 'phase' | 'mission';
@@ -81,6 +82,30 @@ export interface DossierVariable {
   label: string;
   description: string;
   placeholder: string;
+}
+
+// ---------------------------------------------------------------------------
+// Asset skills & MCP types
+// ---------------------------------------------------------------------------
+export interface SkillOverrides {
+  added?: string[];
+  removed?: string[];
+}
+
+export interface DiscoveredSkill {
+  id: string;
+  name: string;
+  pluginName: string;
+  description: string;
+  pluginDir: string;
+}
+
+export interface DiscoveredMcp {
+  id: string;
+  name: string;
+  command: string;
+  args: string[];
+  source: string;
 }
 
 // ---------------------------------------------------------------------------
