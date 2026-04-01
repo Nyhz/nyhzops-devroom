@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
 import { campaigns, phases, missions, battlefields } from '@/lib/db/schema';
@@ -368,6 +368,21 @@ export class CampaignExecutor {
    */
   private async onPhaseComplete(phaseId: string): Promise<void> {
     const db = getDatabase();
+
+    // Atomic claim — only one concurrent caller can proceed.
+    // Uses UPDATE WHERE completingAt IS NULL so exactly one handler wins.
+    const claimResult = db.update(phases)
+      .set({ completingAt: Date.now() })
+      .where(and(
+        eq(phases.id, phaseId),
+        isNull(phases.completingAt),
+      ))
+      .run();
+
+    if (claimResult.changes === 0) {
+      console.log(`[Campaign] Phase ${phaseId} already being completed by another handler. Skipping.`);
+      return;
+    }
 
     const phaseMissions = db.select().from(missions)
       .where(eq(missions.phaseId, phaseId)).all();
