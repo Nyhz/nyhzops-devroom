@@ -135,25 +135,6 @@ export function AssetProfileTab({ asset }: AssetProfileTabProps) {
         />
       </div>
 
-      <div>
-        <label className="block text-dr-muted font-tactical text-xs tracking-wider uppercase mb-1">
-          Status
-        </label>
-        <TacButton
-          type="button"
-          variant={asset.status === 'active' ? 'success' : 'ghost'}
-          size="sm"
-          onClick={handleToggleStatus}
-          disabled={isPending || Boolean(asset.isSystem)}
-          title={asset.isSystem ? 'System assets cannot be toggled' : undefined}
-        >
-          {asset.status === 'active' ? 'ACTIVE' : 'OFFLINE'}
-        </TacButton>
-        {asset.isSystem ? (
-          <span className="ml-2 text-dr-muted font-mono text-xs">System assets cannot be toggled</span>
-        ) : null}
-      </div>
-
       <div className="pt-2">
         <TacButton
           type="button"

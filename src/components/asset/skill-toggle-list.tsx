@@ -55,14 +55,16 @@ export function SkillToggleList({ items, onToggle, emptyMessage }: SkillToggleLi
               'relative shrink-0 w-10 h-5 rounded-full transition-colors',
               'min-w-[44px] min-h-[44px] md:min-w-[40px] md:min-h-[20px]',
               'flex items-center',
-              item.enabled ? 'bg-tac-green/30 border border-tac-green/50' : 'bg-dr-bg border border-dr-border',
+              item.enabled
+                ? 'bg-tac-green/40 border border-tac-green shadow-[0_0_6px_rgba(0,255,0,0.3)]'
+                : 'bg-dr-bg border border-dr-border',
             )}
           >
             <span
               className={cn(
                 'block w-3.5 h-3.5 rounded-full transition-transform',
                 item.enabled
-                  ? 'translate-x-5 bg-tac-green'
+                  ? 'translate-x-5 bg-tac-green shadow-[0_0_4px_rgba(0,255,0,0.5)]'
                   : 'translate-x-1 bg-dr-muted',
               )}
             />
