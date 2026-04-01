@@ -17,14 +17,18 @@ DEVROOM employs a three-layer testing strategy. Each layer targets a different s
 ## File Location Conventions
 
 ```
-src/actions/__tests__/*.test.ts          Server Action tests
+src/actions/__tests__/*.test.ts                  Server Action tests
 src/components/<category>/__tests__/*.test.tsx   Component tests
-src/hooks/__tests__/*.test.ts            Hook tests
-src/lib/utils/__tests__/*.test.ts        Utility tests
-e2e/*.spec.ts                            E2E browser tests
+src/hooks/__tests__/*.test.ts                    Hook tests
+src/lib/<module>/__tests__/*.test.ts             Library module tests
+src/lib/utils/__tests__/*.test.ts                Utility tests
+src/app/api/__tests__/*.test.ts                  API route guard tests
+e2e/*.spec.ts                                    E2E browser tests
+e2e/fixtures.ts                                  E2E fixture data
+e2e/helpers.ts                                   E2E helper utilities
 ```
 
-Test files are colocated with the code they test via `__tests__/` directories. E2E specs live at the project root in `e2e/`.
+Test files are colocated with the code they test via `__tests__/` directories. E2E specs live at the project root in `e2e/`. Library modules (`orchestrator`, `overseer`, `quartermaster`, `discovery`, `socket`) each have their own `__tests__/` directory for unit tests.
 
 ---
 
@@ -88,7 +92,7 @@ Factory functions for all entities. Each accepts partial overrides and returns t
 | `createTestIntelNote(db, { battlefieldId, ...overrides })` | `battlefieldId` |
 | `createTestFollowUpSuggestion(db, { missionId, ...overrides })` | `missionId` |
 | `createTestNotification(db, overrides?)` | — |
-| `createTestCaptainLog(db, { battlefieldId, missionId, ...overrides })` | `battlefieldId`, `missionId` |
+| `createTestOverseerLog(db, { battlefieldId, missionId, ...overrides })` | `battlefieldId`, `missionId` |
 | `createTestBriefingSession(db, { campaignId, ...overrides })` | `campaignId` |
 | `createTestBriefingMessage(db, { sessionId, ...overrides })` | `sessionId` |
 | `createTestGeneralSession(db, overrides?)` | — |
@@ -230,7 +234,7 @@ E2E tests run against the live dev server. The War Room boot animation must be b
 
 ## Test Coverage Summary
 
-### Server Action Tests
+### Server Action Tests (15 files)
 
 | File | Tests | Actions Covered |
 |------|-------|----------------|
@@ -244,23 +248,45 @@ E2E tests run against the live dev server. The War Room boot animation must be b
 | `follow-up.test.ts` | 20 | extractAndSaveSuggestions, addSuggestionToBoard, dismissSuggestion, getSuggestions |
 | `notification.test.ts` | 13 | getNotifications, markNotificationRead, markAllRead, getUnreadCount |
 | `logistics.test.ts` | 13 | getGlobalStats, getCostByBattlefield, getCostByAsset, getDailyUsage, getRateLimitStatus |
-| `captain.test.ts` | 10 | getCaptainLogs, getCaptainStats |
+| `overseer.test.ts` | 8 | getOverseerLogs, getOverseerStats |
 | `briefing.test.ts` | 6 | getBriefingSession, getBriefingMessages |
 | `general.test.ts` | 11 | createGeneralSession, closeGeneralSession, renameGeneralSession, getActiveSessions, getSessionMessages |
+| `console.test.ts` | 21 | startDevServer, stopDevServer, restartDevServer, getDevServerStatus, runConsoleCommand, getPackageScripts, getCommandLog |
+| `schedule.test.ts` | 24 | createScheduledTask, updateScheduledTask, deleteScheduledTask, listScheduledTasks, toggleScheduledTask, getScheduledMissionHistory |
+
+### Library Module Tests (8 files)
+
+| File | Tests | Module |
+|------|-------|--------|
+| `orchestrator/asset-cli.test.ts` | 11 | Asset CLI argument builder — skills, MCP servers, effort, max turns |
+| `orchestrator/phase-guard.test.ts` | 5 | Phase completion guards and transition validation |
+| `orchestrator/safe-queue.test.ts` | 6 | Mission queue concurrency and ordering |
+| `overseer/review-parser.test.ts` | 17 | Parse Overseer verdict output (approve/retry/escalate) |
+| `quartermaster/quartermaster.test.ts` | 4 | Merge orchestration and follow-up extraction |
+| `socket/emit.test.ts` | 10 | Centralized status emitter — room resolution, revalidation |
+| `discovery/skill-scanner.test.ts` | 7 | Claude Code plugin skill scanning |
+| `utils/dependency-graph.test.ts` | 9 | Mission dependency graph resolution |
 
 ### Component Tests
 
 | Category | Tests | Components |
 |----------|-------|-----------|
-| UI Primitives | 73 | TacButton, TacInput, TacTextarea, TacSelect, TacCard, TacBadge, Modal, TacTextareaWithImages, SearchInput |
-| Battlefield | 34 | CreateBattlefield, BootstrapReview |
-| Mission | 64 | MissionActions, LiveStatusBadge, MissionList, DeployMission |
+| UI Primitives | 81 | TacButton, TacInput, TacTextarea, TacSelect, TacCard, TacBadge, Modal, TacTextareaWithImages, SearchInput, InlineErrorPanel |
+| Battlefield | 63 | CreateBattlefield, BootstrapReview, BootstrapComms, BootstrapError, ScaffoldOutput, ScaffoldRetry |
+| Dashboard | 46 | DeployMission, MissionList, StatsBar, ActivityFeed |
+| Mission | 50 | MissionActions, LiveStatusBadge, MissionComms |
 | Campaign | 62 | CampaignControls, PlanEditor, PhaseTimeline, MissionCard, PlanEditorUtils |
 | Shared | 15 | BattlefieldSelector, ActivityFeed |
 | Hooks | 34 | useSocket, useNotifications, useBoard |
-| Utils | 4+ | debriefParser |
+| Utils | 13 | debriefParser, dependencyGraph |
 
-### E2E Tests
+### API Route Tests (1 file)
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `test-seed-guard.test.ts` | 4 | Production guard on test seed endpoints |
+
+### E2E Tests (7 specs)
 
 | Spec | Tests | Flow |
 |------|-------|------|
@@ -269,6 +295,26 @@ E2E tests run against the live dev server. The War Room boot animation must be b
 | `mission.spec.ts` | 6 | Create mission (deploy, save, detail page, actions, validation, abandon) |
 | `campaign.spec.ts` | 14 | Create campaign + plan editor (form, phases, missions, save, priority, objectives) |
 | `campaign-execution.spec.ts` | 20 | Campaign lifecycle (launch, monitoring, overrides, abandon, completion) |
+| `campaign-interactions.spec.ts` | 13 | Campaign controls, phase interactions, stall/resume flows |
+| `ui-components.spec.ts` | 19 | UI primitive rendering, interactions, accessibility checks |
+
+E2E tests use shared helpers (`e2e/fixtures.ts`, `e2e/helpers.ts`) for data seeding and common page operations.
+
+### Test Seeding Infrastructure
+
+E2E and manual testing are supported by seed API routes:
+
+| Route | Purpose |
+|-------|---------|
+| `/api/test/seed-campaign` | Seed a campaign with phases and missions |
+| `/api/test/seed-active-campaign` | Seed a campaign in active state with running missions |
+| `/api/test-fixtures` | Generic fixture seeding endpoint |
+
+All seed routes are guarded by `NODE_ENV !== 'production'` checks (tested in `test-seed-guard.test.ts`).
+
+### Test Harness
+
+A dedicated test harness page exists at `/(hq)/test-harness` for manual UI component testing and visual verification during development.
 
 ---
 
