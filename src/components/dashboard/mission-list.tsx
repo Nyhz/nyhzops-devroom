@@ -1,11 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { SearchInput } from '@/components/ui/search-input';
 import { TacBadge, getStatusBorderColor } from '@/components/ui/tac-badge';
 import { TacCard } from '@/components/ui/tac-card';
+import { TacButton } from '@/components/ui/tac-button';
 import { formatRelativeTime } from '@/lib/utils';
+
+const FINISHED_STATUSES = new Set(['accomplished', 'compromised', 'abandoned']);
+const FINISHED_LIMIT = 10;
 
 interface MissionListProps {
   missions: Array<{
@@ -22,12 +26,31 @@ interface MissionListProps {
 
 export function MissionList({ missions, battlefieldId }: MissionListProps) {
   const [search, setSearch] = useState('');
+  const [showAll, setShowAll] = useState(false);
+
+  const visibleMissions = useMemo(() => {
+    if (showAll || search) return missions;
+
+    const active: typeof missions = [];
+    const finished: typeof missions = [];
+    for (const m of missions) {
+      if (FINISHED_STATUSES.has(m.status ?? '')) {
+        finished.push(m);
+      } else {
+        active.push(m);
+      }
+    }
+    return [...active, ...finished.slice(0, FINISHED_LIMIT)];
+  }, [missions, showAll, search]);
+
+  const hasHiddenMissions = !showAll && !search &&
+    missions.filter(m => FINISHED_STATUSES.has(m.status ?? '')).length > FINISHED_LIMIT;
 
   const filtered = search
-    ? missions.filter((m) =>
+    ? visibleMissions.filter((m) =>
         (m.title ?? '').toLowerCase().includes(search.toLowerCase()),
       )
-    : missions;
+    : visibleMissions;
 
   return (
     <div>
@@ -52,40 +75,53 @@ export function MissionList({ missions, battlefieldId }: MissionListProps) {
           </div>
         </TacCard>
       ) : (
-        <div className="space-y-px">
-          {filtered.map((mission) => (
-            <div
-              key={mission.id}
-              className={`bg-dr-surface border-l-2 ${getStatusBorderColor(mission.status)} flex flex-col gap-2 px-3 py-3 md:flex-row md:items-center md:justify-between md:px-5 md:py-4 md:gap-0`}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-3">
-                  <span className="text-dr-text font-tactical text-base truncate">
-                    {mission.title ?? 'Untitled Mission'}
-                  </span>
-                  {(mission.iterations ?? 0) > 1 && (
-                    <span className="text-dr-amber font-tactical text-xs bg-dr-elevated px-2 py-0.5 shrink-0">
-                      &times;{mission.iterations}
+        <>
+          <div className="space-y-px">
+            {filtered.map((mission) => (
+              <div
+                key={mission.id}
+                className={`bg-dr-surface border-l-2 ${getStatusBorderColor(mission.status)} flex flex-col gap-2 px-3 py-3 md:flex-row md:items-center md:justify-between md:px-5 md:py-4 md:gap-0`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-3">
+                    <span className="text-dr-text font-tactical text-base truncate">
+                      {mission.title ?? 'Untitled Mission'}
                     </span>
-                  )}
+                    {(mission.iterations ?? 0) > 1 && (
+                      <span className="text-dr-amber font-tactical text-xs bg-dr-elevated px-2 py-0.5 shrink-0">
+                        &times;{mission.iterations}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-dr-dim font-tactical text-sm mt-1" suppressHydrationWarning>
+                    {mission.assetCodename ?? 'UNASSIGNED'} &middot;{' '}
+                    {formatRelativeTime(mission.createdAt)}
+                  </div>
                 </div>
-                <div className="text-dr-dim font-tactical text-sm mt-1" suppressHydrationWarning>
-                  {mission.assetCodename ?? 'UNASSIGNED'} &middot;{' '}
-                  {formatRelativeTime(mission.createdAt)}
+                <div className="flex items-center gap-3 md:gap-5 shrink-0 md:ml-4">
+                  <TacBadge status={mission.status ?? 'standby'} />
+                  <Link
+                    href={`/battlefields/${battlefieldId}/missions/${mission.id}`}
+                    className="text-dr-amber font-tactical text-sm tracking-wider hover:text-dr-green transition-colors"
+                  >
+                    VIEW
+                  </Link>
                 </div>
               </div>
-              <div className="flex items-center gap-3 md:gap-5 shrink-0 md:ml-4">
-                <TacBadge status={mission.status ?? 'standby'} />
-                <Link
-                  href={`/battlefields/${battlefieldId}/missions/${mission.id}`}
-                  className="text-dr-amber font-tactical text-sm tracking-wider hover:text-dr-green transition-colors"
-                >
-                  VIEW
-                </Link>
-              </div>
+            ))}
+          </div>
+          {hasHiddenMissions && (
+            <div className="mt-3 flex justify-center">
+              <TacButton
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAll(true)}
+              >
+                SHOW ALL MISSIONS
+              </TacButton>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );

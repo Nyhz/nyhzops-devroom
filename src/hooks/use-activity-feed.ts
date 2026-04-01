@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSocket, useReconnectKey } from '@/hooks/use-socket';
 
-const MAX_EVENTS = 50;
+const MAX_EVENTS = 30;
 
 export interface ActivityEvent {
   type: string;
@@ -20,11 +20,8 @@ export function useActivityFeed(): ActivityEvent[] {
 
   const handleEvent = useCallback((event: ActivityEvent) => {
     setEvents(prev => {
-      const next = [...prev, event];
-      if (next.length > MAX_EVENTS) {
-        return next.slice(next.length - MAX_EVENTS);
-      }
-      return next;
+      const next = [event, ...prev];
+      return next.slice(0, MAX_EVENTS);
     });
   }, []);
 

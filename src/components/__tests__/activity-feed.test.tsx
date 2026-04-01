@@ -19,6 +19,16 @@ vi.mock('@/hooks/use-activity-feed', () => ({
 // Mock scrollIntoView
 Element.prototype.scrollIntoView = vi.fn();
 
+/** Format a timestamp the same way the component does (Europe/Madrid). */
+function expectedTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString('es-ES', {
+    timeZone: 'Europe/Madrid',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
 describe('ActivityFeed', () => {
   beforeEach(() => {
     mockEvents = [];
@@ -36,12 +46,13 @@ describe('ActivityFeed', () => {
   });
 
   it('renders activity items', () => {
+    const ts = 1711929600000; // 2024-04-01 00:00:00 UTC
     mockEvents = [
       {
         type: 'mission:deploying',
         battlefieldCodename: 'ALPHA',
         missionTitle: 'Test Mission',
-        timestamp: 1711929600000, // 2024-04-01 00:00:00 UTC
+        timestamp: ts,
         detail: 'Starting deployment',
       },
     ];
@@ -50,7 +61,7 @@ describe('ActivityFeed', () => {
     expect(screen.getByText('ALPHA')).toBeInTheDocument();
     expect(screen.getByText('Test Mission')).toBeInTheDocument();
     expect(screen.getByText('Starting deployment')).toBeInTheDocument();
-    expect(screen.getByText('00:00:00')).toBeInTheDocument();
+    expect(screen.getByText(expectedTime(ts))).toBeInTheDocument();
   });
 
   it('renders multiple activity items', () => {
@@ -90,8 +101,8 @@ describe('ActivityFeed', () => {
     ];
 
     render(<ActivityFeed />);
-    // Deploying uses ⟳ symbol
-    expect(screen.getByText('\u27F3')).toBeInTheDocument();
+    // Deploying uses ◈ symbol
+    expect(screen.getByText('\u25C8')).toBeInTheDocument();
   });
 
   it('renders correct type indicator for accomplished', () => {
@@ -106,8 +117,8 @@ describe('ActivityFeed', () => {
     ];
 
     render(<ActivityFeed />);
-    // Accomplished uses ✓ symbol
-    expect(screen.getByText('\u2713')).toBeInTheDocument();
+    // Accomplished uses ★ symbol
+    expect(screen.getByText('\u2605')).toBeInTheDocument();
   });
 
   it('renders correct type indicator for compromised', () => {
@@ -122,8 +133,8 @@ describe('ActivityFeed', () => {
     ];
 
     render(<ActivityFeed />);
-    // Compromised uses ✗ symbol
-    expect(screen.getByText('\u2717')).toBeInTheDocument();
+    // Compromised uses ✖ symbol
+    expect(screen.getByText('\u2716')).toBeInTheDocument();
   });
 
   it('does not render detail span when detail is empty', () => {
@@ -148,19 +159,20 @@ describe('ActivityFeed', () => {
     expect(container.firstChild).toHaveClass('custom-class');
   });
 
-  it('formats timestamps as HH:MM:SS UTC', () => {
+  it('formats timestamps in Europe/Madrid timezone', () => {
     // 2024-04-01 14:30:45 UTC
+    const ts = new Date('2024-04-01T14:30:45Z').getTime();
     mockEvents = [
       {
         type: 'created',
         battlefieldCodename: 'ALPHA',
         missionTitle: 'Test',
-        timestamp: new Date('2024-04-01T14:30:45Z').getTime(),
+        timestamp: ts,
         detail: '',
       },
     ];
 
     render(<ActivityFeed />);
-    expect(screen.getByText('14:30:45')).toBeInTheDocument();
+    expect(screen.getByText(expectedTime(ts))).toBeInTheDocument();
   });
 });

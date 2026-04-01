@@ -77,8 +77,14 @@ export function useCampaignComms(
       setMissionStatuses(prev => ({ ...prev, [d.missionId]: d.status as MissionStatus }));
     };
 
+    // Listen for phase:status from the centralized emitter (emitStatusChange)
+    const onPhaseStatusDirect = (d: { phaseId: string; status: string }) => {
+      setPhaseStatuses(prev => ({ ...prev, [d.phaseId]: d.status as PhaseStatus }));
+    };
+
     socket.on('campaign:status', onStatus);
     socket.on('campaign:phase-status', onPhaseStatus);
+    socket.on('phase:status', onPhaseStatusDirect);
     socket.on('campaign:phase-debrief', onPhaseDebrief);
     socket.on('campaign:mission-status', onCampaignMissionStatus);
     socket.on('mission:status', onMissionStatus);
@@ -86,6 +92,7 @@ export function useCampaignComms(
     return () => {
       socket.off('campaign:status', onStatus);
       socket.off('campaign:phase-status', onPhaseStatus);
+      socket.off('phase:status', onPhaseStatusDirect);
       socket.off('campaign:phase-debrief', onPhaseDebrief);
       socket.off('campaign:mission-status', onCampaignMissionStatus);
       socket.off('mission:status', onMissionStatus);

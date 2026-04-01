@@ -331,8 +331,14 @@ export function PlanEditor({
             setPlan((prev) => ({ ...prev, summary: e.target.value }));
             setDirty(true);
           }}
+          onInput={(e) => {
+            const target = e.target as HTMLTextAreaElement;
+            target.style.height = 'auto';
+            target.style.height = target.scrollHeight + 'px';
+          }}
           placeholder="Campaign plan summary..."
-          className="min-h-[60px] text-xs"
+          className="min-h-0 text-xs resize-none overflow-hidden"
+          rows={1}
         />
       </TacCard>
 

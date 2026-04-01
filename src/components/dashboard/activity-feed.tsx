@@ -13,32 +13,39 @@ function getTypeIndicator(type: string): { icon: string; color: string } {
   const normalized = type.toLowerCase();
 
   if (normalized.includes('deploying')) {
-    return { icon: '\u27F3', color: 'text-dr-amber' };
+    return { icon: '\u25C8', color: 'text-dr-amber' }; // ◈
   }
   if (normalized.includes('in_combat')) {
-    return { icon: '\u2694', color: 'text-dr-amber' };
+    return { icon: '\u2694', color: 'text-dr-amber' }; // ⚔
+  }
+  if (normalized.includes('reviewing')) {
+    return { icon: '\u25C9', color: 'text-dr-blue' }; // ◉
+  }
+  if (normalized.includes('approved')) {
+    return { icon: '\u2713', color: 'text-dr-teal' }; // ✓
+  }
+  if (normalized.includes('merging')) {
+    return { icon: '\u27F3', color: 'text-dr-amber' }; // ⟳
   }
   if (normalized.includes('accomplished') || normalized.includes('secured')) {
-    return { icon: '\u2713', color: 'text-dr-green' };
+    return { icon: '\u2605', color: 'text-dr-green' }; // ★
   }
   if (normalized.includes('compromised')) {
-    return { icon: '\u2717', color: 'text-dr-red' };
+    return { icon: '\u2716', color: 'text-dr-red' }; // ✖
   }
   if (normalized.includes('abandoned')) {
-    return { icon: '\u2014', color: 'text-dr-dim' };
+    return { icon: '\u25CB', color: 'text-dr-dim' }; // ○
   }
-  if (normalized.includes('created')) {
-    return { icon: '+', color: 'text-dr-blue' };
-  }
-  return { icon: '\u00B7', color: 'text-dr-muted' };
+  return { icon: '\u25CF', color: 'text-dr-muted' }; // ●
 }
 
 function formatTime(ts: number): string {
-  const d = new Date(ts);
-  const hh = String(d.getUTCHours()).padStart(2, '0');
-  const mm = String(d.getUTCMinutes()).padStart(2, '0');
-  const ss = String(d.getUTCSeconds()).padStart(2, '0');
-  return `${hh}:${mm}:${ss}`;
+  return new Date(ts).toLocaleTimeString('es-ES', {
+    timeZone: 'Europe/Madrid',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 }
 
 function ActivityEntry({ event }: { event: ActivityEvent }) {

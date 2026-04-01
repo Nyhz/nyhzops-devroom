@@ -31,6 +31,16 @@ function makeEvent(overrides: Partial<ActivityEvent> = {}): ActivityEvent {
   };
 }
 
+/** Format a timestamp the same way the component does (Europe/Madrid). */
+function expectedTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString('es-ES', {
+    timeZone: 'Europe/Madrid',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
 describe('ActivityFeed', () => {
   it('renders empty state when no events', () => {
     setEvents([]);
@@ -61,13 +71,12 @@ describe('ActivityFeed', () => {
     expect(screen.getByText('Deploy auth module')).toBeInTheDocument();
   });
 
-  it('renders formatted timestamp in HH:MM:SS UTC', () => {
-    setEvents([
-      makeEvent({ timestamp: Date.UTC(2026, 2, 31, 9, 5, 7) }),
-    ]);
+  it('renders formatted timestamp in Europe/Madrid timezone', () => {
+    const ts = Date.UTC(2026, 2, 31, 9, 5, 7);
+    setEvents([makeEvent({ timestamp: ts })]);
     renderWithProviders(<ActivityFeed />);
 
-    expect(screen.getByText('09:05:07')).toBeInTheDocument();
+    expect(screen.getByText(expectedTime(ts))).toBeInTheDocument();
   });
 
   it('renders detail text when present', () => {
@@ -100,13 +109,13 @@ describe('ActivityFeed', () => {
     expect(screen.getByText('Mission C')).toBeInTheDocument();
   });
 
-  it('shows check icon for accomplished events', () => {
+  it('shows star icon for accomplished events', () => {
     setEvents([makeEvent({ type: 'accomplished' })]);
     const { container } = renderWithProviders(<ActivityFeed />);
 
     const iconSpan = container.querySelector('.text-dr-green');
     expect(iconSpan).toBeInTheDocument();
-    expect(iconSpan?.textContent).toBe('✓');
+    expect(iconSpan?.textContent).toBe('★');
   });
 
   it('shows cross icon for compromised events', () => {
@@ -115,7 +124,7 @@ describe('ActivityFeed', () => {
 
     const iconSpan = container.querySelector('.text-dr-red');
     expect(iconSpan).toBeInTheDocument();
-    expect(iconSpan?.textContent).toBe('✗');
+    expect(iconSpan?.textContent).toBe('✖');
   });
 
   it('shows swords icon for in_combat events', () => {
@@ -128,13 +137,13 @@ describe('ActivityFeed', () => {
     expect(iconSpan?.textContent).toBe('⚔');
   });
 
-  it('shows plus icon for created events', () => {
+  it('shows dot icon for created events', () => {
     setEvents([makeEvent({ type: 'created' })]);
     const { container } = renderWithProviders(<ActivityFeed />);
 
-    const iconSpan = container.querySelector('.text-dr-blue');
+    const iconSpan = container.querySelector('.text-dr-muted');
     expect(iconSpan).toBeInTheDocument();
-    expect(iconSpan?.textContent).toBe('+');
+    expect(iconSpan?.textContent).toBe('●');
   });
 
   it('accepts className prop', () => {

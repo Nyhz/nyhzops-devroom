@@ -1,9 +1,14 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { cn } from '@/lib/utils';
 import { SkillToggleList } from '@/components/asset/skill-toggle-list';
 import { updateMissionSkillOverrides } from '@/actions/campaign';
+import {
+  TacModal,
+  TacModalContent,
+  TacModalHeader,
+  TacModalTitle,
+} from '@/components/ui/modal';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -141,65 +146,49 @@ export function MissionSkillPanel({
   const hasOverrides = overrides.added.length > 0 || overrides.removed.length > 0;
 
   return (
-    <div
-      className={cn(
-        'absolute top-0 right-0 z-50',
-        'w-[320px] bg-dr-surface border border-dr-border',
-        'flex flex-col shadow-[0_0_24px_rgba(0,0,0,0.6)]',
-        'animate-in slide-in-from-right duration-200',
-      )}
-      style={{ maxHeight: '90vh', overflowY: 'auto' }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-dr-elevated border-b border-dr-border shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="font-tactical text-xs text-dr-amber uppercase tracking-wider">
-            SKILL OVERRIDE
-          </span>
-          <span className="font-mono text-xs text-dr-muted truncate">
-            {asset.codename}
-          </span>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {hasOverrides && (
-            <span className="font-tactical text-xs text-dr-amber animate-pulse">
-              MODIFIED
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-dr-dim hover:text-dr-red text-sm font-tactical ml-1"
-            title="Close panel"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
+    <TacModal open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <TacModalContent>
+        {/* Header */}
+        <TacModalHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <TacModalTitle>SKILL OVERRIDE</TacModalTitle>
+              <span className="font-mono text-xs text-dr-muted truncate">
+                {asset.codename}
+              </span>
+            </div>
+            {hasOverrides && (
+              <span className="font-tactical text-xs text-dr-amber animate-pulse shrink-0">
+                MODIFIED
+              </span>
+            )}
+          </div>
+        </TacModalHeader>
 
-      {/* Skills section */}
-      <div className="px-4 pt-4 pb-2">
-        <span className="font-tactical text-xs text-dr-muted uppercase tracking-wider block mb-2">
-          SKILLS
-        </span>
-        <SkillToggleList
-          items={skillItems}
-          onToggle={handleSkillToggle}
-          emptyMessage="No skills discovered."
-        />
-      </div>
+        {/* Skills section */}
+        <div className="px-5 pt-4 pb-2">
+          <span className="font-tactical text-xs text-dr-muted uppercase tracking-wider block mb-2">
+            SKILLS
+          </span>
+          <SkillToggleList
+            items={skillItems}
+            onToggle={handleSkillToggle}
+            emptyMessage="No skills discovered."
+          />
+        </div>
 
-      {/* MCP section */}
-      <div className="px-4 pt-2 pb-4">
-        <span className="font-tactical text-xs text-dr-muted uppercase tracking-wider block mb-2">
-          MCP SERVERS
-        </span>
-        <SkillToggleList
-          items={mcpItems}
-          onToggle={handleMcpToggle}
-          emptyMessage="No MCP servers discovered."
-        />
-      </div>
-    </div>
+        {/* MCP section */}
+        <div className="px-5 pt-2 pb-5">
+          <span className="font-tactical text-xs text-dr-muted uppercase tracking-wider block mb-2">
+            MCP SERVERS
+          </span>
+          <SkillToggleList
+            items={mcpItems}
+            onToggle={handleMcpToggle}
+            emptyMessage="No MCP servers discovered."
+          />
+        </div>
+      </TacModalContent>
+    </TacModal>
   );
 }
