@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { getTestDb, closeTestDb } from '@/lib/test/db';
 import { createTestBattlefield, createTestMission, createTestAsset } from '@/lib/test/fixtures';
-import { missions, intelNotes, missionLogs, captainLogs } from '@/lib/db/schema';
+import { missions, intelNotes, missionLogs, overseerLogs } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { createMockDbModule } from '@/lib/test/mock-db';
 import type Database from 'better-sqlite3';
@@ -720,13 +720,13 @@ describe('Mission Server Actions', () => {
       expect(logs).toHaveLength(0);
     });
 
-    it('deletes related captain logs', async () => {
+    it('deletes related overseer logs', async () => {
       const bf = createTestBattlefield(testDb);
       const mission = createTestMission(testDb, { battlefieldId: bf.id });
 
       const { ulid } = await import('ulid');
       testDb
-        .insert(captainLogs)
+        .insert(overseerLogs)
         .values({
           id: ulid(),
           missionId: mission.id,
@@ -743,8 +743,8 @@ describe('Mission Server Actions', () => {
 
       const logs = testDb
         .select()
-        .from(captainLogs)
-        .where(eq(captainLogs.missionId, mission.id))
+        .from(overseerLogs)
+        .where(eq(overseerLogs.missionId, mission.id))
         .all();
       expect(logs).toHaveLength(0);
     });

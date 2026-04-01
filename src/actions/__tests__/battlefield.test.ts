@@ -223,7 +223,7 @@ describe('battlefield actions', () => {
           repoPath: '/tmp/no-asset-repo',
           initialBriefing: 'Needs an asset',
         }),
-      ).rejects.toThrow('no active assets available');
+      ).rejects.toThrow('PATHFINDER asset required for bootstrap');
     });
 
     it('seeds maintenance tasks', async () => {

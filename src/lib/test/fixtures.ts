@@ -10,7 +10,7 @@ import {
   intelNotes,
   followUpSuggestions,
   notifications,
-  captainLogs,
+  overseerLogs,
   briefingSessions,
   briefingMessages,
   generalSessions,
@@ -221,14 +221,14 @@ export function createTestNotification(
   return record;
 }
 
-export function createTestCaptainLog(
+export function createTestOverseerLog(
   db: TestDB,
-  params: { missionId: string; battlefieldId: string } & Partial<typeof captainLogs.$inferInsert>,
+  params: { missionId: string; battlefieldId: string } & Partial<typeof overseerLogs.$inferInsert>,
 ) {
   const { missionId, battlefieldId, ...overrides } = params;
   const id = overrides.id ?? ulid();
   const record = db
-    .insert(captainLogs)
+    .insert(overseerLogs)
     .values({
       id,
       missionId,

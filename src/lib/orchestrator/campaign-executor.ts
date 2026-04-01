@@ -1,13 +1,15 @@
 import fs from 'fs';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
 import { campaigns, phases, missions, battlefields } from '@/lib/db/schema';
 import { runClaudePrint } from '@/lib/process/claude-print';
-import { escalate } from '@/lib/captain/escalation';
-import { handlePhaseFailure } from '@/lib/captain/phase-failure-handler';
-import { storeCaptainLog } from '@/lib/captain/captain-db';
+import { escalate } from '@/lib/overseer/escalation';
+import { handlePhaseFailure } from '@/lib/overseer/phase-failure-handler';
+import { storeOverseerLog } from '@/lib/overseer/overseer-db';
 import { extractAndSaveSuggestions } from '@/actions/follow-up';
+import { emitStatusChange } from '@/lib/socket/emit';
+import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
 import type { Mission } from '@/types';
 
 // Terminal statuses — a mission in one of these won't change further
@@ -61,7 +63,7 @@ export class CampaignExecutor {
         status: 'accomplished',
         updatedAt: Date.now(),
       }).where(eq(campaigns.id, this.campaignId)).run();
-      this.emitCampaignStatus('accomplished');
+      emitStatusChange('campaign', this.campaignId, 'accomplished');
       console.log(`[Campaign] ${this.campaignId} — no phases found. Marked accomplished.`);
       return;
     }
@@ -91,7 +93,7 @@ export class CampaignExecutor {
       status: 'active',
       updatedAt: Date.now(),
     }).where(eq(campaigns.id, this.campaignId)).run();
-    this.emitCampaignStatus('active');
+    emitStatusChange('campaign', this.campaignId, 'active');
 
     // Get current phase
     const currentPhase = db.select().from(phases)
@@ -121,7 +123,7 @@ export class CampaignExecutor {
           status: 'compromised',
           updatedAt: Date.now(),
         }).where(eq(campaigns.id, this.campaignId)).run();
-        this.emitCampaignStatus('compromised');
+        emitStatusChange('campaign', this.campaignId, 'compromised');
         console.log(`[Campaign] ${this.campaignId} — all missions terminal with compromised. Re-compromised.`);
         return;
       }
@@ -133,7 +135,7 @@ export class CampaignExecutor {
     // Re-queue any queued missions
     const queuedMissions = phaseMissions.filter(m => m.status === 'queued');
     for (const m of queuedMissions) {
-      globalThis.orchestrator?.onMissionQueued(m.id);
+      safeQueueMission(m.id);
     }
 
     // Check if any standby missions can be unblocked
@@ -185,7 +187,7 @@ export class CampaignExecutor {
         updatedAt: Date.now(),
         debrief: (m.debrief || '') + '\n\nAbandoned by Commander (skip & continue).',
       }).where(eq(missions.id, m.id)).run();
-      this.emitMissionStatus(m.id, 'abandoned');
+      emitStatusChange('mission', m.id, 'abandoned');
       abandonedTitles.add(m.title);
     }
 
@@ -211,7 +213,7 @@ export class CampaignExecutor {
             updatedAt: Date.now(),
             debrief: 'Abandoned: dependency was skipped by Commander.',
           }).where(eq(missions.id, m.id)).run();
-          this.emitMissionStatus(m.id, 'abandoned');
+          emitStatusChange('mission', m.id, 'abandoned');
           abandonedTitles.add(m.title);
           cascaded = true;
         }
@@ -223,7 +225,7 @@ export class CampaignExecutor {
       status: 'active',
       updatedAt: Date.now(),
     }).where(eq(campaigns.id, this.campaignId)).run();
-    this.emitCampaignStatus('active');
+    emitStatusChange('campaign', this.campaignId, 'active');
 
     // Step 4: Re-evaluate — now all missions should be terminal (accomplished or abandoned)
     await this.onPhaseComplete(currentPhase.id);
@@ -247,7 +249,7 @@ export class CampaignExecutor {
     }
 
     // Emit mission status update
-    this.emitMissionStatus(missionId, mission.status || 'abandoned');
+    emitStatusChange('mission', missionId, mission.status || 'abandoned');
 
     // If accomplished, check if we can unblock dependent missions
     if (mission.status === 'accomplished') {
@@ -292,7 +294,7 @@ export class CampaignExecutor {
     db.update(phases).set({
       status: 'active',
     }).where(eq(phases.id, phaseId)).run();
-    this.emitPhaseStatus(phaseId, phase.phaseNumber, 'active');
+    emitStatusChange('phase', phaseId, 'active');
 
     console.log(`[Campaign] ${this.campaignId} — Phase ${phase.phaseNumber} "${phase.name}" starting.`);
 
@@ -309,8 +311,8 @@ export class CampaignExecutor {
           status: 'queued',
           updatedAt: Date.now(),
         }).where(eq(missions.id, m.id)).run();
-        this.emitMissionStatus(m.id, 'queued');
-        globalThis.orchestrator?.onMissionQueued(m.id);
+        emitStatusChange('mission', m.id, 'queued');
+        safeQueueMission(m.id);
       }
       // Missions with dependencies stay in standby — checkDependencies will handle them
     }
@@ -351,8 +353,8 @@ export class CampaignExecutor {
           status: 'queued',
           updatedAt: Date.now(),
         }).where(eq(missions.id, m.id)).run();
-        this.emitMissionStatus(m.id, 'queued');
-        globalThis.orchestrator?.onMissionQueued(m.id);
+        emitStatusChange('mission', m.id, 'queued');
+        safeQueueMission(m.id);
       }
     }
   }
@@ -368,6 +370,21 @@ export class CampaignExecutor {
    */
   private async onPhaseComplete(phaseId: string): Promise<void> {
     const db = getDatabase();
+
+    // Atomic claim — only one concurrent caller can proceed.
+    // Uses UPDATE WHERE completingAt IS NULL so exactly one handler wins.
+    const claimResult = db.update(phases)
+      .set({ completingAt: Date.now() })
+      .where(and(
+        eq(phases.id, phaseId),
+        isNull(phases.completingAt),
+      ))
+      .run();
+
+    if (claimResult.changes === 0) {
+      console.log(`[Campaign] Phase ${phaseId} already being completed by another handler. Skipping.`);
+      return;
+    }
 
     const phaseMissions = db.select().from(missions)
       .where(eq(missions.phaseId, phaseId)).all();
@@ -394,12 +411,12 @@ export class CampaignExecutor {
         return;
       }
 
-      // Count total phases for Captain context
+      // Count total phases for Overseer context
       const allPhases = db.select().from(phases)
         .where(eq(phases.campaignId, this.campaignId)).all();
       const totalPhases = allPhases.length;
 
-      // Read CLAUDE.md for Captain context
+      // Read CLAUDE.md for Overseer context
       let claudeMd: string | null = null;
       const battlefield = db.select().from(battlefields)
         .where(eq(battlefields.id, campaign.battlefieldId)).get();
@@ -409,8 +426,8 @@ export class CampaignExecutor {
         } catch { /* skip */ }
       }
 
-      // Let Captain decide before pausing
-      console.log(`[Campaign] ${this.campaignId} — Phase ${phase.phaseNumber} has ${compromisedMissions.length} compromised mission(s). Consulting Captain...`);
+      // Let Overseer decide before pausing
+      console.log(`[Campaign] ${this.campaignId} — Phase ${phase.phaseNumber} has ${compromisedMissions.length} compromised mission(s). Consulting Overseer...`);
 
       const decision = await handlePhaseFailure({
         campaign,
@@ -422,7 +439,7 @@ export class CampaignExecutor {
       });
 
       // Log the decision
-      storeCaptainLog({
+      storeOverseerLog({
         missionId: compromisedMissions[0]?.id || '',
         battlefieldId: campaign.battlefieldId,
         campaignId: campaign.id,
@@ -434,7 +451,7 @@ export class CampaignExecutor {
       });
 
       if (decision.decision === 'retry') {
-        console.log(`[Campaign] ${this.campaignId} — Captain decided to retry ${compromisedMissions.length} mission(s).`);
+        console.log(`[Campaign] ${this.campaignId} — Overseer decided to retry ${compromisedMissions.length} mission(s).`);
 
         // Retry failed missions — reset directly instead of calling Server Action
         // (Server Actions use revalidatePath which fails outside request context)
@@ -451,14 +468,14 @@ export class CampaignExecutor {
             startedAt: null,
             updatedAt: now,
           }).where(eq(missions.id, m.id)).run();
-          globalThis.orchestrator?.onMissionQueued(m.id);
+          safeQueueMission(m.id);
         }
         // Don't pause — redeployed missions will run and onCampaignMissionComplete will re-evaluate
         return;
 
       } else if (decision.decision === 'skip') {
-        console.log(`[Campaign] ${this.campaignId} — Captain decided to skip failed missions and continue.`);
-        // Captain says skip — use existing skipAndContinue logic
+        console.log(`[Campaign] ${this.campaignId} — Overseer decided to skip failed missions and continue.`);
+        // Overseer says skip — use existing skipAndContinue logic
         await this.skipAndContinue();
         return;
 
@@ -466,20 +483,20 @@ export class CampaignExecutor {
         // Escalate — pause the campaign (existing behavior)
         db.update(phases).set({ status: 'compromised' })
           .where(eq(phases.id, phaseId)).run();
-        this.emitPhaseStatus(phaseId, phase.phaseNumber, 'compromised');
+        emitStatusChange('phase', phaseId, 'compromised');
 
         db.update(campaigns).set({
           status: 'compromised',
           updatedAt: Date.now(),
         }).where(eq(campaigns.id, this.campaignId)).run();
-        this.emitCampaignStatus('compromised');
+        emitStatusChange('campaign', this.campaignId, 'compromised');
 
-        console.log(`[Campaign] ${this.campaignId} — Captain escalated. Phase ${phase.phaseNumber} compromised. Campaign compromised. Awaiting Commander orders.`);
+        console.log(`[Campaign] ${this.campaignId} — Overseer escalated. Phase ${phase.phaseNumber} compromised. Campaign compromised. Awaiting Commander orders.`);
 
         escalate({
           level: 'critical',
           title: `Campaign Compromised: ${campaign.name}`,
-          detail: `Phase ${phase.name} compromised. ${compromisedMissions.length} mission(s) failed. Captain: ${decision.reasoning}`,
+          detail: `Phase ${phase.name} compromised. ${compromisedMissions.length} mission(s) failed. Overseer: ${decision.reasoning}`,
           entityType: 'campaign',
           entityId: this.campaignId,
           battlefieldId: campaign.battlefieldId,
@@ -512,7 +529,7 @@ export class CampaignExecutor {
       totalTokens,
       durationMs: phaseDuration,
     }).where(eq(phases.id, phaseId)).run();
-    this.emitPhaseStatus(phaseId, phase.phaseNumber, 'secured');
+    emitStatusChange('phase', phaseId, 'secured');
 
     console.log(`[Campaign] ${this.campaignId} — Phase ${phase.phaseNumber} secured.`);
 
@@ -581,7 +598,7 @@ export class CampaignExecutor {
       updatedAt: Date.now(),
     }).where(eq(campaigns.id, this.campaignId)).run();
 
-    this.emitCampaignStatus('paused');
+    emitStatusChange('campaign', this.campaignId, 'paused');
 
     this.io.to(`campaign:${this.campaignId}`).emit('campaign:stalled', {
       campaignId: this.campaignId,
@@ -844,7 +861,7 @@ export class CampaignExecutor {
         status: 'accomplished',
         updatedAt: Date.now(),
       }).where(eq(campaigns.id, this.campaignId)).run();
-      this.emitCampaignStatus('accomplished');
+      emitStatusChange('campaign', this.campaignId, 'accomplished');
       console.log(`[Campaign] ${this.campaignId} — Campaign accomplished. All phases secured.`);
       return;
     }
@@ -859,43 +876,6 @@ export class CampaignExecutor {
     await this.startPhase(nextPhase.id);
   }
 
-  // ---------------------------------------------------------------------------
-  // Emit helpers
-  // ---------------------------------------------------------------------------
-
-  private emitCampaignStatus(status: string): void {
-    this.io.to(`campaign:${this.campaignId}`).emit('campaign:status', {
-      campaignId: this.campaignId,
-      status,
-      timestamp: Date.now(),
-    });
-    // Also emit to HQ activity feed
-    this.io.to('hq:activity').emit('activity:event', {
-      type: 'campaign:status',
-      campaignId: this.campaignId,
-      status,
-      timestamp: Date.now(),
-    });
-  }
-
-  private emitPhaseStatus(phaseId: string, phaseNumber: number, status: string): void {
-    this.io.to(`campaign:${this.campaignId}`).emit('campaign:phase-status', {
-      campaignId: this.campaignId,
-      phaseId,
-      phaseNumber,
-      status,
-      timestamp: Date.now(),
-    });
-  }
-
-  private emitMissionStatus(missionId: string, status: string): void {
-    this.io.to(`campaign:${this.campaignId}`).emit('campaign:mission-status', {
-      campaignId: this.campaignId,
-      missionId,
-      status,
-      timestamp: Date.now(),
-    });
-  }
 }
 
 // ---------------------------------------------------------------------------

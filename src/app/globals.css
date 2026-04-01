@@ -59,6 +59,7 @@
   --color-dr-amber:    #ffbf00;
   --color-dr-red:      #ff3333;
   --color-dr-blue:     #00aaff;
+  --color-dr-teal:     #00d4aa;
 
   /* Tactical fonts */
   --font-tactical: var(--font-share-tech-mono), monospace;

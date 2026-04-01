@@ -3,8 +3,10 @@
 import { revalidatePath } from 'next/cache';
 import { eq, desc, count, like, sql, and } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
-import { missions, assets, battlefields, missionLogs, captainLogs, intelNotes } from '@/lib/db/schema';
+import { missions, assets, battlefields, missionLogs, overseerLogs, intelNotes } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
+import { emitStatusChange } from '@/lib/socket/emit';
+import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
 import type {
   Mission,
   CreateMissionInput,
@@ -35,55 +37,49 @@ async function _createMission(
 
   const title = data.title?.trim() || extractTitle(data.briefing);
 
-  const battlefield = getOrThrow(battlefields, data.battlefieldId, '_createMission battlefield');
+  // Validate battlefield exists
+  getOrThrow(battlefields, data.battlefieldId, '_createMission battlefield');
 
-  const record = db
-    .insert(missions)
-    .values({
-      id,
-      battlefieldId: data.battlefieldId,
-      title,
-      briefing: data.briefing,
-      status,
-      priority: data.priority ?? 'normal',
-      assetId: data.assetId ?? null,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning()
-    .get();
+  const record = db.transaction(() => {
+    const inserted = db
+      .insert(missions)
+      .values({
+        id,
+        battlefieldId: data.battlefieldId,
+        title,
+        briefing: data.briefing,
+        status,
+        priority: data.priority ?? 'normal',
+        assetId: data.assetId ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning()
+      .get();
 
-  // Auto-create intel note for board visibility
-  db.insert(intelNotes)
-    .values({
-      id: generateId(),
-      battlefieldId: data.battlefieldId,
-      title,
-      description: null,
-      missionId: id,
-      campaignId: null,
-      column: 'backlog',
-      position: 0,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .run();
+    // Auto-create intel note for board visibility
+    db.insert(intelNotes)
+      .values({
+        id: generateId(),
+        battlefieldId: data.battlefieldId,
+        title,
+        description: null,
+        missionId: id,
+        campaignId: null,
+        column: 'backlog',
+        position: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
 
-  // Emit Socket.IO activity event
-  if (globalThis.io) {
-    globalThis.io.to('hq:activity').emit('activity:event', {
-      type: 'mission:created',
-      battlefieldCodename: battlefield.codename,
-      missionTitle: title,
-      timestamp: now,
-      detail: `Status: ${status === 'queued' ? 'QUEUED' : 'STANDBY'}`,
-    });
-  }
+    return inserted;
+  });
 
-  revalidatePath(`/battlefields/${data.battlefieldId}`);
+  emitStatusChange('mission', id, status);
 
   if (status === 'queued') {
-    globalThis.orchestrator?.onMissionQueued(record.id);
+    safeQueueMission(record.id);
   }
 
   return record;
@@ -261,26 +257,10 @@ export async function deployMission(id: string): Promise<Mission> {
     throw new Error(`deployMission: update failed for mission ${id}`);
   }
 
-  // Get battlefield codename for activity event
-  const battlefield = db
-    .select({ codename: battlefields.codename })
-    .from(battlefields)
-    .where(eq(battlefields.id, mission.battlefieldId))
-    .get();
-
-  if (globalThis.io && battlefield) {
-    globalThis.io.to('hq:activity').emit('activity:event', {
-      type: 'mission:queued',
-      battlefieldCodename: battlefield.codename,
-      missionTitle: mission.title,
-      timestamp: now,
-    });
-  }
-
-  revalidatePath(`/battlefields/${mission.battlefieldId}`);
+  emitStatusChange('mission', id, 'queued');
 
   // Notify the orchestrator to pick up the mission
-  globalThis.orchestrator?.onMissionQueued(updated.id);
+  safeQueueMission(updated.id);
 
   return updated;
 }
@@ -322,23 +302,7 @@ export async function abandonMission(id: string): Promise<Mission> {
     throw new Error(`abandonMission: update failed for mission ${id}`);
   }
 
-  // Get battlefield codename for activity event
-  const battlefield = db
-    .select({ codename: battlefields.codename })
-    .from(battlefields)
-    .where(eq(battlefields.id, mission.battlefieldId))
-    .get();
-
-  if (globalThis.io && battlefield) {
-    globalThis.io.to('hq:activity').emit('activity:event', {
-      type: 'mission:abandoned',
-      battlefieldCodename: battlefield.codename,
-      missionTitle: mission.title,
-      timestamp: now,
-    });
-  }
-
-  revalidatePath(`/battlefields/${mission.battlefieldId}`);
+  emitStatusChange('mission', id, 'abandoned');
 
   return updated;
 }
@@ -386,43 +350,30 @@ export async function continueMission(
     updatedAt: now,
   };
 
-  db.insert(missions).values(newMission).run();
+  db.transaction(() => {
+    db.insert(missions).values(newMission).run();
 
-  // Auto-create intel note for board visibility
-  db.insert(intelNotes)
-    .values({
-      id: generateId(),
-      battlefieldId: original.battlefieldId,
-      title,
-      description: null,
-      missionId: id,
-      campaignId: null,
-      column: 'backlog',
-      position: 0,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .run();
-
-  // Emit activity
-  const bf = db
-    .select({ codename: battlefields.codename })
-    .from(battlefields)
-    .where(eq(battlefields.id, original.battlefieldId))
-    .get();
-
-  globalThis.io?.to('hq:activity').emit('activity:event', {
-    type: 'mission:created',
-    battlefieldCodename: bf?.codename || 'UNKNOWN',
-    missionTitle: title,
-    timestamp: now,
-    detail: `Continued from mission: ${original.title}. Status: QUEUED`,
+    // Auto-create intel note for board visibility
+    db.insert(intelNotes)
+      .values({
+        id: generateId(),
+        battlefieldId: original.battlefieldId,
+        title,
+        description: null,
+        missionId: id,
+        campaignId: null,
+        column: 'backlog',
+        position: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
   });
 
-  revalidatePath(`/battlefields/${original.battlefieldId}`);
+  emitStatusChange('mission', id, 'queued');
 
   // Trigger orchestrator
-  globalThis.orchestrator?.onMissionQueued(id);
+  safeQueueMission(id);
 
   return db.select().from(missions).where(eq(missions.id, id)).get() as Mission;
 }
@@ -441,13 +392,13 @@ export async function removeMission(id: string): Promise<{ battlefieldId: string
 
   const battlefieldId = mission.battlefieldId;
 
-  // Delete related records first (no cascade in SQLite by default)
-  db.delete(intelNotes).where(eq(intelNotes.missionId, id)).run();
-  db.delete(missionLogs).where(eq(missionLogs.missionId, id)).run();
-  db.delete(captainLogs).where(eq(captainLogs.missionId, id)).run();
-
-  // Delete the mission
-  db.delete(missions).where(eq(missions.id, id)).run();
+  // Delete related records and the mission in a single transaction
+  db.transaction(() => {
+    db.delete(intelNotes).where(eq(intelNotes.missionId, id)).run();
+    db.delete(missionLogs).where(eq(missionLogs.missionId, id)).run();
+    db.delete(overseerLogs).where(eq(overseerLogs.missionId, id)).run();
+    db.delete(missions).where(eq(missions.id, id)).run();
+  });
 
   // Get battlefield codename for activity event
   const battlefield = db
@@ -499,6 +450,7 @@ export async function retryMerge(missionId: string): Promise<void> {
   // Update status to reviewing while merge agent works
   db.update(missions).set({ status: 'reviewing', updatedAt: Date.now() })
     .where(eq(missions.id, missionId)).run();
+  emitStatusChange('mission', missionId, 'reviewing');
 
   const emitLog = (content: string) => {
     db.insert(missionLogs).values({
@@ -588,6 +540,7 @@ export async function retryMerge(missionId: string): Promise<void> {
         completedAt: Date.now(),
         updatedAt: Date.now(),
       }).where(eq(missions.id, missionId)).run();
+      emitStatusChange('mission', missionId, 'accomplished');
 
       emitLog(`[RETRY MERGE] Agent successfully merged \`${mission.worktreeBranch}\` into \`${targetBranch}\`. Worktree cleaned up.`);
 
@@ -604,6 +557,7 @@ export async function retryMerge(missionId: string): Promise<void> {
         status: 'compromised',
         updatedAt: Date.now(),
       }).where(eq(missions.id, missionId)).run();
+      emitStatusChange('mission', missionId, 'compromised');
 
       emitLog(`[RETRY MERGE] Agent finished but branch was not merged. Branch preserved.`);
     }
@@ -614,9 +568,35 @@ export async function retryMerge(missionId: string): Promise<void> {
       debrief: (mission.debrief || '') + `\n\n---\n\nRETRY MERGE AGENT FAILED: ${errorMsg}\nBranch \`${mission.worktreeBranch}\` preserved.`,
       updatedAt: Date.now(),
     }).where(eq(missions.id, missionId)).run();
+    emitStatusChange('mission', missionId, 'compromised');
 
     emitLog(`[RETRY MERGE] Agent failed: ${errorMsg}`);
   }
 
   revalidatePath(`/battlefields/${mission.battlefieldId}/missions/${missionId}`);
+}
+
+// ---------------------------------------------------------------------------
+// overrideApprove — Commander override: mark a compromised mission as approved
+// ---------------------------------------------------------------------------
+export async function overrideApprove(missionId: string): Promise<void> {
+  const db = getDatabase();
+  const mission = getOrThrow(missions, missionId, 'overrideApprove');
+
+  if (mission.status !== 'compromised') {
+    throw new Error('Can only override-approve compromised missions');
+  }
+
+  db.update(missions).set({
+    status: 'approved',
+    compromiseReason: null,
+    updatedAt: Date.now(),
+  }).where(eq(missions.id, missionId)).run();
+
+  emitStatusChange('mission', missionId, 'approved');
+
+  const { triggerQuartermaster } = await import('@/lib/quartermaster/quartermaster');
+  triggerQuartermaster(missionId);
+
+  revalidatePath(`/battlefields/${mission.battlefieldId}`);
 }

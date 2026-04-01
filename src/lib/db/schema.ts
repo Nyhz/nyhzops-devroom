@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
 // Battlefields (Projects)
@@ -47,6 +47,8 @@ export const missions = sqliteTable('missions', {
   costOutput: integer('cost_output').default(0),
   costCacheHit: integer('cost_cache_hit').default(0),
   reviewAttempts: integer('review_attempts').default(0),
+  compromiseReason: text('compromise_reason'),
+  mergeRetryAt: integer('merge_retry_at'),
   durationMs: integer('duration_ms').default(0),
   startedAt: integer('started_at'),
   completedAt: integer('completed_at'),
@@ -87,6 +89,7 @@ export const phases = sqliteTable('phases', {
   debrief: text('debrief'),
   totalTokens: integer('total_tokens').default(0),
   durationMs: integer('duration_ms').default(0),
+  completingAt: integer('completing_at'),
   createdAt: integer('created_at').notNull(),
 });
 
@@ -101,7 +104,9 @@ export const briefingSessions = sqliteTable('briefing_sessions', {
   status: text('status').default('open'),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
-});
+}, (table) => [
+  uniqueIndex('briefing_sessions_campaign_id_unique').on(table.campaignId),
+]);
 
 export const briefingMessages = sqliteTable('briefing_messages', {
   id: text('id').primaryKey(),
@@ -171,9 +176,9 @@ export const dossiers = sqliteTable('dossiers', {
 });
 
 // ---------------------------------------------------------------------------
-// Captain Logs (AI decision layer)
+// Overseer Logs (AI decision layer)
 // ---------------------------------------------------------------------------
-export const captainLogs = sqliteTable('captain_logs', {
+export const overseerLogs = sqliteTable('overseer_logs', {
   id: text('id').primaryKey(),
   missionId: text('mission_id').notNull().references(() => missions.id),
   campaignId: text('campaign_id').references(() => campaigns.id),

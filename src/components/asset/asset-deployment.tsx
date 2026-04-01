@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useSocket } from '@/hooks/use-socket';
+import { useSocket, useReconnectKey } from '@/hooks/use-socket';
 import { getAssetDeployment, type AssetDeploymentData } from '@/actions/asset';
 
 const PEACE_MESSAGES = [
@@ -23,6 +23,7 @@ interface AssetDeploymentProps {
 
 export function AssetDeployment({ initialData }: AssetDeploymentProps) {
   const socket = useSocket();
+  const reconnectKey = useReconnectKey();
   const [data, setData] = useState(initialData);
   const [peaceMsg, setPeaceMsg] = useState(PEACE_MESSAGES[0]);
 
@@ -43,6 +44,7 @@ export function AssetDeployment({ initialData }: AssetDeploymentProps) {
     if (!socket) return;
 
     socket.emit('hq:subscribe');
+    refresh(); // Refetch on mount AND reconnect
 
     const handle = () => refresh();
 
@@ -52,8 +54,9 @@ export function AssetDeployment({ initialData }: AssetDeploymentProps) {
     return () => {
       socket.off('activity:event', handle);
       socket.off('mission:status', handle);
+      socket.emit('hq:unsubscribe');
     };
-  }, [socket, refresh]);
+  }, [socket, refresh, reconnectKey]);
 
   const { active } = data;
   const allIdle = active.length === 0;

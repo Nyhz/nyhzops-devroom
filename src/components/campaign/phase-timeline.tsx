@@ -24,6 +24,8 @@ interface PhaseTimelineProps {
       durationMs: number | null;
       costInput: number | null;
       costOutput: number | null;
+      compromiseReason?: string | null;
+      mergeRetryAt?: number | null;
     }>;
   }>;
   battlefieldId?: string;
@@ -94,6 +96,7 @@ export function PhaseTimeline({ phases, battlefieldId }: PhaseTimelineProps) {
                     const card = (
                       <CampaignMissionCard
                         key={mission.id}
+                        missionId={mission.id}
                         title={mission.title ?? 'Untitled Mission'}
                         assetCodename={mission.assetCodename}
                         status={mission.status}
@@ -101,6 +104,9 @@ export function PhaseTimeline({ phases, battlefieldId }: PhaseTimelineProps) {
                         durationMs={mission.durationMs}
                         costInput={mission.costInput}
                         costOutput={mission.costOutput}
+                        compromiseReason={mission.compromiseReason ?? null}
+                        mergeRetryAt={mission.mergeRetryAt ?? null}
+                        battlefieldId={battlefieldId ?? null}
                       />
                     );
                     if (battlefieldId) {

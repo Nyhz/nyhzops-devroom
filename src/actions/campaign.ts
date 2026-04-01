@@ -4,8 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { eq, desc, and, inArray } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
-import { campaigns, phases, missions, missionLogs, assets, intelNotes } from '@/lib/db/schema';
+import { campaigns, phases, missions, missionLogs, assets, battlefields, intelNotes } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
+import { emitStatusChange } from '@/lib/socket/emit';
+import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
 import type { Campaign, CampaignWithPlan, PlanJSON } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -23,6 +25,7 @@ function reactivateCampaignIfNeeded(campaignId: string) {
       status: 'active',
       updatedAt: Date.now(),
     }).where(eq(campaigns.id, campaignId)).run();
+    emitStatusChange('campaign', campaignId, 'active');
   }
 }
 
@@ -247,6 +250,10 @@ export async function createCampaign(
   objective: string,
 ): Promise<Campaign> {
   const db = getDatabase();
+
+  const battlefield = db.select().from(battlefields).where(eq(battlefields.id, battlefieldId)).get();
+  if (!battlefield) throw new Error('Battlefield not found');
+
   const id = generateId();
   const now = Date.now();
 
@@ -323,6 +330,8 @@ export async function getCampaign(
         costOutput: missions.costOutput,
         costCacheHit: missions.costCacheHit,
         reviewAttempts: missions.reviewAttempts,
+        compromiseReason: missions.compromiseReason,
+        mergeRetryAt: missions.mergeRetryAt,
         durationMs: missions.durationMs,
         startedAt: missions.startedAt,
         completedAt: missions.completedAt,
@@ -436,6 +445,7 @@ export async function backToDraft(campaignId: string): Promise<void> {
     updatedAt: Date.now(),
   }).where(eq(campaigns.id, campaignId)).run();
 
+  emitStatusChange('campaign', campaignId, 'draft');
   revalidatePath(`/battlefields/${campaign.battlefieldId}/campaigns/${campaignId}`);
 }
 
@@ -522,49 +532,50 @@ export async function launchCampaign(
     }
   }
 
-  db.update(campaigns)
-    .set({
-      status: 'active',
-      currentPhase: 1,
-      updatedAt: Date.now(),
-    })
-    .where(eq(campaigns.id, campaignId))
-    .run();
-
-  // Delete briefing data — no longer needed once campaign is live
   const { deleteBriefingData } = await import('@/lib/briefing/briefing-engine');
-  deleteBriefingData(campaignId);
 
-  // Replace original backlog notes with mission-linked notes.
-  // The original notes (selected from the intel board) no longer match the actual
-  // missions after planning with GENERAL. Delete them and create new notes that
-  // track real mission status on the board.
-  const originalNotes = db.select().from(intelNotes)
-    .where(eq(intelNotes.campaignId, campaignId)).all();
-  for (const note of originalNotes) {
-    db.delete(intelNotes).where(eq(intelNotes.id, note.id)).run();
-  }
+  db.transaction(() => {
+    db.update(campaigns)
+      .set({
+        status: 'active',
+        currentPhase: 1,
+        updatedAt: Date.now(),
+      })
+      .where(eq(campaigns.id, campaignId))
+      .run();
 
-  // Create a note for each mission in the campaign
-  const now = Date.now();
-  const allCampaignMissions = db.select().from(missions)
-    .where(eq(missions.campaignId, campaignId)).all();
-  for (const m of allCampaignMissions) {
-    db.insert(intelNotes).values({
-      id: generateId(),
-      battlefieldId: campaign.battlefieldId,
-      title: m.title,
-      description: m.briefing,
-      column: 'planned',
-      missionId: m.id,
-      campaignId,
-      position: 0,
-      createdAt: now,
-      updatedAt: now,
-    }).run();
-  }
+    // Delete briefing data — no longer needed once campaign is live
+    deleteBriefingData(campaignId);
 
-  // Trigger orchestrator to begin campaign execution
+    // Replace original backlog notes with mission-linked notes.
+    // The original notes (selected from the intel board) no longer match the actual
+    // missions after planning with GENERAL. Delete them and create new notes that
+    // track real mission status on the board.
+    db.delete(intelNotes).where(eq(intelNotes.campaignId, campaignId)).run();
+
+    // Create a note for each mission in the campaign
+    const now = Date.now();
+    const allCampaignMissions = db.select().from(missions)
+      .where(eq(missions.campaignId, campaignId)).all();
+    for (const m of allCampaignMissions) {
+      db.insert(intelNotes).values({
+        id: generateId(),
+        battlefieldId: campaign.battlefieldId,
+        title: m.title,
+        description: m.briefing,
+        column: 'planned',
+        missionId: m.id,
+        campaignId,
+        position: 0,
+        createdAt: now,
+        updatedAt: now,
+      }).run();
+    }
+  });
+
+  emitStatusChange('campaign', campaignId, 'active');
+
+  // Trigger orchestrator to begin campaign execution — outside transaction
   globalThis.orchestrator?.startCampaign(campaignId);
 
   revalidateCampaignPaths(campaign.battlefieldId, campaignId);
@@ -587,6 +598,7 @@ export async function completeCampaign(id: string): Promise<void> {
     .where(eq(campaigns.id, id))
     .run();
 
+  emitStatusChange('campaign', id, 'accomplished');
   revalidateCampaignPaths(campaign.battlefieldId, id);
 }
 
@@ -604,45 +616,48 @@ export async function abandonCampaign(id: string): Promise<void> {
 
   const now = Date.now();
 
-  // Set all non-terminal missions to abandoned
-  db.update(missions)
-    .set({ status: 'abandoned', updatedAt: now })
-    .where(
-      and(
-        eq(missions.campaignId, id),
-        inArray(missions.status, ['standby', 'queued', 'deploying', 'in_combat']),
-      ),
-    )
-    .run();
-
-  // Set all non-terminal phases to compromised
-  const campaignPhases = db
-    .select({ id: phases.id })
-    .from(phases)
-    .where(eq(phases.campaignId, id))
-    .all();
-
-  const phaseIds = campaignPhases.map((p) => p.id);
-  if (phaseIds.length > 0) {
-    db.update(phases)
-      .set({ status: 'compromised' })
+  db.transaction(() => {
+    // Set all non-terminal missions to abandoned
+    db.update(missions)
+      .set({ status: 'abandoned', updatedAt: now })
       .where(
         and(
-          inArray(phases.id, phaseIds),
-          inArray(phases.status, ['standby', 'active']),
+          eq(missions.campaignId, id),
+          inArray(missions.status, ['standby', 'queued', 'deploying', 'in_combat']),
         ),
       )
       .run();
-  }
 
-  db.update(campaigns)
-    .set({
-      status: 'abandoned',
-      updatedAt: now,
-    })
-    .where(eq(campaigns.id, id))
-    .run();
+    // Set all non-terminal phases to compromised
+    const campaignPhases = db
+      .select({ id: phases.id })
+      .from(phases)
+      .where(eq(phases.campaignId, id))
+      .all();
 
+    const phaseIds = campaignPhases.map((p) => p.id);
+    if (phaseIds.length > 0) {
+      db.update(phases)
+        .set({ status: 'compromised' })
+        .where(
+          and(
+            inArray(phases.id, phaseIds),
+            inArray(phases.status, ['standby', 'active']),
+          ),
+        )
+        .run();
+    }
+
+    db.update(campaigns)
+      .set({
+        status: 'abandoned',
+        updatedAt: now,
+      })
+      .where(eq(campaigns.id, id))
+      .run();
+  });
+
+  emitStatusChange('campaign', id, 'abandoned');
   revalidateCampaignPaths(campaign.battlefieldId, id);
 }
 
@@ -793,6 +808,7 @@ export async function resumeCampaign(campaignId: string): Promise<void> {
     .where(eq(campaigns.id, campaignId))
     .run();
 
+  emitStatusChange('campaign', campaignId, 'active');
   globalThis.orchestrator?.resumeCampaign(campaignId);
 
   revalidateCampaignPaths(campaign.battlefieldId, campaignId);
@@ -846,12 +862,13 @@ export async function tacticalOverride(
     reactivateCampaignIfNeeded(mission.campaignId);
   }
 
+  emitStatusChange('mission', missionId, 'queued');
   revalidatePath(`/battlefields/${mission.battlefieldId}`);
-  globalThis.orchestrator?.onMissionQueued(missionId);
+  safeQueueMission(missionId);
 }
 
 // ---------------------------------------------------------------------------
-// 18. commanderOverride — Commander approves a compromised mission, overriding Captain
+// 18. commanderOverride — Commander approves a compromised mission, overriding Overseer
 // ---------------------------------------------------------------------------
 
 export async function commanderOverride(missionId: string): Promise<void> {
@@ -872,13 +889,7 @@ export async function commanderOverride(missionId: string): Promise<void> {
     await notifyCampaignExecutor(mission.campaignId, missionId);
   }
 
-  // Emit status change via socket
-  if (globalThis.io) {
-    const statusPayload = { missionId, status: 'accomplished', timestamp: now };
-    globalThis.io.to(`mission:${missionId}`).emit('mission:status', statusPayload);
-    globalThis.io.to(`battlefield:${mission.battlefieldId}`).emit('mission:status', statusPayload);
-  }
-
+  emitStatusChange('mission', missionId, 'accomplished');
   revalidatePath(`/battlefields/${mission.battlefieldId}`);
 }
 
@@ -893,38 +904,42 @@ export async function skipMission(missionId: string): Promise<void> {
 
   const now = Date.now();
 
-  db.update(missions).set({
-    status: 'abandoned',
-    completedAt: now,
-    updatedAt: now,
-  }).where(eq(missions.id, missionId)).run();
+  db.transaction(() => {
+    db.update(missions).set({
+      status: 'abandoned',
+      completedAt: now,
+      updatedAt: now,
+    }).where(eq(missions.id, missionId)).run();
 
-  // Cascade-abandon dependent missions in same phase
-  if (mission.phaseId) {
-    const phaseMissions = db.select().from(missions)
-      .where(eq(missions.phaseId, mission.phaseId)).all();
+    // Cascade-abandon dependent missions in same phase
+    if (mission.phaseId) {
+      const phaseMissions = db.select().from(missions)
+        .where(eq(missions.phaseId, mission.phaseId)).all();
 
-    const abandonedTitles = new Set<string>([mission.title]);
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const m of phaseMissions) {
-        if (m.status === 'standby' && m.dependsOn) {
-          const deps = JSON.parse(m.dependsOn) as string[];
-          if (deps.some(d => abandonedTitles.has(d))) {
-            db.update(missions).set({
-              status: 'abandoned',
-              completedAt: now,
-              updatedAt: now,
-            }).where(eq(missions.id, m.id)).run();
-            abandonedTitles.add(m.title);
-            m.status = 'abandoned';
-            changed = true;
+      const abandonedTitles = new Set<string>([mission.title]);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const m of phaseMissions) {
+          if (m.status === 'standby' && m.dependsOn) {
+            const deps = JSON.parse(m.dependsOn) as string[];
+            if (deps.some(d => abandonedTitles.has(d))) {
+              db.update(missions).set({
+                status: 'abandoned',
+                completedAt: now,
+                updatedAt: now,
+              }).where(eq(missions.id, m.id)).run();
+              abandonedTitles.add(m.title);
+              m.status = 'abandoned';
+              changed = true;
+            }
           }
         }
       }
     }
-  }
+  });
+
+  emitStatusChange('mission', missionId, 'abandoned');
 
   if (mission.campaignId) {
     reactivateCampaignIfNeeded(mission.campaignId);
@@ -955,6 +970,7 @@ export async function retryPhaseDebrief(campaignId: string): Promise<void> {
     stalledPhaseId: null,
     updatedAt: Date.now(),
   }).where(eq(campaigns.id, campaignId)).run();
+  emitStatusChange('campaign', campaignId, 'active');
 
   // Re-trigger generateAndAdvance via the campaign executor
   const executor = globalThis.orchestrator?.activeCampaigns.get(campaignId);
@@ -1009,6 +1025,7 @@ export async function skipPhaseDebrief(campaignId: string): Promise<void> {
     stalledPhaseId: null,
     updatedAt: Date.now(),
   }).where(eq(campaigns.id, campaignId)).run();
+  emitStatusChange('campaign', campaignId, 'active');
 
   // Advance to next phase
   const executor = globalThis.orchestrator?.activeCampaigns.get(campaignId);

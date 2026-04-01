@@ -1,13 +1,13 @@
 import Link from 'next/link';
-import { getCaptainLogs, getCaptainStats } from '@/actions/captain';
+import { getOverseerLogs, getOverseerStats } from '@/actions/overseer';
 import { Markdown } from '@/components/ui/markdown';
 import { formatRelativeTime } from '@/lib/utils';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 
-export default async function CaptainLogPage() {
+export default async function OverseerLogPage() {
   const [logs, stats] = await Promise.all([
-    getCaptainLogs(),
-    getCaptainStats(),
+    getOverseerLogs(),
+    getOverseerStats(),
   ]);
 
   const escalationPct = stats.totalDecisions > 0
@@ -15,9 +15,9 @@ export default async function CaptainLogPage() {
     : 0;
 
   return (
-    <PageWrapper breadcrumb="HQ" title="CAPTAIN'S LOG">
+    <PageWrapper breadcrumb="HQ" title="OVERSEER'S LOG">
       <p className="text-sm font-tactical text-dr-muted -mt-4">
-        Autonomous decision record — all Captain interventions during mission execution
+        Autonomous decision record — all Overseer interventions during mission execution
       </p>
 
       {/* Stats bar */}
@@ -51,10 +51,10 @@ export default async function CaptainLogPage() {
       {logs.length === 0 ? (
         <div className="border border-dr-border bg-dr-surface px-6 py-12 text-center">
           <p className="text-dr-muted text-sm font-tactical">
-            No Captain decisions recorded yet.
+            No Overseer decisions recorded yet.
           </p>
           <p className="text-dr-muted text-sm font-tactical mt-2">
-            The Captain intervenes when an agent stalls during mission execution.
+            The Overseer intervenes when an agent stalls during mission execution.
           </p>
         </div>
       ) : (
@@ -100,7 +100,7 @@ export default async function CaptainLogPage() {
               {/* Answer */}
               <div>
                 <span className="text-xs font-tactical text-dr-muted tracking-wider">
-                  CAPTAIN&apos;S ANSWER
+                  OVERSEER&apos;S ANSWER
                 </span>
                 <div className="text-dr-green mt-1">
                   <Markdown content={log.answer} className="text-sm" />

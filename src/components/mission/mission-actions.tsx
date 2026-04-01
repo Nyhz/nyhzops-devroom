@@ -67,7 +67,7 @@ export function MissionActions({
           <p>
             <span className="text-dr-red font-tactical">ABANDON &amp; REMOVE</span>{' '}
             — permanently deletes the mission and all associated records
-            (comms, logs, captain&apos;s log). This cannot be undone.
+            (comms, logs, overseer&apos;s log). This cannot be undone.
           </p>
         </div>
       ),
@@ -186,12 +186,12 @@ export function MissionActions({
           {status === 'compromised' && (
             <TacButton
               variant="success"
-              {...tacTooltip("Override the Captain's rejection. Mark this mission as accomplished — you outrank the Captain.")}
+              {...tacTooltip("Override the Overseer's rejection. Mark this mission as accomplished — you outrank the Overseer.")}
               onClick={async () => {
                 const result = await confirm({
                   title: 'COMMANDER OVERRIDE',
-                  description: 'Override the Captain and approve this mission as accomplished.',
-                  body: <p>This marks the mission as accomplished regardless of the Captain&apos;s assessment. Use when you&apos;ve reviewed the work and deem it acceptable.</p>,
+                  description: 'Override the Overseer and approve this mission as accomplished.',
+                  body: <p>This marks the mission as accomplished regardless of the Overseer&apos;s assessment. Use when you&apos;ve reviewed the work and deem it acceptable.</p>,
                   actions: [{ label: 'APPROVE', variant: 'success' }],
                 });
                 if (result !== 0) return;

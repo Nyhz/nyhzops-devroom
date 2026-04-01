@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS phases (
   debrief TEXT,
   total_tokens INTEGER DEFAULT 0,
   duration_ms INTEGER DEFAULT 0,
+  completing_at INTEGER,
   created_at INTEGER NOT NULL
 );
 
@@ -78,6 +79,8 @@ CREATE TABLE IF NOT EXISTS missions (
   cost_output INTEGER DEFAULT 0,
   cost_cache_hit INTEGER DEFAULT 0,
   review_attempts INTEGER DEFAULT 0,
+  compromise_reason TEXT,
+  merge_retry_at INTEGER,
   duration_ms INTEGER DEFAULT 0,
   started_at INTEGER,
   completed_at INTEGER,

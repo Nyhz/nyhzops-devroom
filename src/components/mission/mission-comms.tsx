@@ -119,7 +119,7 @@ export function MissionComms({
               {
                 timestamp: 0,
                 type: 'status' as const,
-                content: 'Agent work complete. Captain reviewing debrief...',
+                content: 'Agent work complete. Overseer reviewing debrief...',
               },
             ]
           : []),

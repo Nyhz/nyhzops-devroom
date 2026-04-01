@@ -19,6 +19,7 @@ import {
 import { generateId, toKebabCase } from '@/lib/utils';
 import { config } from '@/lib/config';
 import { getNextRun } from '@/lib/scheduler/cron';
+import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
 import type {
   CreateBattlefieldInput,
   UpdateBattlefieldInput,
@@ -71,24 +72,14 @@ function createBootstrapMission(
 ): string {
   const db = getDatabase();
 
-  // Find PATHFINDER asset, fall back to any active asset
-  let asset = db
+  const asset = db
     .select()
     .from(assets)
     .where(eq(assets.codename, 'PATHFINDER'))
     .get();
 
   if (!asset) {
-    asset = db
-      .select()
-      .from(assets)
-      .where(eq(assets.status, 'active'))
-      .limit(1)
-      .get();
-  }
-
-  if (!asset) {
-    throw new Error('createBootstrapMission: no active assets available');
+    throw new Error('PATHFINDER asset required for bootstrap — no fallback to other assets');
   }
 
   const missionId = generateId();
@@ -172,41 +163,44 @@ export async function createBattlefield(
     status = 'initializing';
   }
 
-  const record = db
-    .insert(battlefields)
-    .values({
-      id,
-      name: data.name,
-      codename: data.codename,
-      description: data.description ?? null,
-      initialBriefing: data.initialBriefing ?? null,
-      repoPath,
-      defaultBranch,
-      scaffoldCommand: data.scaffoldCommand ?? null,
-      scaffoldStatus,
-      claudeMdPath,
-      specMdPath,
-      status,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning()
-    .get();
+  const record = db.transaction(() => {
+    const inserted = db
+      .insert(battlefields)
+      .values({
+        id,
+        name: data.name,
+        codename: data.codename,
+        description: data.description ?? null,
+        initialBriefing: data.initialBriefing ?? null,
+        repoPath,
+        defaultBranch,
+        scaffoldCommand: data.scaffoldCommand ?? null,
+        scaffoldStatus,
+        claudeMdPath,
+        specMdPath,
+        status,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning()
+      .get();
 
-  // Create bootstrap mission if not skipping and briefing provided
-  if (!data.skipBootstrap && data.initialBriefing?.trim()) {
-    bootstrapMissionId = createBootstrapMission(id, data.codename, data.initialBriefing.trim());
+    // Create bootstrap mission if not skipping and briefing provided
+    if (!data.skipBootstrap && data.initialBriefing?.trim()) {
+      bootstrapMissionId = createBootstrapMission(id, data.codename, data.initialBriefing.trim());
 
-    db.update(battlefields)
-      .set({ bootstrapMissionId, updatedAt: Date.now() })
-      .where(eq(battlefields.id, id))
-      .run();
-
-    // If no scaffold command, trigger orchestrator immediately
-    // If there IS a scaffold command, the scaffold route will trigger after completion
-    if (!data.scaffoldCommand) {
-      globalThis.orchestrator?.onMissionQueued(bootstrapMissionId);
+      db.update(battlefields)
+        .set({ bootstrapMissionId, updatedAt: Date.now() })
+        .where(eq(battlefields.id, id))
+        .run();
     }
+
+    return inserted;
+  });
+
+  // Trigger orchestrator after transaction — outside DB writes
+  if (bootstrapMissionId && !data.scaffoldCommand) {
+    safeQueueMission(bootstrapMissionId);
   }
 
   // Seed default maintenance tasks
@@ -499,7 +493,7 @@ export async function regenerateBootstrap(
     .run();
 
   // Trigger orchestrator
-  globalThis.orchestrator?.onMissionQueued(newMissionId);
+  safeQueueMission(newMissionId);
 
   revalidatePath(`/battlefields/${battlefieldId}`);
   revalidatePath('/');

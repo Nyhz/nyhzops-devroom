@@ -1,23 +1,23 @@
 import { runClaudePrint } from '@/lib/process/claude-print';
-import type { CaptainLog, CaptainConfidence } from '@/types';
+import type { OverseerLog, OverseerConfidence } from '@/types';
 
-export interface CaptainDecision {
+export interface OverseerDecision {
   answer: string;
   reasoning: string;
   escalate: boolean;
-  confidence: CaptainConfidence;
+  confidence: OverseerConfidence;
 }
 
-interface AskCaptainParams {
+interface AskOverseerParams {
   question: string;
   missionBriefing: string;
   claudeMd: string | null;
   recentOutput: string;
-  captainHistory: CaptainLog[];
+  overseerHistory: OverseerLog[];
   campaignContext?: string;
 }
 
-const CAPTAIN_SYSTEM_PROMPT = `You are the CAPTAIN of DEVROOM operations, serving under the Commander.
+const OVERSEER_SYSTEM_PROMPT = `You are the OVERSEER of DEVROOM operations, serving under the Commander.
 Your role is to make tactical decisions for AI agents executing missions.
 
 RULES:
@@ -40,11 +40,11 @@ Respond ONLY with a JSON object:
   "confidence": "high"
 }`;
 
-function buildCaptainPrompt(params: AskCaptainParams): string {
+function buildOverseerPrompt(params: AskOverseerParams): string {
   const sections: string[] = [];
 
   // 1. System prompt
-  sections.push(CAPTAIN_SYSTEM_PROMPT);
+  sections.push(OVERSEER_SYSTEM_PROMPT);
 
   // 2. CLAUDE.md content
   if (params.claudeMd) {
@@ -67,9 +67,9 @@ function buildCaptainPrompt(params: AskCaptainParams): string {
   // 6. The question
   sections.push(`## Agent's Question\n\nThe agent has paused and is asking:\n\n${params.question}`);
 
-  // 7. Captain history
-  if (params.captainHistory.length > 0) {
-    const historyText = params.captainHistory
+  // 7. Overseer history
+  if (params.overseerHistory.length > 0) {
+    const historyText = params.overseerHistory
       .map((h) => `Q: ${h.question}\nA: ${h.answer} (confidence: ${h.confidence})`)
       .join('\n---\n');
     sections.push(`## Your Recent Decisions (for consistency)\n\n${historyText}`);
@@ -80,7 +80,7 @@ function buildCaptainPrompt(params: AskCaptainParams): string {
   return sections.join('\n\n---\n\n');
 }
 
-function parseDecision(raw: string): CaptainDecision {
+function parseDecision(raw: string): OverseerDecision {
   // Try to extract JSON from the output — may have markdown fences or extra text
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
@@ -111,7 +111,7 @@ function parseDecision(raw: string): CaptainDecision {
 
     const validConfidence = ['high', 'medium', 'low'];
     const confidence = validConfidence.includes(parsed.confidence || '')
-      ? (parsed.confidence as CaptainConfidence)
+      ? (parsed.confidence as OverseerConfidence)
       : 'low';
 
     return {
@@ -130,18 +130,18 @@ function parseDecision(raw: string): CaptainDecision {
   }
 }
 
-export async function askCaptain(params: AskCaptainParams): Promise<CaptainDecision> {
-  const prompt = buildCaptainPrompt(params);
+export async function askOverseer(params: AskOverseerParams): Promise<OverseerDecision> {
+  const prompt = buildOverseerPrompt(params);
 
   try {
     const stdout = await runClaudePrint(prompt);
     return parseDecision(stdout);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[Captain] Process failed: ${msg}`);
+    console.warn(`[Overseer] Process failed: ${msg}`);
     return {
       answer: 'Proceed with your best judgment based on the project conventions.',
-      reasoning: `Captain process failed: ${msg}. Providing fallback guidance.`,
+      reasoning: `Overseer process failed: ${msg}. Providing fallback guidance.`,
       escalate: true,
       confidence: 'low',
     };
