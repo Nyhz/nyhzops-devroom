@@ -5,7 +5,27 @@ import { eq, count, inArray } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { assets, missions } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
-import type { AssetStatus } from '@/types';
+import type { Asset, AssetStatus } from '@/types';
+
+// ---------------------------------------------------------------------------
+// getSystemAsset — cached lookup for system assets (OVERSEER, GENERAL, etc.)
+// ---------------------------------------------------------------------------
+
+const systemAssetCache = new Map<string, { asset: Asset; cachedAt: number }>();
+const SYSTEM_ASSET_CACHE_TTL = 60_000;
+
+export function getSystemAsset(codename: string): Asset {
+  const now = Date.now();
+  const cached = systemAssetCache.get(codename);
+  if (cached && (now - cached.cachedAt) < SYSTEM_ASSET_CACHE_TTL) {
+    return cached.asset;
+  }
+  const db = getDatabase();
+  const asset = db.select().from(assets).where(eq(assets.codename, codename)).get();
+  if (!asset) throw new Error(`System asset ${codename} not found. Run seed.`);
+  systemAssetCache.set(codename, { asset, cachedAt: now });
+  return asset;
+}
 
 export interface AssetDeploymentEntry {
   id: string;
@@ -140,6 +160,10 @@ export async function updateAsset(
     systemPrompt?: string;
     model?: string;
     status?: AssetStatus;
+    maxTurns?: number | null;
+    effort?: string | null;
+    skills?: string | null;
+    mcpServers?: string | null;
   },
 ) {
   const db = getDatabase();
@@ -192,6 +216,22 @@ export async function updateAsset(
 
   if (data.status !== undefined) {
     updates.status = data.status;
+  }
+
+  if (data.maxTurns !== undefined) {
+    updates.maxTurns = data.maxTurns;
+  }
+
+  if (data.effort !== undefined) {
+    updates.effort = data.effort;
+  }
+
+  if (data.skills !== undefined) {
+    updates.skills = data.skills;
+  }
+
+  if (data.mcpServers !== undefined) {
+    updates.mcpServers = data.mcpServers;
   }
 
   if (Object.keys(updates).length === 0) {
