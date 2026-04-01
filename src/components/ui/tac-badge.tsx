@@ -6,7 +6,7 @@ interface TacBadgeProps {
   glow?: boolean;
 }
 
-export type StatusColor = 'green' | 'amber' | 'red' | 'blue' | 'dim';
+export type StatusColor = 'green' | 'amber' | 'red' | 'blue' | 'teal' | 'dim';
 
 export const statusColorMap: Record<string, StatusColor> = {
   accomplished: 'green',
@@ -22,6 +22,8 @@ export const statusColorMap: Record<string, StatusColor> = {
   draft: 'dim',
   offline: 'dim',
   abandoned: 'dim',
+  approved: 'teal',
+  merging: 'amber',
 } as const;
 
 const colorStyles: Record<StatusColor, string> = {
@@ -29,6 +31,7 @@ const colorStyles: Record<StatusColor, string> = {
   amber: 'text-dr-amber',
   red: 'text-dr-red',
   blue: 'text-dr-blue',
+  teal: 'text-dr-teal',
   dim: 'text-dr-dim',
 } as const;
 
@@ -37,6 +40,7 @@ const glowStyles: Record<StatusColor, string> = {
   amber: 'shadow-glow-amber',
   red: 'shadow-glow-red',
   blue: '',
+  teal: '',
   dim: '',
 } as const;
 
@@ -45,6 +49,7 @@ const borderStyles: Record<StatusColor, string> = {
   amber: 'border-l-dr-amber',
   red: 'border-l-dr-red',
   blue: 'border-l-dr-blue',
+  teal: 'border-l-dr-teal',
   dim: 'border-l-dr-dim',
 } as const;
 

@@ -7,6 +7,7 @@ import { reviewDebrief } from './debrief-reviewer';
 import { storeOverseerLog } from './overseer-db';
 import { escalate } from './escalation';
 import { emitStatusChange } from '@/lib/socket/emit';
+import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
 import type { Mission, OverseerReview } from '@/types';
 
 function emitMissionLog(missionId: string, content: string) {
@@ -247,7 +248,7 @@ async function requeueMissionWithFeedback(
   });
 
   // Notify orchestrator
-  globalThis.orchestrator?.onMissionQueued(mission.id);
+  safeQueueMission(mission.id);
 }
 
 function exhaustRetries(mission: Mission, review: OverseerReview): void {

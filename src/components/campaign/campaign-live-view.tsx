@@ -30,6 +30,8 @@ interface CampaignLiveViewProps {
       durationMs: number | null;
       costInput: number | null;
       costOutput: number | null;
+      compromiseReason?: string | null;
+      mergeRetryAt?: number | null;
     }>;
   }>;
   battlefieldId: string;

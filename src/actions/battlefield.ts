@@ -19,6 +19,7 @@ import {
 import { generateId, toKebabCase } from '@/lib/utils';
 import { config } from '@/lib/config';
 import { getNextRun } from '@/lib/scheduler/cron';
+import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
 import type {
   CreateBattlefieldInput,
   UpdateBattlefieldInput,
@@ -199,7 +200,7 @@ export async function createBattlefield(
 
   // Trigger orchestrator after transaction — outside DB writes
   if (bootstrapMissionId && !data.scaffoldCommand) {
-    globalThis.orchestrator?.onMissionQueued(bootstrapMissionId);
+    safeQueueMission(bootstrapMissionId);
   }
 
   // Seed default maintenance tasks
@@ -492,7 +493,7 @@ export async function regenerateBootstrap(
     .run();
 
   // Trigger orchestrator
-  globalThis.orchestrator?.onMissionQueued(newMissionId);
+  safeQueueMission(newMissionId);
 
   revalidatePath(`/battlefields/${battlefieldId}`);
   revalidatePath('/');
