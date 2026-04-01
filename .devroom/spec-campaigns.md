@@ -4,30 +4,56 @@
 
 Multi-phase operation. Phases execute sequentially. Within each phase, missions run in parallel. After each phase, a debrief is generated and passed to the next phase — NOT full logs.
 
+Implementation: `src/lib/orchestrator/campaign-executor.ts` (execution), `src/actions/campaign.ts` (server actions).
+
 ## Creating a Campaign
 
-**Step 1**: Name and objective. Server Action → `draft`. Worktree mode defaults to `'phase'` (schema field exists but not exposed in UI).
+**Step 1**: Name and objective. Server Action `createCampaign()` → `draft`. Worktree mode defaults to `'phase'` (schema field exists but not exposed in UI).
 
 **Step 2**: `[GENERATE PLAN]` opens the `<BriefingChat />` (GENERAL conversation). Campaign transitions to `planning`.
 
-**Step 3**: `<PlanEditor />` shows editable plan with drag-and-drop. Reorder/add/remove phases and missions. Recruit recommended assets. Assign assets.
+**Step 3**: `<PlanEditor />` shows editable plan with drag-and-drop. Reorder/add/remove phases and missions. Recruit recommended assets. Assign assets. `dependsOn` field enables intra-phase ordering — missions can declare dependencies on other missions within the same phase.
 
-**Step 4**: `[GREEN LIGHT]` → `active`. Execution begins.
+**Step 4**: `[GREEN LIGHT]` → `launchCampaign()` validates the plan (all phases have missions, all `dependsOn` references valid within same phase, cycle detection via `dependency-graph.ts`), transitions to `active`, deletes briefing session data, replaces intel notes with mission-linked notes, triggers orchestrator.
 
 ## Execution
 
 1. Phase 1 → `active`.
-2. Worktree mode applied per mission or per phase.
-3. Queue all phase missions. Parallel execution (up to `DEVROOM_MAX_AGENTS`).
-4. All missions terminal:
-   - All accomplished → phase `secured`.
-   - Any compromised → phase `compromised`, campaign `compromised`. Commander decides (resume, skip, or abandon). Note: `'paused'` is used in some UI/action code but is not in the `CampaignStatus` type union — the actual status set is `'compromised'`.
-   - Merge worktrees if applicable.
-   - Generate phase debrief.
-   - Record `totalTokens`, `durationMs`.
-   - Advance `currentPhase`.
-5. Next phase. Pass ONLY phase debrief as context.
-6. Repeat. All phases secured → campaign `accomplished`.
+2. Worktree created per mission.
+3. Queue missions with no dependencies immediately. Missions with `dependsOn` stay in `standby` until dependencies are `accomplished`. Parallel execution up to `DEVROOM_MAX_AGENTS`.
+4. Each mission completes execution → status `reviewing` → **Overseer review** begins:
+   - Overseer issues verdict: `approve`, `retry`, or `escalate`.
+   - `approve` → status `approved` → **Quartermaster merge** begins (status `merging`) → on success `accomplished`.
+   - `retry` → re-queued with Overseer feedback injected into prompt (up to 2 retries for reviewing, 1 for compromised).
+   - `escalate` → status `compromised` (reason: `escalated`), Commander notified.
+5. As each mission reaches `accomplished`, `checkDependencies()` runs — any `standby` missions whose dependencies are all accomplished get queued immediately.
+6. When all phase missions are terminal (accomplished, compromised, or abandoned):
+   - **All accomplished** → phase `secured`. Generate phase debrief. Record `totalTokens`, `durationMs`. Advance to next phase.
+   - **Any compromised** → `handlePhaseFailure()` invokes the Overseer to decide:
+     - **Retry**: Reset compromised missions to `queued` with optional new briefings.
+     - **Skip**: Mark compromised as `abandoned`, cascade to dependent missions, evaluate phase completion.
+     - **Escalate**: Campaign → `paused` with `stallReason` and `stalledPhaseId` recorded. Commander intervention required.
+7. Phase completion is atomic — uses `UPDATE WHERE completingAt IS NULL` to prevent duplicate handlers when multiple missions complete simultaneously.
+8. Next phase. Previous phase mission debriefs passed as context (not full logs).
+9. Repeat. All phases secured → campaign `accomplished`. Campaign debrief generated, follow-up suggestions extracted.
+
+## Campaign Fields
+
+| Field | Description |
+|-------|-------------|
+| `debrief` | Campaign completion debrief — synthesized from all phase debriefs |
+| `stallReason` | Why the campaign was paused (from Overseer's escalation) |
+| `stalledPhaseId` | Which phase caused the stall |
+
+## Mission Dependencies
+
+Missions declare `dependsOn` as a JSON array of mission titles within the same phase. At launch, `launchCampaign()` validates:
+- All referenced titles exist in the same phase.
+- No circular dependencies (via `detectCycle()` in `src/lib/utils/dependency-graph.ts` — DFS-based).
+
+During execution, `checkDependencies()` fires after each mission reaches `accomplished`, unblocking any `standby` missions whose dependencies are all satisfied.
+
+When a compromised mission is skipped, dependent missions are cascaded to `abandoned` — the cascade repeats until no more unresolvable dependencies remain.
 
 ## Templates
 
@@ -71,5 +97,10 @@ Phase containers: left border (green=secured, amber=active). Header: `Phase {n}`
 
 - **MISSION ACCOMPLISHED** (green outline): manually complete the campaign.
 - **ABANDON** (red outline): cancel. Abort in-combat missions. Status → `compromised`.
+- **Resume** (`resumeCampaign`): Resume a `paused` campaign. Re-queues `queued` missions, checks dependencies for `standby` missions.
+- **Skip & Continue** (`skipAndContinueCampaign`): On a paused campaign — marks all compromised missions as `abandoned`, cascades to dependents, evaluates phase completion.
+- **Tactical Override** (`tacticalOverride`): Rewrite the briefing for a compromised/abandoned mission, reset to `queued`, re-activate campaign if needed.
+- **Commander Override** (`commanderOverride`): Mark a compromised mission as `accomplished` without re-running — bypasses Overseer's failed review. Triggers dependency checks.
+- **Skip Mission** (`skipMission`): Mark a single compromised mission as `abandoned`. Cascades to dependent missions. May trigger phase completion.
 
 Note: A `redeployCampaign` server action exists but is not yet exposed in the campaign detail UI.
