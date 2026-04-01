@@ -28,24 +28,37 @@ export function AssetStatusToggle({ assetId, status }: AssetStatusToggleProps) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleToggle}
-      disabled={isPending}
-      className={cn(
-        'flex items-center gap-2 px-2 py-1 rounded font-mono text-xs uppercase tracking-wider transition-colors',
-        isActive
-          ? 'text-tac-green'
-          : 'text-tac-red',
-      )}
-    >
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={isActive}
+        onClick={handleToggle}
+        disabled={isPending}
+        className={cn(
+          'relative w-9 h-5 rounded-full transition-all duration-200 cursor-pointer',
+          isActive
+            ? 'bg-tac-green/30 shadow-[0_0_8px_rgba(0,255,0,0.2)]'
+            : 'bg-dr-bg',
+          'border',
+          isActive ? 'border-tac-green/60' : 'border-dr-border',
+        )}
+      >
+        <span
+          className={cn(
+            'absolute top-0.5 w-4 h-4 rounded-full transition-all duration-200',
+            isActive
+              ? 'left-[18px] bg-tac-green shadow-[0_0_6px_rgba(0,255,0,0.6)]'
+              : 'left-0.5 bg-dr-muted',
+          )}
+        />
+      </button>
       <span className={cn(
-        'w-2 h-2 rounded-full',
-        isActive
-          ? 'bg-tac-green shadow-[0_0_6px_rgba(0,255,0,0.5)]'
-          : 'bg-tac-red shadow-[0_0_6px_rgba(255,0,0,0.5)]',
-      )} />
-      {isActive ? 'Active' : 'Offline'}
-    </button>
+        'font-mono text-xs uppercase tracking-wider',
+        isActive ? 'text-tac-green' : 'text-dr-muted',
+      )}>
+        {isActive ? 'Active' : 'Offline'}
+      </span>
+    </div>
   );
 }

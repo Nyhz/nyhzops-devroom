@@ -52,20 +52,18 @@ export function SkillToggleList({ items, onToggle, emptyMessage }: SkillToggleLi
             aria-checked={item.enabled}
             onClick={() => onToggle(item.id, !item.enabled)}
             className={cn(
-              'relative shrink-0 w-10 h-5 rounded-full transition-colors',
-              'min-w-[44px] min-h-[44px] md:min-w-[40px] md:min-h-[20px]',
-              'flex items-center',
+              'relative shrink-0 w-9 h-5 rounded-full transition-all duration-200 cursor-pointer border',
               item.enabled
-                ? 'bg-tac-green/40 border border-tac-green shadow-[0_0_6px_rgba(0,255,0,0.3)]'
-                : 'bg-dr-bg border border-dr-border',
+                ? 'bg-tac-green/30 border-tac-green/60 shadow-[0_0_8px_rgba(0,255,0,0.2)]'
+                : 'bg-dr-bg border-dr-border',
             )}
           >
             <span
               className={cn(
-                'block w-3.5 h-3.5 rounded-full transition-transform',
+                'absolute top-0.5 w-4 h-4 rounded-full transition-all duration-200',
                 item.enabled
-                  ? 'translate-x-5 bg-tac-green shadow-[0_0_4px_rgba(0,255,0,0.5)]'
-                  : 'translate-x-1 bg-dr-muted',
+                  ? 'left-[18px] bg-tac-green shadow-[0_0_6px_rgba(0,255,0,0.6)]'
+                  : 'left-0.5 bg-dr-muted',
               )}
             />
           </button>
