@@ -1,6 +1,6 @@
 import { getDatabase } from "@/lib/db/index";
 import { battlefields, missions, campaigns } from "@/lib/db/schema";
-import { count, eq } from "drizzle-orm";
+import { count, eq, sql, inArray } from "drizzle-orm";
 import { AppShellClient } from "./app-shell-client";
 import type { Battlefield } from "@/types";
 
@@ -32,7 +32,12 @@ export function AppShell({ children }: AppShellProps) {
     campaignCounts[bf.id] = cResult[0]?.value ?? 0;
   }
 
-  const activeAgents = globalThis.orchestrator?.getWorkingCount() ?? 0;
+  const [agentRow] = db
+    .select({ total: sql<number>`count(*)` })
+    .from(missions)
+    .where(inArray(missions.status, ['deploying', 'in_combat', 'reviewing', 'approved', 'merging']))
+    .all();
+  const activeAgents = agentRow?.total ?? 0;
 
   return (
     <AppShellClient

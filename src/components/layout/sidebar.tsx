@@ -1,6 +1,6 @@
 import { getDatabase } from "@/lib/db/index";
 import { battlefields, missions, campaigns } from "@/lib/db/schema";
-import { count, eq } from "drizzle-orm";
+import { count, eq, sql, inArray } from "drizzle-orm";
 import { CollapsibleSidebar } from "./collapsible-sidebar";
 import type { Battlefield } from "@/types";
 
@@ -34,7 +34,14 @@ export function Sidebar() {
       battlefields={allBattlefields}
       missionCounts={missionCounts}
       campaignCounts={campaignCounts}
-      activeAgents={globalThis.orchestrator?.getWorkingCount() ?? 0}
+      activeAgents={(() => {
+        const [row] = db
+          .select({ total: sql<number>`count(*)` })
+          .from(missions)
+          .where(inArray(missions.status, ['deploying', 'in_combat', 'reviewing', 'approved', 'merging']))
+          .all();
+        return row?.total ?? 0;
+      })()}
     />
   );
 }
