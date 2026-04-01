@@ -64,35 +64,27 @@ export async function sendBriefingMessage(
     );
   }
 
-  // 2. Get or create briefing session
-  let session = db
+  // 2. Get or create briefing session (UPSERT to avoid race conditions)
+  const now = Date.now();
+
+  db.insert(briefingSessions)
+    .values({
+      id: generateId(),
+      campaignId,
+      sessionId: null,
+      assetId: null,
+      status: 'open',
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoNothing()
+    .run();
+
+  const session = db
     .select()
     .from(briefingSessions)
     .where(eq(briefingSessions.campaignId, campaignId))
-    .get();
-
-  const now = Date.now();
-
-  if (!session) {
-    const sessionId = generateId();
-    db.insert(briefingSessions)
-      .values({
-        id: sessionId,
-        campaignId,
-        sessionId: null,
-        assetId: null,
-        status: 'open',
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
-
-    session = db
-      .select()
-      .from(briefingSessions)
-      .where(eq(briefingSessions.id, sessionId))
-      .get()!;
-  }
+    .get()!;
 
   // 3. Store the Commander's message
   db.insert(briefingMessages)
@@ -428,46 +420,48 @@ function insertPlanFromBriefing(
   const allAssets = db.select().from(assets).all();
   const assetByCodename = new Map(allAssets.map((a) => [a.codename, a]));
 
-  for (let i = 0; i < plan.phases.length; i++) {
-    const planPhase = plan.phases[i];
-    const phaseId = generateId();
+  db.transaction(() => {
+    for (let i = 0; i < plan.phases.length; i++) {
+      const planPhase = plan.phases[i];
+      const phaseId = generateId();
 
-    db.insert(phases)
-      .values({
-        id: phaseId,
-        campaignId,
-        phaseNumber: i + 1,
-        name: planPhase.name,
-        objective: planPhase.objective || null,
-        status: 'standby',
-        createdAt: now,
-      })
-      .run();
-
-    for (const planMission of planPhase.missions) {
-      const asset = assetByCodename.get(planMission.assetCodename);
-      const missionId = generateId();
-
-      db.insert(missions)
+      db.insert(phases)
         .values({
-          id: missionId,
-          battlefieldId,
+          id: phaseId,
           campaignId,
-          phaseId,
-          type: 'standard',
-          title: planMission.title,
-          briefing: planMission.briefing,
+          phaseNumber: i + 1,
+          name: planPhase.name,
+          objective: planPhase.objective || null,
           status: 'standby',
-          priority: planMission.priority || 'normal',
-          assetId: asset?.id ?? null,
-          dependsOn:
-            planMission.dependsOn && planMission.dependsOn.length > 0
-              ? JSON.stringify(planMission.dependsOn)
-              : null,
           createdAt: now,
-          updatedAt: now,
         })
         .run();
+
+      for (const planMission of planPhase.missions) {
+        const asset = assetByCodename.get(planMission.assetCodename);
+        const missionId = generateId();
+
+        db.insert(missions)
+          .values({
+            id: missionId,
+            battlefieldId,
+            campaignId,
+            phaseId,
+            type: 'standard',
+            title: planMission.title,
+            briefing: planMission.briefing,
+            status: 'standby',
+            priority: planMission.priority || 'normal',
+            assetId: asset?.id ?? null,
+            dependsOn:
+              planMission.dependsOn && planMission.dependsOn.length > 0
+                ? JSON.stringify(planMission.dependsOn)
+                : null,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
+      }
     }
-  }
+  });
 }

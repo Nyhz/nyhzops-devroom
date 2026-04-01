@@ -37,37 +37,41 @@ async function _createMission(
 
   const battlefield = getOrThrow(battlefields, data.battlefieldId, '_createMission battlefield');
 
-  const record = db
-    .insert(missions)
-    .values({
-      id,
-      battlefieldId: data.battlefieldId,
-      title,
-      briefing: data.briefing,
-      status,
-      priority: data.priority ?? 'normal',
-      assetId: data.assetId ?? null,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning()
-    .get();
+  const record = db.transaction(() => {
+    const inserted = db
+      .insert(missions)
+      .values({
+        id,
+        battlefieldId: data.battlefieldId,
+        title,
+        briefing: data.briefing,
+        status,
+        priority: data.priority ?? 'normal',
+        assetId: data.assetId ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning()
+      .get();
 
-  // Auto-create intel note for board visibility
-  db.insert(intelNotes)
-    .values({
-      id: generateId(),
-      battlefieldId: data.battlefieldId,
-      title,
-      description: null,
-      missionId: id,
-      campaignId: null,
-      column: 'backlog',
-      position: 0,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .run();
+    // Auto-create intel note for board visibility
+    db.insert(intelNotes)
+      .values({
+        id: generateId(),
+        battlefieldId: data.battlefieldId,
+        title,
+        description: null,
+        missionId: id,
+        campaignId: null,
+        column: 'backlog',
+        position: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    return inserted;
+  });
 
   // Emit Socket.IO activity event
   if (globalThis.io) {
@@ -386,23 +390,25 @@ export async function continueMission(
     updatedAt: now,
   };
 
-  db.insert(missions).values(newMission).run();
+  db.transaction(() => {
+    db.insert(missions).values(newMission).run();
 
-  // Auto-create intel note for board visibility
-  db.insert(intelNotes)
-    .values({
-      id: generateId(),
-      battlefieldId: original.battlefieldId,
-      title,
-      description: null,
-      missionId: id,
-      campaignId: null,
-      column: 'backlog',
-      position: 0,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .run();
+    // Auto-create intel note for board visibility
+    db.insert(intelNotes)
+      .values({
+        id: generateId(),
+        battlefieldId: original.battlefieldId,
+        title,
+        description: null,
+        missionId: id,
+        campaignId: null,
+        column: 'backlog',
+        position: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+  });
 
   // Emit activity
   const bf = db
@@ -441,13 +447,13 @@ export async function removeMission(id: string): Promise<{ battlefieldId: string
 
   const battlefieldId = mission.battlefieldId;
 
-  // Delete related records first (no cascade in SQLite by default)
-  db.delete(intelNotes).where(eq(intelNotes.missionId, id)).run();
-  db.delete(missionLogs).where(eq(missionLogs.missionId, id)).run();
-  db.delete(overseerLogs).where(eq(overseerLogs.missionId, id)).run();
-
-  // Delete the mission
-  db.delete(missions).where(eq(missions.id, id)).run();
+  // Delete related records and the mission in a single transaction
+  db.transaction(() => {
+    db.delete(intelNotes).where(eq(intelNotes.missionId, id)).run();
+    db.delete(missionLogs).where(eq(missionLogs.missionId, id)).run();
+    db.delete(overseerLogs).where(eq(overseerLogs.missionId, id)).run();
+    db.delete(missions).where(eq(missions.id, id)).run();
+  });
 
   // Get battlefield codename for activity event
   const battlefield = db
