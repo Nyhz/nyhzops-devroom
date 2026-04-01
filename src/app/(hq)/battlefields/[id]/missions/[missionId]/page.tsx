@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { eq } from 'drizzle-orm';
 import { getMission } from '@/actions/mission';
-import { getCaptainLogs } from '@/actions/captain';
+import { getOverseerLogs } from '@/actions/overseer';
 import { getSuggestions } from '@/actions/follow-up';
 import { getDatabase } from '@/lib/db/index';
 import { missionLogs } from '@/lib/db/schema';
@@ -33,7 +33,7 @@ export default async function MissionDetailPage({
     .orderBy(missionLogs.timestamp)
     .all();
 
-  const captainLogEntries = await getCaptainLogs({ missionId });
+  const overseerLogEntries = await getOverseerLogs({ missionId });
   const suggestions = await getSuggestions({ missionId });
 
   const status = mission.status ?? 'standby';
@@ -99,17 +99,17 @@ export default async function MissionDetailPage({
         />
       )}
 
-      {/* Captain's Log */}
-      {captainLogEntries.length > 0 && (
+      {/* Overseer's Log */}
+      {overseerLogEntries.length > 0 && (
         <div className="space-y-3">
           <div className="space-y-1">
             <h2 className="text-sm font-tactical text-dr-amber tracking-wider">
-              CAPTAIN&apos;S LOG ({captainLogEntries.length})
+              OVERSEER&apos;S LOG ({overseerLogEntries.length})
             </h2>
             <div className="h-px bg-dr-border" />
           </div>
           <div className="space-y-2">
-            {captainLogEntries.map((log) => (
+            {overseerLogEntries.map((log) => (
               <TacCard
                 key={log.id}
                 status={log.escalated ? 'red' : undefined}

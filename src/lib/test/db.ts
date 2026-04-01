@@ -25,7 +25,7 @@ export function getTestDb(): { db: TestDB; sqlite: Database.Database } {
     schema.assets,
     schema.missions,
     schema.missionLogs,
-    schema.captainLogs,
+    schema.overseerLogs,
     schema.intelNotes,
     schema.followUpSuggestions,
     schema.notifications,

@@ -1,7 +1,7 @@
 import { eq, and, like } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { runClaudePrint } from '@/lib/process/claude-print';
-import { captainLogs } from '@/lib/db/schema';
+import { overseerLogs } from '@/lib/db/schema';
 import type { Campaign, Phase, Mission } from '@/types';
 
 export interface PhaseFailureDecision {
@@ -12,7 +12,7 @@ export interface PhaseFailureDecision {
 
 const FALLBACK_DECISION: PhaseFailureDecision = {
   decision: 'escalate',
-  reasoning: 'Unable to parse Captain decision. Escalating to Commander.',
+  reasoning: 'Unable to parse Overseer decision. Escalating to Commander.',
 };
 
 function buildPhaseFailurePrompt(params: {
@@ -105,18 +105,18 @@ function parseDecision(raw: string): PhaseFailureDecision {
 }
 
 /**
- * Check how many retry decisions the Captain has already made for this
+ * Check how many retry decisions the Overseer has already made for this
  * campaign's current phase. If >= 2, force escalation.
  */
 function getPhaseRetryCount(campaignId: string): number {
   const db = getDatabase();
   const logs = db
     .select()
-    .from(captainLogs)
+    .from(overseerLogs)
     .where(
       and(
-        eq(captainLogs.campaignId, campaignId),
-        like(captainLogs.question, `[PHASE_FAILURE] Phase%`),
+        eq(overseerLogs.campaignId, campaignId),
+        like(overseerLogs.question, `[PHASE_FAILURE] Phase%`),
       ),
     )
     .all();
@@ -136,7 +136,7 @@ export async function handlePhaseFailure(params: {
   claudeMd: string | null;
   totalPhases: number;
 }): Promise<PhaseFailureDecision> {
-  // Check retry limit before even asking Captain
+  // Check retry limit before even asking Overseer
   const retryCount = getPhaseRetryCount(params.campaign.id);
   if (retryCount >= 2) {
     return {
@@ -153,13 +153,13 @@ export async function handlePhaseFailure(params: {
     if (decision.decision === 'retry' && retryCount >= 2) {
       return {
         decision: 'escalate',
-        reasoning: `Captain recommended retry but limit reached (${retryCount}). Escalating.`,
+        reasoning: `Overseer recommended retry but limit reached (${retryCount}). Escalating.`,
       };
     }
     return decision;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[Captain] Phase failure handler failed: ${msg}`);
+    console.warn(`[Overseer] Phase failure handler failed: ${msg}`);
     return FALLBACK_DECISION;
   }
 }

@@ -4,9 +4,9 @@ import { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
 import { campaigns, phases, missions, battlefields } from '@/lib/db/schema';
 import { runClaudePrint } from '@/lib/process/claude-print';
-import { escalate } from '@/lib/captain/escalation';
-import { handlePhaseFailure } from '@/lib/captain/phase-failure-handler';
-import { storeCaptainLog } from '@/lib/captain/captain-db';
+import { escalate } from '@/lib/overseer/escalation';
+import { handlePhaseFailure } from '@/lib/overseer/phase-failure-handler';
+import { storeOverseerLog } from '@/lib/overseer/overseer-db';
 import { extractAndSaveSuggestions } from '@/actions/follow-up';
 import type { Mission } from '@/types';
 
@@ -394,12 +394,12 @@ export class CampaignExecutor {
         return;
       }
 
-      // Count total phases for Captain context
+      // Count total phases for Overseer context
       const allPhases = db.select().from(phases)
         .where(eq(phases.campaignId, this.campaignId)).all();
       const totalPhases = allPhases.length;
 
-      // Read CLAUDE.md for Captain context
+      // Read CLAUDE.md for Overseer context
       let claudeMd: string | null = null;
       const battlefield = db.select().from(battlefields)
         .where(eq(battlefields.id, campaign.battlefieldId)).get();
@@ -409,8 +409,8 @@ export class CampaignExecutor {
         } catch { /* skip */ }
       }
 
-      // Let Captain decide before pausing
-      console.log(`[Campaign] ${this.campaignId} — Phase ${phase.phaseNumber} has ${compromisedMissions.length} compromised mission(s). Consulting Captain...`);
+      // Let Overseer decide before pausing
+      console.log(`[Campaign] ${this.campaignId} — Phase ${phase.phaseNumber} has ${compromisedMissions.length} compromised mission(s). Consulting Overseer...`);
 
       const decision = await handlePhaseFailure({
         campaign,
@@ -422,7 +422,7 @@ export class CampaignExecutor {
       });
 
       // Log the decision
-      storeCaptainLog({
+      storeOverseerLog({
         missionId: compromisedMissions[0]?.id || '',
         battlefieldId: campaign.battlefieldId,
         campaignId: campaign.id,
@@ -434,7 +434,7 @@ export class CampaignExecutor {
       });
 
       if (decision.decision === 'retry') {
-        console.log(`[Campaign] ${this.campaignId} — Captain decided to retry ${compromisedMissions.length} mission(s).`);
+        console.log(`[Campaign] ${this.campaignId} — Overseer decided to retry ${compromisedMissions.length} mission(s).`);
 
         // Retry failed missions — reset directly instead of calling Server Action
         // (Server Actions use revalidatePath which fails outside request context)
@@ -457,8 +457,8 @@ export class CampaignExecutor {
         return;
 
       } else if (decision.decision === 'skip') {
-        console.log(`[Campaign] ${this.campaignId} — Captain decided to skip failed missions and continue.`);
-        // Captain says skip — use existing skipAndContinue logic
+        console.log(`[Campaign] ${this.campaignId} — Overseer decided to skip failed missions and continue.`);
+        // Overseer says skip — use existing skipAndContinue logic
         await this.skipAndContinue();
         return;
 
@@ -474,12 +474,12 @@ export class CampaignExecutor {
         }).where(eq(campaigns.id, this.campaignId)).run();
         this.emitCampaignStatus('compromised');
 
-        console.log(`[Campaign] ${this.campaignId} — Captain escalated. Phase ${phase.phaseNumber} compromised. Campaign compromised. Awaiting Commander orders.`);
+        console.log(`[Campaign] ${this.campaignId} — Overseer escalated. Phase ${phase.phaseNumber} compromised. Campaign compromised. Awaiting Commander orders.`);
 
         escalate({
           level: 'critical',
           title: `Campaign Compromised: ${campaign.name}`,
-          detail: `Phase ${phase.name} compromised. ${compromisedMissions.length} mission(s) failed. Captain: ${decision.reasoning}`,
+          detail: `Phase ${phase.name} compromised. ${compromisedMissions.length} mission(s) failed. Overseer: ${decision.reasoning}`,
           entityType: 'campaign',
           entityId: this.campaignId,
           battlefieldId: campaign.battlefieldId,

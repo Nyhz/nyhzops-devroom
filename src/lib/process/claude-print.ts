@@ -70,7 +70,7 @@ export function createAuthenticatedHome(): string {
 
 /**
  * Spawn Claude Code in --print mode, write prompt to stdin, and return stdout.
- * Shared utility replacing duplicated spawn patterns across captain, debrief-reviewer,
+ * Shared utility replacing duplicated spawn patterns across overseer, debrief-reviewer,
  * phase-failure-handler, and campaign-executor.
  */
 export function runClaudePrint(

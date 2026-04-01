@@ -13,12 +13,12 @@ import { buildPrompt } from './prompt-builder';
 import { StreamParser } from './stream-parser';
 import { extractKeychainCredentials } from '@/lib/process/claude-print';
 import { createWorktree, removeWorktree } from './worktree';
-import { askCaptain } from '@/lib/captain/captain';
-import { storeCaptainLog, getRecentCaptainLogs } from '@/lib/captain/captain-db';
-import { escalate } from '@/lib/captain/escalation';
-import { runCaptainReview } from '@/lib/captain/review-handler';
+import { askOverseer } from '@/lib/overseer/overseer';
+import { storeOverseerLog, getRecentOverseerLogs } from '@/lib/overseer/overseer-db';
+import { escalate } from '@/lib/overseer/escalation';
+import { runOverseerReview } from '@/lib/overseer/review-handler';
 import { extractAndSaveSuggestions } from '@/actions/follow-up';
-import { getCaptainLogs } from '@/actions/captain';
+import { getOverseerLogs } from '@/actions/overseer';
 import type { Mission, StreamResult } from '@/types';
 import { checkCliAuth } from './auth-check';
 import type { Orchestrator } from './orchestrator';
@@ -187,20 +187,20 @@ export async function executeMission(
     const isWorktree = workingDirectory !== battlefield.repoPath;
     fullPrompt += `\n\n---\n\n## Workspace\n\nYour working directory is \`${workingDirectory}\`.${isWorktree ? `\nYou are operating in a git worktree. All file paths are relative to this directory. Use absolute paths starting with \`${workingDirectory}/\` when reading or writing files.` : ''}\nThe main repository is at \`${battlefield.repoPath}\`.`;
 
-    // Check for captain retry feedback
+    // Check for overseer retry feedback
     const retryAttempts = mission.reviewAttempts ?? 0;
     if (retryAttempts > 0) {
-      const captainLogs = await getCaptainLogs({ missionId: mission.id });
-      const retryFeedback = captainLogs
+      const overseerLogs = await getOverseerLogs({ missionId: mission.id });
+      const retryFeedback = overseerLogs
         .filter(log => log.question.startsWith('[RETRY_FEEDBACK]'))
         .pop();
 
       if (retryFeedback) {
-        fullPrompt += `\n\n---\n\nCAPTAIN REVIEW FEEDBACK (Retry ${retryAttempts})\n========================================\nThe Captain reviewed your previous work and found these concerns:\n${retryFeedback.answer}\n\nCaptain's reasoning: ${retryFeedback.reasoning}\n\nPlease address these concerns. Your previous session context is preserved.\nYou have access to all changes you made previously.\n\nOriginal briefing:\n${mission.briefing}`;
+        fullPrompt += `\n\n---\n\nOVERSEER REVIEW FEEDBACK (Retry ${retryAttempts})\n========================================\nThe Overseer reviewed your previous work and found these concerns:\n${retryFeedback.answer}\n\nOverseer's reasoning: ${retryFeedback.reasoning}\n\nPlease address these concerns. Your previous session context is preserved.\nYou have access to all changes you made previously.\n\nOriginal briefing:\n${mission.briefing}`;
       }
     }
 
-    // Read CLAUDE.md content for Captain context
+    // Read CLAUDE.md content for Overseer context
     let claudeMdContent: string | null = null;
     if (battlefield.claudeMdPath) {
       try {
@@ -208,7 +208,7 @@ export async function executeMission(
       } catch { /* skip */ }
     }
 
-    // Build campaign context string for Captain
+    // Build campaign context string for Overseer
     let campaignContextString: string | null = null;
     if (mission.campaignId) {
       // Extract campaign context from the prompt (it's already built in)
@@ -277,7 +277,7 @@ export async function executeMission(
     // Step 5: Parse stream
     const parser = new StreamParser();
 
-    // Captain stall detection state
+    // Overseer stall detection state
     let lastAssistantContent = '';
     let lastActivityTime = Date.now();
     let waitingForInput = false;
@@ -381,7 +381,7 @@ export async function executeMission(
       streamResult = result;
     });
 
-    // Captain stall detection interval — check every 5 seconds for 15-second silence
+    // Overseer stall detection interval — check every 5 seconds for 15-second silence
     stallCheckInterval = setInterval(async () => {
       if (waitingForInput) return; // Already handling a stall
 
@@ -396,18 +396,18 @@ export async function executeMission(
         waitingForInput = true;
 
         try {
-          // Get Captain's decision
-          const decision = await askCaptain({
+          // Get Overseer's decision
+          const decision = await askOverseer({
             question: lastAssistantContent,
             missionBriefing: mission.briefing,
             claudeMd: claudeMdContent,
             recentOutput: recentOutputBuffer.slice(-2000),
-            captainHistory: getRecentCaptainLogs(mission.id, 5),
+            overseerHistory: getRecentOverseerLogs(mission.id, 5),
             campaignContext: campaignContextString || undefined,
           });
 
-          // Store in captain log
-          storeCaptainLog({
+          // Store in overseer log
+          storeOverseerLog({
             missionId: mission.id,
             campaignId: mission.campaignId,
             battlefieldId: mission.battlefieldId,
@@ -419,14 +419,14 @@ export async function executeMission(
           });
 
           // Show in mission comms
-          const captainMsg = `[CAPTAIN] ${decision.answer}\n(confidence: ${decision.confidence})`;
+          const overseerMsg = `[OVERSEER] ${decision.answer}\n(confidence: ${decision.confidence})`;
           io.to(room).emit('mission:log', {
             missionId: mission.id,
             timestamp: Date.now(),
             type: 'status',
-            content: captainMsg + '\n',
+            content: overseerMsg + '\n',
           });
-          storeLog('status', captainMsg);
+          storeLog('status', overseerMsg);
 
           // Write to agent's stdin
           proc.stdin?.write(decision.answer + '\n');
@@ -442,17 +442,17 @@ export async function executeMission(
               .where(eq(battlefields.id, mission.battlefieldId))
               .get();
             io.to('hq:activity').emit('activity:event', {
-              type: 'captain:escalation',
+              type: 'overseer:escalation',
               battlefieldCodename: bf?.codename || 'UNKNOWN',
               missionTitle: mission.title,
               timestamp: Date.now(),
-              detail: `Captain escalation: ${decision.reasoning}`,
+              detail: `Overseer escalation: ${decision.reasoning}`,
             });
 
             // Send Telegram escalation notification
             escalate({
               level: decision.confidence === 'low' ? 'warning' : 'info',
-              title: `Captain Escalation: ${mission.title}`,
+              title: `Overseer Escalation: ${mission.title}`,
               detail: `Q: ${lastAssistantContent.slice(0, 200)}\nA: ${decision.answer}\nReasoning: ${decision.reasoning}`,
               entityType: 'mission',
               entityId: mission.id,
@@ -540,7 +540,7 @@ export async function executeMission(
       });
       emitActivity(`mission:${finalStatus}`, `Mission ${finalStatus}: ${mission.title}`);
 
-      // Update asset missions completed count (reviewing = work done, pending captain approval)
+      // Update asset missions completed count (reviewing = work done, pending overseer approval)
       if (mission.assetId && finalStatus === 'reviewing') {
         const currentAsset = db.select().from(assets)
           .where(eq(assets.id, mission.assetId)).get();
@@ -551,10 +551,10 @@ export async function executeMission(
         }
       }
 
-      // Captain review — async, non-blocking
-      // Merge happens AFTER Captain approves (in promoteMission), not here.
-      runCaptainReview(mission.id).catch(err => {
-        console.error('[Captain] Review handler failed:', err);
+      // Overseer review — async, non-blocking
+      // Merge happens AFTER Overseer approves (in promoteMission), not here.
+      runOverseerReview(mission.id).catch(err => {
+        console.error('[Overseer] Review handler failed:', err);
       });
     } else {
       // No result message — process exited without proper completion

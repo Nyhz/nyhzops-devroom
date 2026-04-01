@@ -851,7 +851,7 @@ export async function tacticalOverride(
 }
 
 // ---------------------------------------------------------------------------
-// 18. commanderOverride — Commander approves a compromised mission, overriding Captain
+// 18. commanderOverride — Commander approves a compromised mission, overriding Overseer
 // ---------------------------------------------------------------------------
 
 export async function commanderOverride(missionId: string): Promise<void> {

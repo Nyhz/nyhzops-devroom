@@ -5,7 +5,7 @@ import { getDatabase } from '@/lib/db/index';
 import { missions, battlefields, missionLogs } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import { reviewDebrief, type DebriefReview } from './debrief-reviewer';
-import { storeCaptainLog } from './captain-db';
+import { storeOverseerLog } from './overseer-db';
 import { escalate } from './escalation';
 import { mergeBranch } from '@/lib/orchestrator/merger';
 import { removeWorktree } from '@/lib/orchestrator/worktree';
@@ -50,7 +50,7 @@ async function extractSuggestionsAndEmit(
       });
     }
   } catch (err) {
-    console.error(`[Captain] Failed to extract suggestions for mission ${missionId}:`, err);
+    console.error(`[Overseer] Failed to extract suggestions for mission ${missionId}:`, err);
   }
 }
 
@@ -59,20 +59,20 @@ const MAX_REVIEW_RETRIES = 2;
 const MAX_TRIAGE_RETRIES = 1;
 
 /**
- * Run the captain review for a mission and handle the result.
+ * Run the overseer review for a mission and handle the result.
  * Called asynchronously after the executor releases the slot.
  */
-export async function runCaptainReview(missionId: string): Promise<void> {
+export async function runOverseerReview(missionId: string): Promise<void> {
   const db = getDatabase();
 
   const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
   if (!mission) {
-    console.error(`[Captain] Review: mission ${missionId} not found`);
+    console.error(`[Overseer] Review: mission ${missionId} not found`);
     return;
   }
 
   if (!mission.debrief) {
-    console.warn(`[Captain] Review: mission ${missionId} has no debrief — marking compromised and escalating`);
+    console.warn(`[Overseer] Review: mission ${missionId} has no debrief — marking compromised and escalating`);
     db.update(missions).set({
       status: 'compromised',
       debrief: '## Mission Compromised\n\nAgent produced no debrief. The process may have crashed or exited without completing work.',
@@ -94,7 +94,7 @@ export async function runCaptainReview(missionId: string): Promise<void> {
   const battlefield = db.select().from(battlefields)
     .where(eq(battlefields.id, mission.battlefieldId)).get();
   if (!battlefield) {
-    console.error(`[Captain] Review: battlefield not found for mission ${missionId}`);
+    console.error(`[Overseer] Review: battlefield not found for mission ${missionId}`);
     return;
   }
 
@@ -107,7 +107,7 @@ export async function runCaptainReview(missionId: string): Promise<void> {
     } catch { /* file may not exist */ }
   }
 
-  // Run the captain review
+  // Run the overseer review
   let review: DebriefReview;
   try {
     review = await reviewDebrief({
@@ -118,12 +118,12 @@ export async function runCaptainReview(missionId: string): Promise<void> {
       battlefieldId: mission.battlefieldId,
     });
   } catch (err) {
-    console.error(`[Captain] Review failed for mission ${missionId}:`, err);
+    console.error(`[Overseer] Review failed for mission ${missionId}:`, err);
     // On review failure, escalate — never auto-accept
     await escalate({
       level: 'warning',
-      title: `Captain review failed: ${mission.title}`,
-      detail: `The Captain could not review this debrief: ${err instanceof Error ? err.message : String(err)}. Mission remains in ${mission.status} status.`,
+      title: `Overseer review failed: ${mission.title}`,
+      detail: `The Overseer could not review this debrief: ${err instanceof Error ? err.message : String(err)}. Mission remains in ${mission.status} status.`,
       entityType: 'mission',
       entityId: mission.id,
       battlefieldId: mission.battlefieldId,
@@ -131,8 +131,8 @@ export async function runCaptainReview(missionId: string): Promise<void> {
     return;
   }
 
-  // Store the captain log
-  storeCaptainLog({
+  // Store the overseer log
+  storeOverseerLog({
     missionId: mission.id,
     battlefieldId: mission.battlefieldId,
     campaignId: mission.campaignId,
@@ -149,9 +149,9 @@ export async function runCaptainReview(missionId: string): Promise<void> {
   const maxRetries = isReviewing ? MAX_REVIEW_RETRIES : MAX_TRIAGE_RETRIES;
   const currentAttempts = mission.reviewAttempts ?? 0;
 
-  // Handle the captain's recommendation
+  // Handle the overseer's recommendation
   if (review.recommendation === 'accept' || (review.satisfactory && review.recommendation !== 'escalate')) {
-    // Captain approves — merge + promote
+    // Overseer approves — merge + promote
     await promoteMission(missionId, 'accomplished');
 
     // Extract follow-up suggestions from debrief
@@ -172,7 +172,7 @@ export async function runCaptainReview(missionId: string): Promise<void> {
     }
   } else if (review.recommendation === 'retry') {
     if (currentAttempts < maxRetries) {
-      // Retry — re-queue with captain feedback
+      // Retry — re-queue with overseer feedback
       await requeueMissionWithFeedback(mission as Mission, review);
     } else {
       // Exhausted retries — compromise and escalate
@@ -196,7 +196,7 @@ export async function runCaptainReview(missionId: string): Promise<void> {
 
     await escalate({
       level: 'warning',
-      title: `Captain Escalation: ${mission.title}`,
+      title: `Overseer Escalation: ${mission.title}`,
       detail: `Concerns: ${review.concerns.join('. ')}. Reasoning: ${review.reasoning}`,
       entityType: 'mission',
       entityId: mission.id,
@@ -208,7 +208,7 @@ export async function runCaptainReview(missionId: string): Promise<void> {
       const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
       if (executor) {
         executor.onCampaignMissionComplete(missionId).catch(err => {
-          console.error(`[Captain] Campaign mission complete notification failed:`, err);
+          console.error(`[Overseer] Campaign mission complete notification failed:`, err);
         });
       }
     }
@@ -222,11 +222,11 @@ async function promoteMission(missionId: string, status: 'accomplished'): Promis
 
   // Only promote if still in reviewing — merge failure may have set compromised
   if (!mission || mission.status !== 'reviewing') {
-    console.log(`[Captain] Skipping promotion of ${missionId} — status is ${mission?.status}, not reviewing`);
+    console.log(`[Overseer] Skipping promotion of ${missionId} — status is ${mission?.status}, not reviewing`);
     return;
   }
 
-  // Merge worktree branch BEFORE promoting — only merge Captain-approved work
+  // Merge worktree branch BEFORE promoting — only merge Overseer-approved work
   if (mission.worktreeBranch) {
     const battlefield = db.select().from(battlefields)
       .where(eq(battlefields.id, mission.battlefieldId)).get();
@@ -237,7 +237,7 @@ async function promoteMission(missionId: string, status: 'accomplished'): Promis
         mission.worktreeBranch.replace(/\//g, '-'),
       );
 
-      console.log(`[Captain] Merging ${mission.worktreeBranch} into ${battlefield.defaultBranch || 'main'}...`);
+      console.log(`[Overseer] Merging ${mission.worktreeBranch} into ${battlefield.defaultBranch || 'main'}...`);
 
       const mergeResult = await mergeBranch(
         battlefield.repoPath,
@@ -250,13 +250,13 @@ async function promoteMission(missionId: string, status: 'accomplished'): Promis
       if (mergeResult.success) {
         await removeWorktree(battlefield.repoPath, worktreePath, mission.worktreeBranch);
         const mergeMsg = mergeResult.conflictResolved
-          ? `[CAPTAIN] Merged ${mission.worktreeBranch} into ${battlefield.defaultBranch || 'main'} (conflicts auto-resolved). Worktree cleaned up.`
-          : `[CAPTAIN] Merged ${mission.worktreeBranch} into ${battlefield.defaultBranch || 'main'}. Worktree cleaned up.`;
+          ? `[OVERSEER] Merged ${mission.worktreeBranch} into ${battlefield.defaultBranch || 'main'} (conflicts auto-resolved). Worktree cleaned up.`
+          : `[OVERSEER] Merged ${mission.worktreeBranch} into ${battlefield.defaultBranch || 'main'}. Worktree cleaned up.`;
         emitMissionLog(missionId, mergeMsg);
-        console.log(`[Captain] Merge complete${mergeResult.conflictResolved ? ' (conflicts auto-resolved)' : ''}. Worktree cleaned up.`);
+        console.log(`[Overseer] Merge complete${mergeResult.conflictResolved ? ' (conflicts auto-resolved)' : ''}. Worktree cleaned up.`);
       } else {
         // Merge failed — mark compromised instead of accomplished
-        console.error(`[Captain] Merge failed for ${missionId}: ${mergeResult.error}`);
+        console.error(`[Overseer] Merge failed for ${missionId}: ${mergeResult.error}`);
         db.update(missions).set({
           status: 'compromised',
           debrief: (mission.debrief || '') + `\n\n---\n\nMERGE FAILED: ${mergeResult.error}\nBranch \`${mission.worktreeBranch}\` preserved for inspection.`,
@@ -277,8 +277,8 @@ async function promoteMission(missionId: string, status: 'accomplished'): Promis
   }).where(eq(missions.id, missionId)).run();
 
   emitStatusChange(missionId, status, mission.battlefieldId);
-  emitMissionLog(missionId, `[CAPTAIN] Mission approved and promoted to ACCOMPLISHED.`);
-  console.log(`[Captain] Mission ${missionId} → ${status}`);
+  emitMissionLog(missionId, `[OVERSEER] Mission approved and promoted to ACCOMPLISHED.`);
+  console.log(`[Overseer] Mission ${missionId} → ${status}`);
 
   // Clean up per-mission Claude config isolation dir
   try {
@@ -290,7 +290,7 @@ async function promoteMission(missionId: string, status: 'accomplished'): Promis
     const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
     if (executor) {
       executor.onCampaignMissionComplete(missionId).catch(err => {
-        console.error(`[Captain] Campaign mission complete notification failed:`, err);
+        console.error(`[Overseer] Campaign mission complete notification failed:`, err);
       });
     }
   }
@@ -313,10 +313,10 @@ async function requeueMissionWithFeedback(
 
   emitStatusChange(mission.id, 'queued', mission.battlefieldId);
 
-  console.log(`[Captain] Mission ${mission.id} re-queued (attempt ${(mission.reviewAttempts ?? 0) + 1}). Concerns: ${review.concerns.join(', ')}`);
+  console.log(`[Overseer] Mission ${mission.id} re-queued (attempt ${(mission.reviewAttempts ?? 0) + 1}). Concerns: ${review.concerns.join(', ')}`);
 
   // Store the feedback so the executor can build the retry prompt
-  storeCaptainLog({
+  storeOverseerLog({
     missionId: mission.id,
     battlefieldId: mission.battlefieldId,
     campaignId: mission.campaignId,
@@ -339,7 +339,7 @@ function exhaustRetries(mission: Mission, review: DebriefReview): void {
     db.update(missions).set({
       status: 'compromised',
       debrief: (mission.debrief || '') +
-        `\n\n---\n\nCAPTAIN REVIEW: Mission rejected after ${mission.reviewAttempts ?? 0} retries.\nConcerns: ${review.concerns.join(', ')}\nReasoning: ${review.reasoning}`,
+        `\n\n---\n\nOVERSEER REVIEW: Mission rejected after ${mission.reviewAttempts ?? 0} retries.\nConcerns: ${review.concerns.join(', ')}\nReasoning: ${review.reasoning}`,
       updatedAt: Date.now(),
     }).where(eq(missions.id, mission.id)).run();
   }
@@ -349,27 +349,27 @@ function exhaustRetries(mission: Mission, review: DebriefReview): void {
   // Extract follow-up suggestions from compromised debrief
   if (mission.debrief) {
     extractSuggestionsAndEmit(mission.id, mission.battlefieldId, mission.debrief, mission.campaignId).catch(err => {
-      console.error(`[Captain] Suggestion extraction failed in exhaustRetries:`, err);
+      console.error(`[Overseer] Suggestion extraction failed in exhaustRetries:`, err);
     });
   }
 
   escalate({
     level: 'warning',
     title: `Mission Rejected: ${mission.title}`,
-    detail: `Captain exhausted ${isReviewing ? MAX_REVIEW_RETRIES : MAX_TRIAGE_RETRIES} retries. Concerns: ${review.concerns.join('. ')}. Reasoning: ${review.reasoning}`,
+    detail: `Overseer exhausted ${isReviewing ? MAX_REVIEW_RETRIES : MAX_TRIAGE_RETRIES} retries. Concerns: ${review.concerns.join('. ')}. Reasoning: ${review.reasoning}`,
     entityType: 'mission',
     entityId: mission.id,
     battlefieldId: mission.battlefieldId,
   });
 
-  console.log(`[Captain] Mission ${mission.id} → compromised (retries exhausted)`);
+  console.log(`[Overseer] Mission ${mission.id} → compromised (retries exhausted)`);
 
   // Notify campaign executor
   if (mission.campaignId) {
     const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
     if (executor) {
       executor.onCampaignMissionComplete(mission.id).catch(err => {
-        console.error(`[Captain] Campaign mission complete notification failed:`, err);
+        console.error(`[Overseer] Campaign mission complete notification failed:`, err);
       });
     }
   }

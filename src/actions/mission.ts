@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { eq, desc, count, like, sql, and } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
-import { missions, assets, battlefields, missionLogs, captainLogs, intelNotes } from '@/lib/db/schema';
+import { missions, assets, battlefields, missionLogs, overseerLogs, intelNotes } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import type {
   Mission,
@@ -444,7 +444,7 @@ export async function removeMission(id: string): Promise<{ battlefieldId: string
   // Delete related records first (no cascade in SQLite by default)
   db.delete(intelNotes).where(eq(intelNotes.missionId, id)).run();
   db.delete(missionLogs).where(eq(missionLogs.missionId, id)).run();
-  db.delete(captainLogs).where(eq(captainLogs.missionId, id)).run();
+  db.delete(overseerLogs).where(eq(overseerLogs.missionId, id)).run();
 
   // Delete the mission
   db.delete(missions).where(eq(missions.id, id)).run();

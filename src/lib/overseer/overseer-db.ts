@@ -1,21 +1,21 @@
 import { eq, desc, and } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
-import { captainLogs } from '@/lib/db/schema';
+import { overseerLogs } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
-import type { CaptainLog, CaptainConfidence } from '@/types';
+import type { OverseerLog, OverseerConfidence } from '@/types';
 
-interface StoreCaptainLogInput {
+interface StoreOverseerLogInput {
   missionId: string;
   campaignId: string | null;
   battlefieldId: string;
   question: string;
   answer: string;
   reasoning: string;
-  confidence: CaptainConfidence;
+  confidence: OverseerConfidence;
   escalated: number;
 }
 
-export function storeCaptainLog(data: StoreCaptainLogInput): CaptainLog {
+export function storeOverseerLog(data: StoreOverseerLogInput): OverseerLog {
   const db = getDatabase();
   const row = {
     id: generateId(),
@@ -30,58 +30,58 @@ export function storeCaptainLog(data: StoreCaptainLogInput): CaptainLog {
     timestamp: Date.now(),
   };
 
-  db.insert(captainLogs).values(row).run();
-  return row as CaptainLog;
+  db.insert(overseerLogs).values(row).run();
+  return row as OverseerLog;
 }
 
-export function getRecentCaptainLogs(missionId: string, limit: number = 5): CaptainLog[] {
+export function getRecentOverseerLogs(missionId: string, limit: number = 5): OverseerLog[] {
   const db = getDatabase();
   return db
     .select()
-    .from(captainLogs)
-    .where(eq(captainLogs.missionId, missionId))
-    .orderBy(desc(captainLogs.timestamp))
+    .from(overseerLogs)
+    .where(eq(overseerLogs.missionId, missionId))
+    .orderBy(desc(overseerLogs.timestamp))
     .limit(limit)
-    .all() as CaptainLog[];
+    .all() as OverseerLog[];
 }
 
-export interface CaptainLogFilters {
+export interface OverseerLogFilters {
   missionId?: string;
   battlefieldId?: string;
   campaignId?: string;
   escalatedOnly?: boolean;
 }
 
-export function queryCaptainLogs(filters?: CaptainLogFilters): CaptainLog[] {
+export function queryOverseerLogs(filters?: OverseerLogFilters): OverseerLog[] {
   const db = getDatabase();
   const conditions = [];
 
   if (filters?.missionId) {
-    conditions.push(eq(captainLogs.missionId, filters.missionId));
+    conditions.push(eq(overseerLogs.missionId, filters.missionId));
   }
   if (filters?.battlefieldId) {
-    conditions.push(eq(captainLogs.battlefieldId, filters.battlefieldId));
+    conditions.push(eq(overseerLogs.battlefieldId, filters.battlefieldId));
   }
   if (filters?.campaignId) {
-    conditions.push(eq(captainLogs.campaignId, filters.campaignId));
+    conditions.push(eq(overseerLogs.campaignId, filters.campaignId));
   }
   if (filters?.escalatedOnly) {
-    conditions.push(eq(captainLogs.escalated, 1));
+    conditions.push(eq(overseerLogs.escalated, 1));
   }
 
   const query = db
     .select()
-    .from(captainLogs)
-    .orderBy(desc(captainLogs.timestamp));
+    .from(overseerLogs)
+    .orderBy(desc(overseerLogs.timestamp));
 
   if (conditions.length > 0) {
-    return query.where(and(...conditions)).all() as CaptainLog[];
+    return query.where(and(...conditions)).all() as OverseerLog[];
   }
 
-  return query.all() as CaptainLog[];
+  return query.all() as OverseerLog[];
 }
 
-export interface CaptainStats {
+export interface OverseerStats {
   totalDecisions: number;
   escalationCount: number;
   escalationRate: number;
@@ -92,9 +92,9 @@ export interface CaptainStats {
   };
 }
 
-export function computeCaptainStats(): CaptainStats {
+export function computeOverseerStats(): OverseerStats {
   const db = getDatabase();
-  const allLogs = db.select().from(captainLogs).all() as CaptainLog[];
+  const allLogs = db.select().from(overseerLogs).all() as OverseerLog[];
 
   const total = allLogs.length;
   const escalations = allLogs.filter((l) => l.escalated === 1).length;

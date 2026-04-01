@@ -174,7 +174,7 @@ describe('MissionComms', () => {
     renderWithProviders(
       <MissionComms {...baseProps} initialStatus="reviewing" />,
     );
-    expect(screen.getByText(/Captain reviewing debrief/)).toBeInTheDocument();
+    expect(screen.getByText(/Overseer reviewing debrief/)).toBeInTheDocument();
   });
 
   it('calls router.refresh when mission reaches terminal status', () => {

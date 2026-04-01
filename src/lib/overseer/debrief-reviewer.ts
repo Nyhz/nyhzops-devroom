@@ -29,7 +29,7 @@ const REVIEW_JSON_SCHEMA = JSON.stringify({
 
 const PARSE_FAILURE_REVIEW: DebriefReview = {
   satisfactory: false,
-  concerns: ['Captain review output could not be parsed — escalating to Commander'],
+  concerns: ['Overseer review output could not be parsed — escalating to Commander'],
   recommendation: 'escalate',
   reasoning: 'Review parse failure after all attempts — Commander should decide',
 };
@@ -154,19 +154,19 @@ export async function reviewDebrief(params: {
       }
 
       console.warn(
-        `[Captain] Debrief review parse failed (attempt ${attempt}/${MAX_PARSE_ATTEMPTS}). ` +
+        `[Overseer] Debrief review parse failed (attempt ${attempt}/${MAX_PARSE_ATTEMPTS}). ` +
         `Reason: ${reason}. Output (${stdout.length} chars): ${stdout.slice(0, 500)}`,
       );
     } catch (err) {
       console.warn(
-        `[Captain] Debrief review spawn failed (attempt ${attempt}/${MAX_PARSE_ATTEMPTS}):`,
+        `[Overseer] Debrief review spawn failed (attempt ${attempt}/${MAX_PARSE_ATTEMPTS}):`,
         err instanceof Error ? err.message : err,
       );
     }
   }
 
   console.error(
-    `[Captain] Debrief review: all ${MAX_PARSE_ATTEMPTS} parse attempts failed for mission ${params.missionId}. ` +
+    `[Overseer] Debrief review: all ${MAX_PARSE_ATTEMPTS} parse attempts failed for mission ${params.missionId}. ` +
     `Escalating to Commander instead of retrying mission.`,
   );
   return PARSE_FAILURE_REVIEW;

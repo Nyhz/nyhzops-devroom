@@ -133,7 +133,7 @@ export function BootSequence({ battlefieldCount, inCombatCount, onComplete }: Bo
             }`}
           >
             <span className="text-dr-green">&#9679;</span>
-            <span className="text-dr-text ml-3">CAPTAIN ON STATION</span>
+            <span className="text-dr-text ml-3">OVERSEER ON STATION</span>
           </div>
         </div>
 

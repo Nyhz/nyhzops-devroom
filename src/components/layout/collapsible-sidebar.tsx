@@ -24,7 +24,7 @@ const BATTLEFIELD_ICONS = [
 ] as const;
 
 const GLOBAL_BOTTOM_ICONS = [
-  { href: "/captain-log", icon: "\u2693", label: "CAPTAIN'S LOG" },
+  { href: "/overseer-log", icon: "\u2693", label: "OVERSEER'S LOG" },
   { href: "/assets", icon: "\u25CE", label: "ASSETS" },
   { href: "/logistics", icon: "\u25C8", label: "LOGISTICS" },
 ] as const;
