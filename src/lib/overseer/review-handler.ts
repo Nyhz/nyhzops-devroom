@@ -1,16 +1,13 @@
-import fs from 'fs';
-import path from 'path';
 import { eq } from 'drizzle-orm';
+import simpleGit from 'simple-git';
 import { getDatabase } from '@/lib/db/index';
 import { missions, battlefields, missionLogs } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
-import { reviewDebrief, type DebriefReview } from './debrief-reviewer';
+import { reviewDebrief } from './debrief-reviewer';
 import { storeOverseerLog } from './overseer-db';
 import { escalate } from './escalation';
-import { mergeBranch } from '@/lib/orchestrator/merger';
-import { removeWorktree } from '@/lib/orchestrator/worktree';
-import { extractAndSaveSuggestions } from '@/actions/follow-up';
-import type { Mission } from '@/types';
+import { emitStatusChange } from '@/lib/socket/emit';
+import type { Mission, OverseerReview } from '@/types';
 
 function emitMissionLog(missionId: string, content: string) {
   const db = getDatabase();
@@ -30,30 +27,6 @@ function emitMissionLog(missionId: string, content: string) {
   });
 }
 
-async function extractSuggestionsAndEmit(
-  missionId: string,
-  battlefieldId: string,
-  debrief: string,
-  campaignId?: string | null,
-): Promise<void> {
-  try {
-    const suggestions = await extractAndSaveSuggestions({
-      battlefieldId,
-      missionId,
-      campaignId: campaignId ?? undefined,
-      debrief,
-    });
-    if (suggestions.length > 0) {
-      globalThis.io?.to(`mission:${missionId}`).emit('mission:suggestions', {
-        missionId,
-        suggestions,
-      });
-    }
-  } catch (err) {
-    console.error(`[Overseer] Failed to extract suggestions for mission ${missionId}:`, err);
-  }
-}
-
 // Max retries: 2 for reviewing (successful missions), 1 for compromised (failed missions)
 const MAX_REVIEW_RETRIES = 2;
 const MAX_TRIAGE_RETRIES = 1;
@@ -61,6 +34,9 @@ const MAX_TRIAGE_RETRIES = 1;
 /**
  * Run the overseer review for a mission and handle the result.
  * Called asynchronously after the executor releases the slot.
+ *
+ * The Overseer ONLY judges debrief quality and sets status.
+ * Merge logic is handled by the Quartermaster module.
  */
 export async function runOverseerReview(missionId: string): Promise<void> {
   const db = getDatabase();
@@ -75,11 +51,12 @@ export async function runOverseerReview(missionId: string): Promise<void> {
     console.warn(`[Overseer] Review: mission ${missionId} has no debrief — marking compromised and escalating`);
     db.update(missions).set({
       status: 'compromised',
+      compromiseReason: 'execution-failed',
       debrief: '## Mission Compromised\n\nAgent produced no debrief. The process may have crashed or exited without completing work.',
       completedAt: Date.now(),
       updatedAt: Date.now(),
     }).where(eq(missions.id, missionId)).run();
-    emitStatusChange(missionId, 'compromised', mission.battlefieldId);
+    emitStatusChange('mission', missionId, 'compromised');
     await escalate({
       level: 'critical',
       title: `No debrief: ${mission.title}`,
@@ -107,13 +84,30 @@ export async function runOverseerReview(missionId: string): Promise<void> {
     } catch { /* file may not exist */ }
   }
 
+  // Get git diffs for code review context
+  let gitDiffStat: string | null = null;
+  let gitDiff: string | null = null;
+
+  if (mission.worktreeBranch && battlefield?.repoPath) {
+    try {
+      const git = simpleGit(battlefield.repoPath);
+      const target = battlefield.defaultBranch || 'main';
+      gitDiffStat = await git.diff(['--stat', `${target}...${mission.worktreeBranch}`]);
+      gitDiff = await git.diff([`${target}...${mission.worktreeBranch}`]);
+    } catch (err) {
+      console.warn(`[Overseer] Could not get git diff for mission ${missionId}:`, err);
+    }
+  }
+
   // Run the overseer review
-  let review: DebriefReview;
+  let review: OverseerReview;
   try {
     review = await reviewDebrief({
       missionBriefing: mission.briefing,
       missionDebrief: mission.debrief,
       claudeMd,
+      gitDiffStat,
+      gitDiff,
       missionId: mission.id,
       battlefieldId: mission.battlefieldId,
     });
@@ -137,30 +131,31 @@ export async function runOverseerReview(missionId: string): Promise<void> {
     battlefieldId: mission.battlefieldId,
     campaignId: mission.campaignId,
     question: `[DEBRIEF_REVIEW] Mission: ${mission.title}`,
-    answer: review.satisfactory
-      ? 'Satisfactory'
+    answer: review.verdict === 'approve'
+      ? 'Approved'
       : `Concerns: ${review.concerns.join(', ')}`,
     reasoning: review.reasoning,
-    confidence: review.satisfactory ? 'high' : 'medium',
-    escalated: review.recommendation === 'escalate' ? 1 : 0,
+    confidence: review.verdict === 'approve' ? 'high' : 'medium',
+    escalated: review.verdict === 'escalate' ? 1 : 0,
   });
 
   const isReviewing = mission.status === 'reviewing';
   const maxRetries = isReviewing ? MAX_REVIEW_RETRIES : MAX_TRIAGE_RETRIES;
   const currentAttempts = mission.reviewAttempts ?? 0;
 
-  // Handle the overseer's recommendation
-  if (review.recommendation === 'accept' || (review.satisfactory && review.recommendation !== 'escalate')) {
-    // Overseer approves — merge + promote
-    await promoteMission(missionId, 'accomplished');
+  // Handle the overseer's verdict
+  if (review.verdict === 'approve') {
+    // Overseer approves — set approved status and hand off to Quartermaster
+    db.update(missions).set({
+      status: 'approved',
+      updatedAt: Date.now(),
+    }).where(eq(missions.id, missionId)).run();
 
-    // Extract follow-up suggestions from debrief
-    if (mission.debrief) {
-      await extractSuggestionsAndEmit(missionId, mission.battlefieldId, mission.debrief, mission.campaignId);
-    }
+    emitStatusChange('mission', missionId, 'approved');
+    emitMissionLog(missionId, '[Overseer] Debrief approved. Handing off to Quartermaster.');
 
     if (review.concerns.length > 0) {
-      // Satisfactory but with concerns — info notification
+      // Approved but with concerns — info notification
       await escalate({
         level: 'info',
         title: `Debrief Note: ${mission.title}`,
@@ -170,7 +165,15 @@ export async function runOverseerReview(missionId: string): Promise<void> {
         battlefieldId: mission.battlefieldId,
       });
     }
-  } else if (review.recommendation === 'retry') {
+
+    // Trigger Quartermaster (async import to avoid circular deps)
+    try {
+      const { triggerQuartermaster } = await import('@/lib/quartermaster/quartermaster');
+      triggerQuartermaster(missionId);
+    } catch (err) {
+      console.warn(`[Overseer] Could not trigger Quartermaster for mission ${missionId}:`, err);
+    }
+  } else if (review.verdict === 'retry') {
     if (currentAttempts < maxRetries) {
       // Retry — re-queue with overseer feedback
       await requeueMissionWithFeedback(mission as Mission, review);
@@ -178,21 +181,17 @@ export async function runOverseerReview(missionId: string): Promise<void> {
       // Exhausted retries — compromise and escalate
       exhaustRetries(mission as Mission, review);
     }
-  } else if (review.recommendation === 'escalate') {
+  } else if (review.verdict === 'escalate') {
     // Direct escalation
     if (isReviewing) {
       db.update(missions).set({
         status: 'compromised',
+        compromiseReason: 'escalated',
         updatedAt: Date.now(),
       }).where(eq(missions.id, missionId)).run();
     }
 
-    emitStatusChange(missionId, isReviewing ? 'compromised' : mission.status!, mission.battlefieldId);
-
-    // Extract follow-up suggestions from compromised debrief
-    if (mission.debrief) {
-      await extractSuggestionsAndEmit(missionId, mission.battlefieldId, mission.debrief, mission.campaignId);
-    }
+    emitStatusChange('mission', missionId, isReviewing ? 'compromised' : mission.status!);
 
     await escalate({
       level: 'warning',
@@ -215,103 +214,23 @@ export async function runOverseerReview(missionId: string): Promise<void> {
   }
 }
 
-async function promoteMission(missionId: string, status: 'accomplished'): Promise<void> {
-  const db = getDatabase();
-
-  const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
-
-  // Only promote if still in reviewing — merge failure may have set compromised
-  if (!mission || mission.status !== 'reviewing') {
-    console.log(`[Overseer] Skipping promotion of ${missionId} — status is ${mission?.status}, not reviewing`);
-    return;
-  }
-
-  // Merge worktree branch BEFORE promoting — only merge Overseer-approved work
-  if (mission.worktreeBranch) {
-    const battlefield = db.select().from(battlefields)
-      .where(eq(battlefields.id, mission.battlefieldId)).get();
-
-    if (battlefield) {
-      const worktreePath = path.join(
-        battlefield.repoPath, '.worktrees',
-        mission.worktreeBranch.replace(/\//g, '-'),
-      );
-
-      console.log(`[Overseer] Merging ${mission.worktreeBranch} into ${battlefield.defaultBranch || 'main'}...`);
-
-      const mergeResult = await mergeBranch(
-        battlefield.repoPath,
-        mission.worktreeBranch,
-        battlefield.defaultBranch || 'main',
-        mission as Mission,
-        battlefield.claudeMdPath,
-      );
-
-      if (mergeResult.success) {
-        await removeWorktree(battlefield.repoPath, worktreePath, mission.worktreeBranch);
-        const mergeMsg = mergeResult.conflictResolved
-          ? `[OVERSEER] Merged ${mission.worktreeBranch} into ${battlefield.defaultBranch || 'main'} (conflicts auto-resolved). Worktree cleaned up.`
-          : `[OVERSEER] Merged ${mission.worktreeBranch} into ${battlefield.defaultBranch || 'main'}. Worktree cleaned up.`;
-        emitMissionLog(missionId, mergeMsg);
-        console.log(`[Overseer] Merge complete${mergeResult.conflictResolved ? ' (conflicts auto-resolved)' : ''}. Worktree cleaned up.`);
-      } else {
-        // Merge failed — mark compromised instead of accomplished
-        console.error(`[Overseer] Merge failed for ${missionId}: ${mergeResult.error}`);
-        db.update(missions).set({
-          status: 'compromised',
-          debrief: (mission.debrief || '') + `\n\n---\n\nMERGE FAILED: ${mergeResult.error}\nBranch \`${mission.worktreeBranch}\` preserved for inspection.`,
-          completedAt: Date.now(),
-          updatedAt: Date.now(),
-        }).where(eq(missions.id, missionId)).run();
-        emitStatusChange(missionId, 'compromised', mission.battlefieldId);
-        return;
-      }
-    }
-  }
-
-  // Promote to accomplished
-  db.update(missions).set({
-    status,
-    completedAt: Date.now(),
-    updatedAt: Date.now(),
-  }).where(eq(missions.id, missionId)).run();
-
-  emitStatusChange(missionId, status, mission.battlefieldId);
-  emitMissionLog(missionId, `[OVERSEER] Mission approved and promoted to ACCOMPLISHED.`);
-  console.log(`[Overseer] Mission ${missionId} → ${status}`);
-
-  // Clean up per-mission Claude config isolation dir
-  try {
-    fs.rmSync(`/tmp/claude-config/${missionId}`, { recursive: true, force: true });
-  } catch { /* best effort */ }
-
-  // Notify campaign executor if this is a campaign mission
-  if (mission.campaignId) {
-    const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
-    if (executor) {
-      executor.onCampaignMissionComplete(missionId).catch(err => {
-        console.error(`[Overseer] Campaign mission complete notification failed:`, err);
-      });
-    }
-  }
-}
-
 async function requeueMissionWithFeedback(
   mission: Mission,
-  review: DebriefReview,
+  review: OverseerReview,
 ): Promise<void> {
   const db = getDatabase();
   const now = Date.now();
 
   db.update(missions).set({
     status: 'queued',
+    compromiseReason: null,
     reviewAttempts: (mission.reviewAttempts ?? 0) + 1,
     completedAt: null,
     startedAt: null,
     updatedAt: now,
   }).where(eq(missions.id, mission.id)).run();
 
-  emitStatusChange(mission.id, 'queued', mission.battlefieldId);
+  emitStatusChange('mission', mission.id, 'queued');
 
   console.log(`[Overseer] Mission ${mission.id} re-queued (attempt ${(mission.reviewAttempts ?? 0) + 1}). Concerns: ${review.concerns.join(', ')}`);
 
@@ -331,27 +250,21 @@ async function requeueMissionWithFeedback(
   globalThis.orchestrator?.onMissionQueued(mission.id);
 }
 
-function exhaustRetries(mission: Mission, review: DebriefReview): void {
+function exhaustRetries(mission: Mission, review: OverseerReview): void {
   const db = getDatabase();
   const isReviewing = mission.status === 'reviewing';
 
   if (isReviewing) {
     db.update(missions).set({
       status: 'compromised',
+      compromiseReason: 'review-failed',
       debrief: (mission.debrief || '') +
         `\n\n---\n\nOVERSEER REVIEW: Mission rejected after ${mission.reviewAttempts ?? 0} retries.\nConcerns: ${review.concerns.join(', ')}\nReasoning: ${review.reasoning}`,
       updatedAt: Date.now(),
     }).where(eq(missions.id, mission.id)).run();
   }
 
-  emitStatusChange(mission.id, 'compromised', mission.battlefieldId);
-
-  // Extract follow-up suggestions from compromised debrief
-  if (mission.debrief) {
-    extractSuggestionsAndEmit(mission.id, mission.battlefieldId, mission.debrief, mission.campaignId).catch(err => {
-      console.error(`[Overseer] Suggestion extraction failed in exhaustRetries:`, err);
-    });
-  }
+  emitStatusChange('mission', mission.id, 'compromised');
 
   escalate({
     level: 'warning',
@@ -371,16 +284,6 @@ function exhaustRetries(mission: Mission, review: DebriefReview): void {
       executor.onCampaignMissionComplete(mission.id).catch(err => {
         console.error(`[Overseer] Campaign mission complete notification failed:`, err);
       });
-    }
-  }
-}
-
-function emitStatusChange(missionId: string, status: string, battlefieldId?: string): void {
-  if (globalThis.io) {
-    const payload = { missionId, status, timestamp: Date.now() };
-    globalThis.io.to(`mission:${missionId}`).emit('mission:status', payload);
-    if (battlefieldId) {
-      globalThis.io.to(`battlefield:${battlefieldId}`).emit('mission:status', payload);
     }
   }
 }
