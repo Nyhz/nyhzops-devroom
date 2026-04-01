@@ -9,7 +9,7 @@ import type {
   scheduledTasks,
   commandLogs,
   dossiers,
-  captainLogs,
+  overseerLogs,
   notifications,
   briefingSessions,
   briefingMessages,
@@ -21,7 +21,8 @@ import type {
 // Status union types
 // ---------------------------------------------------------------------------
 export type BattlefieldStatus = 'initializing' | 'active' | 'archived';
-export type MissionStatus = 'standby' | 'queued' | 'deploying' | 'in_combat' | 'reviewing' | 'accomplished' | 'compromised' | 'abandoned';
+export type MissionStatus = 'standby' | 'queued' | 'deploying' | 'in_combat' | 'reviewing' | 'approved' | 'merging' | 'accomplished' | 'compromised' | 'abandoned';
+export type CompromiseReason = 'timeout' | 'merge-failed' | 'review-failed' | 'execution-failed' | 'escalated';
 export type CampaignStatus = 'draft' | 'planning' | 'active' | 'paused' | 'accomplished' | 'compromised' | 'abandoned';
 export type PhaseStatus = 'standby' | 'active' | 'secured' | 'compromised';
 export type AssetStatus = 'active' | 'offline';
@@ -43,7 +44,7 @@ export type MissionLog = InferSelectModel<typeof missionLogs>;
 export type ScheduledTask = InferSelectModel<typeof scheduledTasks>;
 export type CommandLog = InferSelectModel<typeof commandLogs>;
 export type Dossier = InferSelectModel<typeof dossiers>;
-export type CaptainLog = InferSelectModel<typeof captainLogs>;
+export type OverseerLog = InferSelectModel<typeof overseerLogs>;
 export type Notification = InferSelectModel<typeof notifications>;
 export type BriefingSession = InferSelectModel<typeof briefingSessions>;
 export type BriefingMessage = InferSelectModel<typeof briefingMessages>;
@@ -67,7 +68,13 @@ export interface BoardColumn {
 
 export type NotificationLevel = 'info' | 'warning' | 'critical';
 export type NotificationEntityType = 'mission' | 'campaign' | 'phase';
-export type CaptainConfidence = 'high' | 'medium' | 'low';
+export type OverseerConfidence = 'high' | 'medium' | 'low';
+
+export interface OverseerReview {
+  verdict: 'approve' | 'retry' | 'escalate';
+  concerns: string[];
+  reasoning: string;
+}
 
 export interface DossierVariable {
   key: string;
