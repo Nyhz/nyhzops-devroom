@@ -5,7 +5,7 @@
 - Branch naming: `devroom/{codename-lower}/{mission-id-short}`.
 - Phase branches: `devroom/{codename-lower}/phase-{number}-{slug}` (documented pattern — not yet implemented in orchestrator).
 - Post-completion: merge → cleanup worktree dir → delete branch.
-- Conflicts: spawn dedicated Claude Code process with resolution prompt.
+- Conflicts: handled by QUARTERMASTER asset — spawns Claude Code with merge/resolution prompt.
 - Never force-push. Merge failure → `compromised` with details.
 
 ---
@@ -21,7 +21,9 @@
 - [ ] **Loading states** — `loading.tsx` or Suspense with skeleton UI.
 - [ ] **AbortController** — long ops honor signals.
 - [ ] **Worktree cleanup** — branches merged, dirs removed.
-- [ ] **Tests pass** — `npm test` green. New logic covered.
+- [ ] **Overseer review** — debrief passes Overseer verdict (PASS/RETRY/ESCALATE).
+- [ ] **Quartermaster merge** — worktree merged cleanly, branch deleted.
+- [ ] **Tests pass** — `pnpm test` green. New logic covered.
 - [ ] **Tailwind only** — no inline styles.
 - [ ] **Domain model synced** — schema changes reflected here.
 
@@ -39,52 +41,46 @@
   "db:generate": "drizzle-kit generate",
   "db:migrate": "drizzle-kit migrate",
   "db:studio": "drizzle-kit studio",
-  "seed": "tsx scripts/seed.ts"
+  "seed": "tsx scripts/seed.ts",
+  "test:e2e": "playwright test",
+  "test:e2e:ui": "playwright test --ui"
 }
 ```
 
 ---
 
-## Docker Deployment
+## Native Deployment
 
-### Dockerfile
+DEVROOM runs natively on the Mac Mini via `launchd`. No Docker.
 
-Multi-stage build with two usable targets:
+### Service Files
 
-| Target       | Purpose                          | Notes                                                      |
-|--------------|----------------------------------|------------------------------------------------------------|
-| `dev`        | Hot-reload development           | Source mounted as volume, node_modules from image           |
-| `production` | Optimized runtime                | Full `next build`, git + Claude CLI installed               |
+| File | Purpose |
+|------|---------|
+| `scripts/com.devroom.app.plist` | launchd service definition |
+| `scripts/devroom-service.sh` | Service runner (invoked by launchd) |
+| `scripts/devroom-ctl.sh` | CLI control script |
+| `scripts/devroom-status.5s.sh` | xbar menu bar plugin (refreshes every 5s) |
 
-Both targets install `@anthropic-ai/claude-code` globally via npm and include git + native build tools for `better-sqlite3`.
+### CLI Control (`devroom-ctl.sh`)
 
-### docker-compose.yml
+| Command | Action |
+|---------|--------|
+| `devroom status` | Service status, mode, uptime |
+| `devroom dev` | Switch to dev mode (hot reload) |
+| `devroom prod` | Switch to prod mode (optimized build) |
+| `devroom restart` | Restart the service |
+| `devroom logs` | Tail the service log |
 
-Two services:
+### Reverse Proxy
 
-- **devroom** (port `7777`): Main app. Mounts source code, persistent DB volume (`/data/devroom.db`), Claude auth (`~/.claude`), and battlefield directories.
-- **caddy** (ports `80`/`443`): Reverse proxy with auto TLS and WebSocket upgrade support. Config in `Caddyfile` (default domain: `devroom.lan`).
+Caddy via Homebrew at `https://devroom.lan` with internal TLS. Config in `Caddyfile`:
 
-Key volume mounts:
-```yaml
-volumes:
-  - .:/app                                    # Source code (hot-reload)
-  - devroom-node-modules:/app/node_modules    # Linux-native node_modules
-  - devroom-data:/data                        # Persistent SQLite DB
-  - ~/.claude:/root/.claude                   # Claude Code auth
-  - /path/to/battlefields:/path/to/battlefields  # Battlefield repos (same absolute path)
 ```
-
-**Important**: Battlefield paths must be mounted at the **same absolute path** as on the host so that DB-stored paths remain valid inside the container.
-
-### Running
-
-```bash
-# Development (hot-reload)
-docker compose up
-
-# Production build
-docker compose -f docker-compose.yml up --build -t production
+devroom.lan {
+  tls internal
+  reverse_proxy localhost:7777
+}
 ```
 
 ---
@@ -106,4 +102,3 @@ docker compose -f docker-compose.yml up --build -t production
 | `DEVROOM_TELEGRAM_BOT_TOKEN`| `''`         | Telegram bot token for notifications     |
 | `DEVROOM_TELEGRAM_CHAT_ID` | `''`         | Telegram chat ID for notifications       |
 | `DEVROOM_TELEGRAM_ENABLED` | `false`      | Enable Telegram integration (`'true'`)   |
-| `DEVROOM_HOST_CREDENTIALS_PATH`| `/host-credentials/claude-credentials.json` | Path to Claude Code credentials file (Docker) |
