@@ -18,6 +18,7 @@ import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
 import { buildBriefingPrompt } from './briefing-prompt';
 import type { PlanJSON } from '@/types';
+import { detectCycle } from '@/lib/utils/dependency-graph';
 
 // ---------------------------------------------------------------------------
 // Active process tracking (for abort support)
@@ -415,6 +416,13 @@ function insertPlanFromBriefing(
 ): void {
   const db = getDatabase();
   const now = Date.now();
+
+  // Validate no circular dependencies across all missions in the plan
+  const allMissions = plan.phases.flatMap((p) =>
+    p.missions.map((m) => ({ title: m.title, dependsOn: m.dependsOn ?? [] })),
+  );
+  const cycle = detectCycle(allMissions);
+  if (cycle) throw new Error(`Plan contains circular dependencies: ${cycle}`);
 
   // Pre-fetch all assets for codename -> id lookup
   const allAssets = db.select().from(assets).all();

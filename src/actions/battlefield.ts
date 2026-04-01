@@ -71,24 +71,14 @@ function createBootstrapMission(
 ): string {
   const db = getDatabase();
 
-  // Find PATHFINDER asset, fall back to any active asset
-  let asset = db
+  const asset = db
     .select()
     .from(assets)
     .where(eq(assets.codename, 'PATHFINDER'))
     .get();
 
   if (!asset) {
-    asset = db
-      .select()
-      .from(assets)
-      .where(eq(assets.status, 'active'))
-      .limit(1)
-      .get();
-  }
-
-  if (!asset) {
-    throw new Error('createBootstrapMission: no active assets available');
+    throw new Error('PATHFINDER asset required for bootstrap — no fallback to other assets');
   }
 
   const missionId = generateId();
