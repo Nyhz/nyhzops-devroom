@@ -23,7 +23,7 @@ On submit:
    c. Wait for completion. If it fails, show the error but still create the battlefield (Commander can fix later).
    d. After scaffold, run `git add -A && git commit -m "Initial scaffold"`.
 5. Create battlefield record with status `initializing`.
-6. Create a bootstrap mission (type `bootstrap`, asset PATHFINDER, priority `critical`).
+6. Create a bootstrap mission (type `bootstrap`, asset INTEL, priority `critical`).
 7. Queue the bootstrap mission immediately.
 8. Redirect to the battlefield page, which shows scaffold output (if any) followed by bootstrap in progress.
 
