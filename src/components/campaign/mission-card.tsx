@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn, formatDuration, formatTokens } from '@/lib/utils';
 import { TacBadge } from '@/components/ui/tac-badge';
 import { InlineErrorPanel } from '@/components/ui/inline-error-panel';
 import { MergeCountdown } from '@/components/mission/merge-countdown';
+import { MissionSkillPanel } from '@/components/campaign/mission-skill-panel';
 
 interface CampaignMissionCardProps {
   missionId?: string;
@@ -19,6 +21,13 @@ interface CampaignMissionCardProps {
   mergeRetryAt?: number | null;
   battlefieldId?: string | null;
   className?: string;
+  // Skill override props — only used when campaign is in planning/draft status
+  campaignStatus?: string | null;
+  assetSkills?: string | null;
+  assetMcpServers?: string | null;
+  currentSkillOverrides?: { added?: string[]; removed?: string[] } | null;
+  discoveredSkills?: Array<{ id: string; name: string; description: string; pluginName: string }>;
+  discoveredMcps?: Array<{ id: string; name: string; source: string }>;
 }
 
 const priorityDotColor: Record<string, string> = {
@@ -52,6 +61,12 @@ export function CampaignMissionCard({
   mergeRetryAt,
   battlefieldId,
   className,
+  campaignStatus,
+  assetSkills,
+  assetMcpServers,
+  currentSkillOverrides,
+  discoveredSkills,
+  discoveredMcps,
 }: CampaignMissionCardProps) {
   const router = useRouter();
   const normalizedPriority = (priority ?? 'normal').toLowerCase();
@@ -61,10 +76,23 @@ export function CampaignMissionCard({
   const isCompromised = normalizedStatus === 'compromised';
   const isMerging = normalizedStatus === 'merging';
 
+  const [skillPanelOpen, setSkillPanelOpen] = useState(false);
+
+  const canOverride =
+    missionId != null &&
+    assetCodename != null &&
+    (campaignStatus === 'planning' || campaignStatus === 'draft') &&
+    discoveredSkills != null &&
+    discoveredMcps != null;
+
+  const hasOverrides =
+    (currentSkillOverrides?.added?.length ?? 0) > 0 ||
+    (currentSkillOverrides?.removed?.length ?? 0) > 0;
+
   return (
     <div
       className={cn(
-        'bg-dr-elevated border border-dr-border p-3 min-w-[200px] w-full md:max-w-[280px] flex flex-col gap-1.5',
+        'relative bg-dr-elevated border border-dr-border p-3 min-w-[200px] w-full md:max-w-[280px] flex flex-col gap-1.5',
         className,
       )}
     >
@@ -79,11 +107,35 @@ export function CampaignMissionCard({
         </span>
       </div>
 
-      {/* Asset codename */}
+      {/* Asset codename — clickable when overrides are available */}
       {assetCodename && (
-        <span className="font-tactical text-xs text-dr-muted tracking-wider pl-4">
-          {assetCodename}
-        </span>
+        <div className="pl-4">
+          {canOverride ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setSkillPanelOpen((prev) => !prev);
+              }}
+              className={cn(
+                'font-tactical text-xs tracking-wider',
+                'hover:text-dr-amber transition-colors cursor-pointer',
+                hasOverrides ? 'text-dr-amber' : 'text-dr-muted',
+              )}
+              title="Configure skill overrides for this mission"
+            >
+              {assetCodename}
+              {hasOverrides && (
+                <span className="ml-1 text-dr-amber opacity-80">*</span>
+              )}
+            </button>
+          ) : (
+            <span className="font-tactical text-xs text-dr-muted tracking-wider">
+              {assetCodename}
+            </span>
+          )}
+        </div>
       )}
 
       {/* Status badge */}
@@ -129,6 +181,22 @@ export function CampaignMissionCard({
             <span>{formatTokens(costInput + costOutput)} tokens</span>
           )}
         </div>
+      )}
+
+      {/* Skill override panel */}
+      {canOverride && skillPanelOpen && missionId && assetCodename && (
+        <MissionSkillPanel
+          missionId={missionId}
+          asset={{
+            codename: assetCodename,
+            skills: assetSkills ?? null,
+            mcpServers: assetMcpServers ?? null,
+          }}
+          currentOverrides={currentSkillOverrides ?? null}
+          discoveredSkills={discoveredSkills!}
+          discoveredMcps={discoveredMcps!}
+          onClose={() => setSkillPanelOpen(false)}
+        />
       )}
     </div>
   );

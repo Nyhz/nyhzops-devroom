@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { getCampaign } from '@/actions/campaign';
 import { getBriefingMessages } from '@/actions/briefing';
 import { getSuggestions } from '@/actions/follow-up';
+import { getAvailableSkillsAndMcps } from '@/actions/discovery';
 import { TacBadge } from '@/components/ui/tac-badge';
 import { BriefingChat } from '@/components/campaign/briefing-chat';
 import { CampaignControls } from '@/components/campaign/campaign-controls';
@@ -12,9 +13,10 @@ import { CampaignResults } from '@/components/campaign/campaign-results';
 import { PlanEditor } from '@/components/campaign/plan-editor';
 import { PhaseTimeline } from '@/components/campaign/phase-timeline';
 import { CampaignLiveView } from '@/components/campaign/campaign-live-view';
+import { CampaignMissionCard } from '@/components/campaign/mission-card';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { PageHeader } from '@/components/layout/page-header';
-import type { PlanJSON, MissionPriority } from '@/types';
+import type { PlanJSON, MissionPriority, SkillOverrides } from '@/types';
 
 export default async function CampaignDetailPage({
   params,
@@ -84,6 +86,49 @@ export default async function CampaignDetailPage({
       .where(eq(assets.status, 'active'))
       .all();
 
+    // Load discovery data for skill override panel
+    const discovery = await getAvailableSkillsAndMcps();
+
+    // Build asset skills/mcp lookup (codename → asset details)
+    const allAssets = db
+      .select({
+        id: assets.id,
+        codename: assets.codename,
+        skills: assets.skills,
+        mcpServers: assets.mcpServers,
+      })
+      .from(assets)
+      .all();
+    const assetByCodename = new Map(allAssets.map((a) => [a.codename, a]));
+
+    // Enrich campaign phases with per-mission asset skills and parsed overrides
+    const planningPhases = campaign.phases.map((phase) => ({
+      id: phase.id,
+      phaseNumber: phase.phaseNumber,
+      name: phase.name,
+      missions: phase.missions.map((m) => {
+        const assetInfo = m.assetCodename ? assetByCodename.get(m.assetCodename) : null;
+        let parsedOverrides: SkillOverrides | null = null;
+        if (m.skillOverrides) {
+          try {
+            parsedOverrides = JSON.parse(m.skillOverrides) as SkillOverrides;
+          } catch {
+            parsedOverrides = null;
+          }
+        }
+        return {
+          id: m.id,
+          title: m.title,
+          assetCodename: m.assetCodename,
+          priority: m.priority,
+          assetSkills: assetInfo?.skills ?? null,
+          assetMcpServers: assetInfo?.mcpServers ?? null,
+          skillOverrides: parsedOverrides,
+        };
+      }),
+    }));
+    const hasMissions = planningPhases.some((p) => p.missions.length > 0);
+
     return (
       <PageWrapper breadcrumb={breadcrumb} title={campaign.name}>
         <PlanEditor
@@ -91,6 +136,56 @@ export default async function CampaignDetailPage({
           initialPlan={planJSON}
           assets={activeAssets}
         />
+
+        {/* Skill Override Section — shown when DB missions exist */}
+        {hasMissions && (
+          <div className="mt-4">
+            <h3 className="font-tactical text-xs text-dr-amber uppercase tracking-wider mb-3">
+              MISSION SKILL OVERRIDES
+            </h3>
+            <p className="font-data text-xs text-dr-dim mb-4">
+              Click an asset name to configure per-mission skill and MCP overrides.
+            </p>
+            {planningPhases.map((phase) => (
+              <div key={phase.id} className="mb-4">
+                <div className="font-tactical text-xs text-dr-muted uppercase tracking-wider mb-2">
+                  PHASE {phase.phaseNumber} — {phase.name}
+                </div>
+                <div className="flex flex-col md:flex-row md:flex-wrap gap-3">
+                  {phase.missions.map((m) => (
+                    <CampaignMissionCard
+                      key={m.id}
+                      missionId={m.id}
+                      title={m.title ?? 'Untitled'}
+                      assetCodename={m.assetCodename}
+                      status={null}
+                      priority={m.priority}
+                      durationMs={null}
+                      costInput={null}
+                      costOutput={null}
+                      campaignStatus={status}
+                      assetSkills={m.assetSkills}
+                      assetMcpServers={m.assetMcpServers}
+                      currentSkillOverrides={m.skillOverrides}
+                      discoveredSkills={discovery.skills.map((s) => ({
+                        id: s.id,
+                        name: s.name,
+                        description: s.description,
+                        pluginName: s.pluginName,
+                      }))}
+                      discoveredMcps={discovery.mcpServers.map((mc) => ({
+                        id: mc.id,
+                        name: mc.name,
+                        source: mc.source,
+                      }))}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {controls}
       </PageWrapper>
     );
