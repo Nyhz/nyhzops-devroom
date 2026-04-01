@@ -290,7 +290,7 @@ These are rendered against very dark backgrounds:
 
 ---
 
-### `src/app/(hq)/captain-log/page.tsx`
+### `src/app/(hq)/overseer-log/page.tsx`
 
 | Line | Classes | Category | Severity | Issue |
 |------|---------|----------|----------|-------|
@@ -422,7 +422,7 @@ Use color-based disabled states instead:
 ## Files Requiring Most Changes (Ranked)
 
 1. `src/app/(hq)/logistics/page.tsx` — 25+ violations
-2. `src/app/(hq)/captain-log/page.tsx` — 15+ violations
+2. `src/app/(hq)/overseer-log/page.tsx` — 15+ violations
 3. `src/app/(hq)/page.tsx` — 8+ violations
 4. `src/components/campaign/plan-editor.tsx` — 5 violations
 5. `src/components/general/general-chat.tsx` — 4 violations
