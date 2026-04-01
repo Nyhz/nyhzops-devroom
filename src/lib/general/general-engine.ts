@@ -1,15 +1,29 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import fs from 'fs';
 import os from 'os';
-import { eq } from 'drizzle-orm';
 import type { Server as SocketIOServer } from 'socket.io';
+import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { extractKeychainCredentials } from '@/lib/process/claude-print';
-import { generalSessions, generalMessages, assets, battlefields } from '@/lib/db/schema';
+import { generalSessions, generalMessages, battlefields } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
 import { buildGeneralPrompt } from './general-prompt';
 import { parseCommand } from './general-commands';
+import { getSystemAsset } from '@/actions/asset';
+import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
+
+// ---------------------------------------------------------------------------
+// Helper — filter one flag (and its value) from a CLI args array
+// ---------------------------------------------------------------------------
+function filterFlags(args: string[], flags: string[]): string[] {
+  const result: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (flags.includes(args[i])) { i++; continue; }
+    result.push(args[i]);
+  }
+  return result;
+}
 
 // ---------------------------------------------------------------------------
 // Active process tracking
@@ -79,13 +93,13 @@ export async function sendGeneralMessage(
     io.to(room).emit('general:system', { sessionId, content: parsed.systemMessage, messageId: sysMsgId });
   }
 
-  // 5. Find GENERAL asset for model
-  const generalAsset = db
-    .select()
-    .from(assets)
-    .where(eq(assets.codename, 'GENERAL'))
-    .get();
-  const model = generalAsset?.model || 'claude-opus-4-6';
+  // 5. Load GENERAL asset for full config (model, effort, skills, MCPs)
+  // System prompt is delivered via stdin (buildGeneralPrompt) rather than --append-system-prompt
+  // because the general assistant persona differs from the DB-stored campaign planner persona.
+  const generalAsset = getSystemAsset('GENERAL');
+  const assetArgs = buildAssetCliArgs(generalAsset);
+  // Filter --max-turns (we set our own) and --append-system-prompt (persona via stdin)
+  const filteredAssetArgs = filterFlags(assetArgs, ['--max-turns', '--append-system-prompt']);
 
   // 6. Build CLI args
   const isFirstMessage = !session.sessionId;
@@ -96,7 +110,7 @@ export async function sendGeneralMessage(
     '--include-partial-messages',
     '--dangerously-skip-permissions',
     '--max-turns', '50',
-    '--model', model,
+    ...filteredAssetArgs,
   ];
 
   if (!isFirstMessage && session.sessionId) {
