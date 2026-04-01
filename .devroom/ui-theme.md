@@ -26,7 +26,7 @@ The UI follows the tactical operations center aesthetic from the reference scree
 - **Top intel bar** with rotating military quotes.
 - **Bottom status bar** with system status and LAN access warning.
 - **Left sidebar** split into two sections:
-  - **Global nav** (always visible): top links — HQ (◉), GENERAL (◇); bottom links — CAPTAIN'S LOG (⚓), ASSETS (◎), LOGISTICS (◈).
+  - **Global nav** (always visible): top links — HQ (◉), GENERAL (◇); bottom links — OVERSEER'S LOG (⚓), ASSETS (◎), LOGISTICS (◈).
   - **Battlefield nav** (visible when inside `/battlefields/[id]`): MISSIONS (■), CAMPAIGNS (✕), INTEL BOARD (⊞), GIT (◆), CONSOLE (▶), SCHEDULE (⏱), CONFIG (⚙) — with count badges.
 - **Right sidebar** (battlefield view) with asset list and asset breakdown stats.
 
@@ -37,29 +37,32 @@ Tailwind v4 uses CSS-based configuration. There is **no `tailwind.config.ts`**. 
 ```css
 /* src/app/globals.css */
 @theme inline {
-  --color-dr-bg:        #0a0a0c;
-  --color-dr-surface:   #111114;
-  --color-dr-elevated:  #1a1a22;
-  --color-dr-border:    #2a2a32;
-  --color-dr-text:      #b8b8c8;
-  --color-dr-muted:     #9898a8;
-  --color-dr-dim:       #868696;
-  --color-dr-green:     #00ff41;
-  --color-dr-amber:     #ffbf00;
-  --color-dr-red:       #ff3333;
-  --color-dr-blue:      #00aaff;
+  /* Ghost Ops V2 — tactical palette */
+  --color-dr-bg:       #0a0a0c;
+  --color-dr-surface:  #111114;
+  --color-dr-elevated: #1a1a22;
+  --color-dr-border:   #2a2a32;
+  --color-dr-text:     #b8b8c8;
+  --color-dr-muted:    #9898a8;
+  --color-dr-dim:      #868696;
+  --color-dr-green:    #00ff41;
+  --color-dr-amber:    #ffbf00;
+  --color-dr-red:      #ff3333;
+  --color-dr-blue:     #00aaff;
+  --color-dr-teal:     #00d4aa;
 
-  --font-tactical: 'Share Tech Mono', monospace;
-  --font-mono:     'IBM Plex Mono', monospace;
-  --font-data:     'Courier Prime', monospace;
+  /* Tactical fonts (resolved via Next.js font variables) */
+  --font-tactical: var(--font-share-tech-mono), monospace;
+  --font-data:     var(--font-courier-prime), monospace;
 
+  /* Glow shadows */
   --shadow-glow-green: 0 0 10px rgba(0, 255, 65, 0.3);
   --shadow-glow-amber: 0 0 10px rgba(255, 191, 0, 0.3);
   --shadow-glow-red:   0 0 10px rgba(255, 51, 51, 0.3);
-
-  --radius-*: 0rem;  /* No border-radius — sharp angular military feel */
 }
 ```
+
+The `--font-sans` and `--font-mono` base tokens are also set to the tactical fonts, ensuring monospace everywhere. `--radius` is `0rem` — sharp angular military feel. All shadcn tokens are mapped to the tactical palette via CSS custom properties in `:root`.
 
 Usage in components: `bg-dr-bg`, `text-dr-green`, `font-tactical`, `shadow-glow-green`, etc.
 
@@ -99,14 +102,14 @@ Bottom bar: `● LOCAL ACCESS ONLY — NOT SAFE TO EXPOSE TO A NETWORK`. Green d
 ├────────┬────────────────────────────────────────┬───────────────┤
 │        │                                        │               │
 │  N     │  Battlefields // Project Name          │  ASSETS       │
-│  NYHZ  │  PROJECT CODENAME                      │  ● PATHFINDER │
-│  OPS ● │  Description text                      │  ● GENERAL    │
-│  DEV-  │                                        │  ● OPERATIVE  │
+│  NYHZ  │  PROJECT CODENAME                      │  ● OPERATIVE  │
+│  OPS ● │  Description text                      │  ● VANGUARD   │
+│  DEV-  │                                        │  ● ARCHITECT  │
 │  ROOM  │  ┌─ DEPLOY MISSION ──────────────┐     │  ...          │
 │        │  │ [textarea] [asset] [deploy]   │     │               │
 │ ─────  │  └───────────────────────────────┘     │  BREAKDOWN    │
 │ ◉ HQ   │                                        │  OPERATIVE 83 │
-│ ◇ GEN  │  0 IN COMBAT │ 251 ACCOMPLISHED │ ...  │  PATHFINDER 7 │
+│ ◇ GEN  │  0 IN COMBAT │ 251 ACCOMPLISHED │ ...  │  VANGUARD  42 │
 │        │                                        │  ...          │
 │ ─────  │  MISSIONS          [Search...]         │               │
 │ PROJ ▾ │  │ mission title    ● ACCOMP.  │       │               │
@@ -130,7 +133,7 @@ Bottom bar: `● LOCAL ACCESS ONLY — NOT SAFE TO EXPOSE TO A NETWORK`. Green d
 ### Key UI Patterns
 
 - **Deploy Mission**: inline on battlefield page. Textarea + asset dropdown + SAVE / SAVE & DEPLOY + Load dossier.
-- **Stats bar**: `IN COMBAT | ACCOMPLISHED | COMPROMISED | STANDBY | cache hit %`.
+- **Stats bar**: `IN COMBAT | ACCOMPLISHED | COMPROMISED | STANDBY | cache hit %`. Also shows `APPROVED`, `MERGING` counts when non-zero.
 - **Mission list**: table rows — title (+ iteration badge), asset + time, status badge, VIEW.
 - **Asset panel**: right sidebar with green dots + codenames + models. ASSET BREAKDOWN below.
 - **Campaign phases**: stacked containers with left border (green=secured, amber=active). Mission cards laid horizontally inside each phase.
