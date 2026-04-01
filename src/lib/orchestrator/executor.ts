@@ -22,6 +22,7 @@ import { getOverseerLogs } from '@/actions/overseer';
 import type { Mission, StreamResult } from '@/types';
 import { checkCliAuth } from './auth-check';
 import type { Orchestrator } from './orchestrator';
+import { emitStatusChange } from '@/lib/socket/emit';
 
 /** Remove per-mission Claude config isolation dir */
 function cleanupMissionHome(missionId: string) {
@@ -59,8 +60,7 @@ export async function executeMission(
       .set({ status, updatedAt: Date.now(), ...extra })
       .where(eq(missions.id, mission.id))
       .run();
-    io.to(room).emit('mission:status', { missionId: mission.id, status, timestamp: Date.now() });
-    io.to(`battlefield:${mission.battlefieldId}`).emit('mission:status', { missionId: mission.id, status, timestamp: Date.now() });
+    emitStatusChange('mission', mission.id, status, extra);
   };
 
   // Helper: store a mission log
@@ -91,6 +91,9 @@ export async function executeMission(
 
   // Hoist variables so they're accessible in catch block for cleanup
   let stallCheckInterval: NodeJS.Timeout | null = null;
+  let hardTimeout: NodeJS.Timeout | null = null;
+  let timedOut = false;
+  let stderrOutput = '';
   let workingDirectory: string | null = null;
   let worktreePath: string | null = null;
   let worktreeBranch: string | null = mission.worktreeBranch;
@@ -264,8 +267,15 @@ export async function executeMission(
       env: { ...process.env, HOME: missionHome },
     });
 
+    // Hard timeout — 30 minutes. Kills the process if it hangs indefinitely.
+    const HARD_TIMEOUT_MS = 30 * 60 * 1000;
+    hardTimeout = setTimeout(() => {
+      timedOut = true;
+      console.warn(`[Executor] Mission ${mission.id} hit 30-minute hard timeout. Killing process.`);
+      abortController.abort();
+    }, HARD_TIMEOUT_MS);
+
     // Capture stderr — set up BEFORE readline loop so we don't miss output
-    let stderrOutput = '';
     proc.stderr?.on('data', (data: Buffer) => {
       stderrOutput += data.toString();
     });
@@ -478,11 +488,12 @@ export async function executeMission(
       parser.feed(line);
     }
 
-    // Clean up stall detection interval
+    // Clean up stall detection interval and hard timeout on normal exit
     if (stallCheckInterval) {
       clearInterval(stallCheckInterval);
       stallCheckInterval = null;
     }
+    if (hardTimeout) clearTimeout(hardTimeout);
 
     // Wait for process to fully close
     const exitCode = await new Promise<number>((resolve) => {
@@ -509,6 +520,7 @@ export async function executeMission(
       // which may be a short ack if the agent kept responding after the debrief.
       const debrief = bestDebrief ?? r.result;
 
+      const compromiseReasonOnError = r.isError ? 'execution-failed' : undefined;
       db.update(missions).set({
         sessionId: r.sessionId,
         debrief,
@@ -519,14 +531,10 @@ export async function executeMission(
         status: finalStatus,
         completedAt: r.isError ? Date.now() : null,
         updatedAt: Date.now(),
+        ...(compromiseReasonOnError ? { compromiseReason: compromiseReasonOnError } : {}),
       }).where(eq(missions.id, mission.id)).run();
 
-      io.to(room).emit('mission:status', {
-        missionId: mission.id, status: finalStatus, timestamp: Date.now(),
-      });
-      io.to(`battlefield:${mission.battlefieldId}`).emit('mission:status', {
-        missionId: mission.id, status: finalStatus, timestamp: Date.now(),
-      });
+      emitStatusChange('mission', mission.id, finalStatus, compromiseReasonOnError ? { compromiseReason: compromiseReasonOnError } : {});
       io.to(room).emit('mission:debrief', {
         missionId: mission.id, debrief,
       });
@@ -565,6 +573,7 @@ export async function executeMission(
       updateStatus('compromised', {
         completedAt: Date.now(),
         debrief: finalDebrief,
+        compromiseReason: 'execution-failed',
       });
       emitActivity('mission:compromised', `Mission compromised: ${mission.title}`);
 
@@ -584,44 +593,50 @@ export async function executeMission(
     }
 
   } catch (err) {
-    // Clean up stall detection interval on error
+    // Clean up stall detection interval and hard timeout on error
     if (stallCheckInterval) {
       clearInterval(stallCheckInterval);
       stallCheckInterval = null;
     }
+    if (hardTimeout) clearTimeout(hardTimeout);
 
     if (err instanceof RateLimitError) {
       throw err; // Re-throw for orchestrator to handle
     }
 
-    // Determine if this was an abort (ABANDON)
+    // Determine failure mode: timeout, user abort, or process error
     const isAbort = abortController.signal.aborted;
-    const status = isAbort ? 'abandoned' : 'compromised';
+    const status = isAbort && !timedOut ? 'abandoned' : 'compromised';
     const errorMsg = err instanceof Error ? err.message : String(err);
+
+    // Resolve compromiseReason: timeout takes precedence, then execution-failed
+    const compromiseReason = timedOut
+      ? 'timeout'
+      : (!isAbort ? 'execution-failed' : undefined);
 
     db.update(missions).set({
       status,
       completedAt: Date.now(),
       updatedAt: Date.now(),
-      debrief: isAbort
+      debrief: isAbort && !timedOut
         ? 'Mission abandoned by Commander.'
-        : `Mission compromised: ${errorMsg}`,
+        : timedOut
+          ? `Mission timed out after 30 minutes.${stderrOutput ? ' Stderr: ' + stderrOutput.slice(0, 500) : ''}`
+          : `Mission compromised: ${errorMsg}`,
+      ...(compromiseReason ? { compromiseReason } : {}),
     }).where(eq(missions.id, mission.id)).run();
 
-    io.to(room).emit('mission:status', {
-      missionId: mission.id, status, timestamp: Date.now(),
-    });
-    io.to(`battlefield:${mission.battlefieldId}`).emit('mission:status', {
-      missionId: mission.id, status, timestamp: Date.now(),
-    });
+    emitStatusChange('mission', mission.id, status, compromiseReason ? { compromiseReason } : {});
     emitActivity(`mission:${status}`, `Mission ${status}: ${mission.title}`);
 
-    if (!isAbort) {
-      storeLog('error', errorMsg);
+    const isUserAbort = isAbort && !timedOut;
+
+    if (!isUserAbort) {
+      storeLog('error', timedOut ? `Mission timed out after 30 minutes.` : errorMsg);
     }
 
-    // Worktree + config cleanup for abandoned missions
-    if (isAbort) {
+    // Worktree + config cleanup for user-abandoned missions
+    if (isUserAbort) {
       cleanupMissionHome(mission.id);
       if (worktreePath && worktreeBranch && battlefieldRef) {
         try {
@@ -632,20 +647,26 @@ export async function executeMission(
       }
     }
 
-    // Preserve branch info for compromised missions
-    if (!isAbort && worktreeBranch) {
-      const branchDebrief = `Mission compromised: ${errorMsg}\nBranch \`${worktreeBranch}\` preserved for inspection.`;
+    // Preserve branch info for compromised/timed-out missions
+    if (!isUserAbort && worktreeBranch) {
+      const branchDebrief = timedOut
+        ? `Mission timed out after 30 minutes.\nBranch \`${worktreeBranch}\` preserved for inspection.`
+        : `Mission compromised: ${errorMsg}\nBranch \`${worktreeBranch}\` preserved for inspection.`;
       db.update(missions).set({
         debrief: branchDebrief,
         updatedAt: Date.now(),
       }).where(eq(missions.id, mission.id)).run();
     }
 
-    // Extract follow-up suggestions from compromised debrief
-    if (!isAbort) {
-      const catchDebrief = worktreeBranch
-        ? `Mission compromised: ${errorMsg}\nBranch \`${worktreeBranch}\` preserved for inspection.`
-        : `Mission compromised: ${errorMsg}`;
+    // Extract follow-up suggestions from compromised/timed-out debrief
+    if (!isUserAbort) {
+      const catchDebrief = timedOut
+        ? (worktreeBranch
+          ? `Mission timed out after 30 minutes.\nBranch \`${worktreeBranch}\` preserved for inspection.`
+          : `Mission timed out after 30 minutes.`)
+        : (worktreeBranch
+          ? `Mission compromised: ${errorMsg}\nBranch \`${worktreeBranch}\` preserved for inspection.`
+          : `Mission compromised: ${errorMsg}`);
       extractAndSaveSuggestions({
         battlefieldId: mission.battlefieldId,
         missionId: mission.id,
