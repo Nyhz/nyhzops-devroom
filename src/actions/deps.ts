@@ -220,6 +220,99 @@ export async function runInstall(battlefieldId: string): Promise<void> {
   revalidatePath(`/battlefields/${battlefieldId}/deps`);
 }
 
+export async function getDefaultVerifyCommand(
+  battlefieldId: string,
+): Promise<string | null> {
+  const repoPath = await getRepoPath(battlefieldId);
+  const pm = await detectPackageManager(battlefieldId);
+  const pkg = readPackageJson(repoPath);
+  const scripts = (pkg.scripts ?? {}) as Record<string, string>;
+
+  const hasBuild = 'build' in scripts;
+  const hasTest = 'test' in scripts;
+
+  if (hasBuild && hasTest) return `${pm} run build && ${pm} test`;
+  if (hasBuild) return `${pm} run build`;
+  if (hasTest) return `${pm} test`;
+  return null;
+}
+
+export async function updateAndVerify(
+  battlefieldId: string,
+  packageName?: string,
+  verifyCommand?: string,
+): Promise<void> {
+  if (packageName) validatePackageName(packageName);
+  const repoPath = await getRepoPath(battlefieldId);
+  const pm = await detectPackageManager(battlefieldId);
+  const socketRoom = `deps:${battlefieldId}`;
+  const io = globalThis.io;
+
+  // Step 1: Run update
+  const updateCmd = packageName ? `${pm} update ${packageName}` : `${pm} update`;
+  const updateResult = await runCommand({
+    command: updateCmd,
+    cwd: repoPath,
+    socketRoom,
+    battlefieldId,
+  });
+
+  if (updateResult.exitCode !== 0) {
+    if (io) {
+      io.to(socketRoom).emit('deps:verify-failed', {
+        battlefieldId,
+        phase: 'update',
+        exitCode: updateResult.exitCode,
+        packageName,
+      });
+    }
+    return;
+  }
+
+  // Step 2: Determine verify command
+  const finalVerifyCommand =
+    verifyCommand ?? (await getDefaultVerifyCommand(battlefieldId));
+
+  if (!finalVerifyCommand) {
+    // No verification possible — skip
+    if (io) {
+      io.to(socketRoom).emit('deps:verify-passed', {
+        battlefieldId,
+        skipped: true,
+        packageName,
+      });
+    }
+    revalidatePath(`/battlefields/${battlefieldId}/deps`);
+    return;
+  }
+
+  // Step 3: Run verification
+  const verifyResult = await runCommand({
+    command: finalVerifyCommand,
+    cwd: repoPath,
+    socketRoom,
+    battlefieldId,
+  });
+
+  if (io) {
+    if (verifyResult.exitCode === 0) {
+      io.to(socketRoom).emit('deps:verify-passed', {
+        battlefieldId,
+        packageName,
+      });
+    } else {
+      io.to(socketRoom).emit('deps:verify-failed', {
+        battlefieldId,
+        phase: 'verify',
+        exitCode: verifyResult.exitCode,
+        packageName,
+      });
+    }
+  }
+
+  revalidatePath(`/battlefields/${battlefieldId}/deps`);
+}
+
 export async function runAudit(battlefieldId: string): Promise<AuditResult> {
   const repoPath = await getRepoPath(battlefieldId);
   const pm = await detectPackageManager(battlefieldId);
