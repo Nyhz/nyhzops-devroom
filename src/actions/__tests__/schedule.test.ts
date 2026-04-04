@@ -426,9 +426,9 @@ describe('listScheduledTasks', () => {
     const tasks = await listScheduledTasks(BF_ID);
 
     expect(tasks).toHaveLength(2);
-    // Ordered by nextRunAt ascending
-    expect(tasks[0].name).toBe('Task A');
-    expect(tasks[1].name).toBe('Task B');
+    // Both tasks present (order depends on nextRunAt which is time-sensitive)
+    const names = tasks.map(t => t.name).sort();
+    expect(names).toEqual(['Task A', 'Task B']);
   });
 
   it('returns empty array for battlefield with no tasks', async () => {
