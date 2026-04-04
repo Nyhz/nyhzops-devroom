@@ -1,19 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { GlobalNavTop, GlobalNavBottom } from "./global-nav";
 import { BattlefieldSelector } from "./battlefield-selector";
 import { SidebarNav } from "./sidebar-nav";
-import { useSocket } from "@/hooks/use-socket";
-import { config } from "@/lib/config";
 import type { Battlefield } from "@/types";
 
 interface SidebarContentProps {
   battlefields: Battlefield[];
   missionCounts: Record<string, number>;
   campaignCounts: Record<string, number>;
-  activeAgents: number;
   onLinkClick?: () => void;
 }
 
@@ -21,19 +17,8 @@ export function SidebarContent({
   battlefields,
   missionCounts,
   campaignCounts,
-  activeAgents: initialActiveAgents,
   onLinkClick,
 }: SidebarContentProps) {
-  const [activeAgents, setActiveAgents] = useState(initialActiveAgents);
-  const socket = useSocket();
-
-  useEffect(() => {
-    if (!socket) return;
-    socket.emit('join', 'hq:activity');
-    const handler = (data: { active: number }) => setActiveAgents(data.active);
-    socket.on('orchestrator:agents', handler);
-    return () => { socket.off('orchestrator:agents', handler); };
-  }, [socket]);
   return (
     <>
       {/* Brand block — clickable, goes to War Room */}
@@ -68,7 +53,7 @@ export function SidebarContent({
       <div className="border-t border-dr-border" />
 
       {/* Battlefield selector */}
-      <div className="px-4 py-4">
+      <div className="px-4 py-3">
         <BattlefieldSelector battlefields={battlefields} />
       </div>
 
@@ -83,23 +68,6 @@ export function SidebarContent({
 
       {/* Global links — highlights active route */}
       <GlobalNavBottom />
-
-      {/* Intel Briefing */}
-      <div className="border-t border-dr-border px-5 py-4">
-        <span className="text-dr-dim text-sm tracking-widest uppercase">
-          Intel Briefing
-        </span>
-        <div className="mt-2 flex items-center gap-2">
-          <span className="text-dr-green text-sm">●</span>
-          <span className="text-dr-muted text-sm">All systems operational</span>
-        </div>
-        <div className="mt-1.5 flex items-center gap-2">
-          <span className="text-dr-dim text-sm">●</span>
-          <span className="text-dr-muted text-sm">
-            {activeAgents}/{config.maxAgents} assets deployed
-          </span>
-        </div>
-      </div>
     </>
   );
 }
