@@ -15,6 +15,7 @@ import type {
   briefingMessages,
   intelNotes,
   followUpSuggestions,
+  testRuns,
 } from '../lib/db/schema';
 
 // ---------------------------------------------------------------------------
@@ -53,6 +54,7 @@ export type IntelNote = InferSelectModel<typeof intelNotes>;
 export type IntelNoteColumn = 'backlog' | 'planned';
 export type FollowUpSuggestion = InferSelectModel<typeof followUpSuggestions>;
 export type FollowUpSuggestionStatus = 'pending' | 'added' | 'dismissed';
+export type TestRunRow = InferSelectModel<typeof testRuns>;
 
 export interface IntelNoteWithMission extends IntelNote {
   missionStatus: MissionStatus | null;

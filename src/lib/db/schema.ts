@@ -249,6 +249,27 @@ export const generalMessages = sqliteTable('general_messages', {
 });
 
 // ---------------------------------------------------------------------------
+// Test Runs (Test runner history)
+// ---------------------------------------------------------------------------
+export const testRuns = sqliteTable('test_runs', {
+  id: text('id').primaryKey(),
+  battlefieldId: text('battlefield_id').notNull().references(() => battlefields.id),
+  framework: text('framework').notNull(),
+  command: text('command').notNull(),
+  pattern: text('pattern'),
+  status: text('status').notNull().default('running'),
+  totalTests: integer('total_tests').notNull().default(0),
+  passed: integer('passed').notNull().default(0),
+  failed: integer('failed').notNull().default(0),
+  skipped: integer('skipped').notNull().default(0),
+  durationMs: integer('duration_ms').notNull().default(0),
+  coveragePercent: integer('coverage_percent'),
+  results: text('results'),
+  rawOutput: text('raw_output'),
+  createdAt: integer('created_at').notNull(),
+});
+
+// ---------------------------------------------------------------------------
 // Intel Notes (Board cards)
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
