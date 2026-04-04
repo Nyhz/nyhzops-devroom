@@ -52,14 +52,15 @@ export function BattlefieldSelector({ battlefields }: BattlefieldSelectorProps) 
   }
 
   return (
-    <div ref={containerRef}>
-      <div className="flex items-center gap-1.5">
+    <div ref={containerRef} className="flex items-center gap-1.5">
+      {/* Trigger + Dropdown grouped together */}
+      <div className="flex-1 min-w-0">
         {/* Select trigger */}
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
           className={cn(
-            "flex-1 min-w-0 flex items-center justify-between gap-2 px-3 py-2 text-sm",
+            "w-full flex items-center justify-between gap-2 px-3 py-2 text-sm",
             "bg-dr-elevated border border-dr-border rounded",
             "hover:border-dr-dim transition-colors",
             open && "border-dr-dim rounded-b-none"
@@ -83,50 +84,47 @@ export function BattlefieldSelector({ battlefields }: BattlefieldSelectorProps) 
           </span>
         </button>
 
-        {/* Gear button — config */}
-        {currentId && (
-          <Link
-            href={`/battlefields/${currentId}/config`}
-            className={cn(
-              "shrink-0 w-[34px] h-[34px] flex items-center justify-center",
-              "bg-dr-elevated border border-dr-border rounded",
-              "text-dr-dim hover:text-dr-amber hover:border-dr-amber transition-colors"
-            )}
-            title="Battlefield Config"
-          >
-            ⚙
-          </Link>
+        {/* Dropdown — naturally matches trigger width */}
+        {open && (
+          <div className="bg-dr-elevated border border-dr-border border-t-0 rounded-b overflow-hidden">
+            {battlefields.map((bf) => (
+              <button
+                key={bf.id}
+                type="button"
+                onClick={() => handleSelect(bf.id)}
+                className={cn(
+                  "w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors",
+                  bf.id === currentId
+                    ? "text-dr-amber"
+                    : "text-dr-muted hover:text-dr-text hover:bg-dr-surface"
+                )}
+              >
+                <span
+                  className={cn(
+                    "w-1.5 h-1.5 rounded-full shrink-0",
+                    bf.status === "archived" ? "bg-dr-dim" : "bg-dr-green"
+                  )}
+                />
+                <span className="truncate">{bf.codename}</span>
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Dropdown */}
-      {open && (
-        <div
-          className="bg-dr-elevated border border-dr-border border-t-0 rounded-b overflow-hidden"
-          style={{ marginRight: currentId ? "calc(34px + 0.375rem)" : "0" }}
+      {/* Gear button — config */}
+      {currentId && (
+        <Link
+          href={`/battlefields/${currentId}/config`}
+          className={cn(
+            "shrink-0 w-[34px] h-[34px] flex items-center justify-center",
+            "bg-dr-elevated border border-dr-border rounded",
+            "text-dr-dim hover:text-dr-amber hover:border-dr-amber transition-colors"
+          )}
+          title="Battlefield Config"
         >
-          {battlefields.map((bf) => (
-            <button
-              key={bf.id}
-              type="button"
-              onClick={() => handleSelect(bf.id)}
-              className={cn(
-                "w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors",
-                bf.id === currentId
-                  ? "text-dr-amber"
-                  : "text-dr-muted hover:text-dr-text hover:bg-dr-surface"
-              )}
-            >
-              <span
-                className={cn(
-                  "w-1.5 h-1.5 rounded-full shrink-0",
-                  bf.status === "archived" ? "bg-dr-dim" : "bg-dr-green"
-                )}
-              />
-              <span className="truncate">{bf.codename}</span>
-            </button>
-          ))}
-        </div>
+          ⚙
+        </Link>
       )}
     </div>
   );
