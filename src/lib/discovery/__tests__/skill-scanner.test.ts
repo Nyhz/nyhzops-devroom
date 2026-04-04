@@ -29,10 +29,11 @@ function mockReadFileSync(files: Record<string, string>) {
 }
 
 function mockReaddirSync(dirs: Record<string, fs.Dirent[]>) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   vi.mocked(fs.readdirSync).mockImplementation((p, _opts) => {
     const entries = dirs[p as string];
-    if (!entries) return [];
-    return entries as unknown as fs.Dirent[];
+    if (!entries) return [] as any;
+    return entries as any;
   });
 }
 
@@ -154,12 +155,13 @@ description: "Brainstorm features before implementing"
       throw new Error(`ENOENT: ${s}`);
     });
 
-    vi.mocked(fs.readdirSync).mockImplementation((p, _opts) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(fs.readdirSync).mockImplementation(((p: unknown, _opts: unknown) => {
       if (String(p) === skillsDir) {
-        return [makeDirent('brainstorming', true)] as unknown as fs.Dirent[];
+        return [makeDirent('brainstorming', true)];
       }
-      return [] as unknown as fs.Dirent[];
-    });
+      return [];
+    }) as any);
 
     const result = scanHostSkills();
 
@@ -220,12 +222,8 @@ description: "Brainstorm features before implementing"
       throw new Error(`ENOENT: ${s}`);
     });
 
-    vi.mocked(fs.readdirSync).mockImplementation((p, _opts) => {
-      if (String(p) === skillsDir) {
-        return [] as unknown as fs.Dirent[];
-      }
-      return [] as unknown as fs.Dirent[];
-    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(fs.readdirSync).mockReturnValue([] as any);
 
     const result = scanHostSkills();
 
@@ -262,7 +260,8 @@ description: "Brainstorm features before implementing"
       throw new Error(`ENOENT: ${s}`);
     });
 
-    vi.mocked(fs.readdirSync).mockReturnValue([] as unknown as fs.Dirent[]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(fs.readdirSync).mockReturnValue([] as any);
 
     const result = scanHostSkills();
 
@@ -309,7 +308,8 @@ description: "Brainstorm features before implementing"
       throw new Error(`ENOENT: ${s}`);
     });
 
-    vi.mocked(fs.readdirSync).mockReturnValue([] as unknown as fs.Dirent[]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(fs.readdirSync).mockReturnValue([] as any);
 
     const result = scanHostSkills();
     expect(result.skills).toEqual([]);

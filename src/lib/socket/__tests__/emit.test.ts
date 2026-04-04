@@ -28,13 +28,13 @@ const { emitStatusChange } = await import('@/lib/socket/emit');
 // Helpers — capture emit calls via globalThis.io (set up by setup.ts)
 // ---------------------------------------------------------------------------
 function getRooms(): string[] {
-  const io = globalThis.io;
+  const io = globalThis.io!;
   const mockTo = io.to as ReturnType<typeof vi.fn>;
   return mockTo.mock.calls.map((call: unknown[]) => call[0] as string);
 }
 
 function getEmitCalls(): Array<[string, Record<string, unknown>]> {
-  const io = globalThis.io;
+  const io = globalThis.io!;
   const mockTo = io.to as ReturnType<typeof vi.fn>;
   // Each `to(room)` returns `{ emit }`. We read the emit fn from the returned value.
   // setup.ts wires: mockTo = vi.fn(() => ({ emit: mockEmit }))
@@ -120,7 +120,7 @@ describe('emitStatusChange', () => {
       callOrder.push('revalidate');
     });
 
-    const io = globalThis.io;
+    const io = globalThis.io!;
     const mockTo = io.to as ReturnType<typeof vi.fn>;
     mockTo.mockImplementation((room: string) => {
       callOrder.push(`emit:${room}`);
@@ -188,7 +188,7 @@ describe('emitStatusChange', () => {
 
     // Use a fresh mockEmit to capture payloads
     const emitted: Array<[string, Record<string, unknown>]> = [];
-    const io = globalThis.io;
+    const io = globalThis.io!;
     const mockTo = io.to as ReturnType<typeof vi.fn>;
     mockTo.mockImplementation(() => ({
       emit: (event: string, payload: Record<string, unknown>) => {

@@ -50,7 +50,6 @@ export async function POST() {
       specialty: 'mission execution',
       status: 'active',
       createdAt: now,
-      updatedAt: now,
     }).run();
     asset = db.select().from(assets).where(eq(assets.id, assetId)).get()!;
   }

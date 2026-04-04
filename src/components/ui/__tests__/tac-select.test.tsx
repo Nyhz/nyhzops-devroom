@@ -14,7 +14,7 @@ function TestSelect({
   onValueChange,
 }: {
   defaultValue?: string;
-  onValueChange?: (val: string) => void;
+  onValueChange?: (val: string | null) => void;
 }) {
   return (
     <TacSelect defaultValue={defaultValue} onValueChange={onValueChange}>

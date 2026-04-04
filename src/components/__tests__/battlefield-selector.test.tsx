@@ -26,14 +26,21 @@ function makeBattlefield(id: string, codename: string): Battlefield {
     name: codename,
     codename,
     description: null,
+    initialBriefing: null,
     repoPath: `/repos/${codename}`,
+    defaultBranch: 'main',
+    claudeMdPath: null,
+    specMdPath: null,
+    scaffoldCommand: null,
+    scaffoldStatus: null,
     status: 'active',
+    bootstrapMissionId: null,
     worktreeMode: 'none',
     autoStartDevServer: 0,
-    devServerCommand: null,
+    devServerCommand: 'npm run dev',
     createdAt: Date.now(),
     updatedAt: Date.now(),
-  } as Battlefield;
+  } as unknown as Battlefield;
 }
 
 describe('BattlefieldSelector', () => {

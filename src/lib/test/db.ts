@@ -51,7 +51,8 @@ export function closeTestDb(sqlite: Database.Database): void {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createTable(sqlite: Database.Database, table: SQLiteTableWithColumns<any>) {
-  const tableName = table[Symbol.for('drizzle:Name') as unknown as keyof typeof table] as string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tableName = (table as any)[Symbol.for('drizzle:Name')] as string;
   const columns = getTableColumns(table);
 
   const colDefs: string[] = [];

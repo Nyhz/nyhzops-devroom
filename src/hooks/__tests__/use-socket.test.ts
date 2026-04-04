@@ -11,9 +11,9 @@ describe('useSocket', () => {
 
   it('has expected socket methods', () => {
     const { result } = renderHook(() => useSocket());
-    expect(result.current.on).toBeDefined();
-    expect(result.current.off).toBeDefined();
-    expect(result.current.emit).toBeDefined();
+    expect(result.current!.on).toBeDefined();
+    expect(result.current!.off).toBeDefined();
+    expect(result.current!.emit).toBeDefined();
   });
 
   it('returns the same socket across re-renders', () => {
