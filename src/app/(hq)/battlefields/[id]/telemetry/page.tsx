@@ -3,7 +3,6 @@ import { getDatabase } from '@/lib/db/index';
 import { battlefields } from '@/lib/db/schema';
 import {
   getActiveProcesses,
-  getDevServerStatus,
   getResourceUsage,
   getRecentExits,
   getServiceHealth,
@@ -21,9 +20,8 @@ export default async function TelemetryPage({
 }) {
   const { id } = await params;
 
-  const [processes, devServer, resources, exits, health] = await Promise.all([
+  const [processes, resources, exits, health] = await Promise.all([
     getActiveProcesses(id),
-    getDevServerStatus(id),
     getResourceUsage(id),
     getRecentExits(id),
     getServiceHealth(id),
@@ -45,11 +43,6 @@ export default async function TelemetryPage({
       <ActiveProcesses
         battlefieldId={id}
         initialProcesses={processes}
-        initialDevServer={{
-          status: devServer.running ? 'running' : 'stopped',
-          port: devServer.port,
-          pid: devServer.pid,
-        }}
       />
       <ResourceUsage metrics={resources} />
       <RecentExits battlefieldId={id} initialExits={exits} />

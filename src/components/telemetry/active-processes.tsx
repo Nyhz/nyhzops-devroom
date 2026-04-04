@@ -7,26 +7,15 @@ import { TacCard } from '@/components/ui/tac-card';
 import { TacButton } from '@/components/ui/tac-button';
 import { cn } from '@/lib/utils';
 import { useConfirm } from '@/hooks/use-confirm';
-import { useDevServer } from '@/hooks/use-dev-server';
 import {
   killProcess,
   killAllProcesses,
-  startDevServer,
-  stopDevServer,
-  restartDevServer,
 } from '@/actions/telemetry';
 import type { ProcessEntry, MissionStatus } from '@/types';
-
-interface DevServerInitial {
-  status: 'running' | 'stopped' | 'crashed';
-  port: number | null;
-  pid: number | null;
-}
 
 interface ActiveProcessesProps {
   battlefieldId: string;
   initialProcesses: ProcessEntry[];
-  initialDevServer: DevServerInitial;
   className?: string;
 }
 
@@ -58,89 +47,9 @@ function RuntimeCounter({ startedAt }: { startedAt: number | null }) {
   return <span className="text-xs font-mono text-dr-muted tabular-nums">{formatRuntime(startedAt)}</span>;
 }
 
-function DevServerWidget({
-  battlefieldId,
-  initialDevServer,
-}: {
-  battlefieldId: string;
-  initialDevServer: DevServerInitial;
-}) {
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
-  const { status, port, pid } = useDevServer(battlefieldId, initialDevServer);
-
-  function runAction(action: () => Promise<unknown>) {
-    startTransition(async () => {
-      await action();
-      router.refresh();
-    });
-  }
-
-  const isRunning = status === 'running';
-  const isCrashed = status === 'crashed';
-
-  return (
-    <div className="px-3 py-3 border-t border-dr-border flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-      <span className="text-xs font-tactical text-dr-dim shrink-0">DEV SERVER</span>
-
-      {/* Status indicator */}
-      <span
-        className={cn(
-          'text-sm shrink-0',
-          isRunning ? 'text-dr-green' : isCrashed ? 'text-dr-red' : 'text-dr-dim',
-        )}
-      >
-        ●
-      </span>
-
-      {/* Status text */}
-      <span className="text-xs font-mono text-dr-text flex-1 min-w-0">
-        {isRunning && port
-          ? `Running on port ${port}${pid ? ` (PID ${pid})` : ''}`
-          : isCrashed
-            ? 'CRASHED'
-            : 'STOPPED'}
-      </span>
-
-      {/* Action buttons */}
-      {!isRunning && (
-        <TacButton
-          size="sm"
-          variant="success"
-          disabled={isPending}
-          onClick={() => runAction(() => startDevServer(battlefieldId))}
-        >
-          START
-        </TacButton>
-      )}
-      {isRunning && (
-        <>
-          <TacButton
-            size="sm"
-            variant="ghost"
-            disabled={isPending}
-            onClick={() => runAction(() => restartDevServer(battlefieldId))}
-          >
-            RESTART
-          </TacButton>
-          <TacButton
-            size="sm"
-            variant="danger"
-            disabled={isPending}
-            onClick={() => runAction(() => stopDevServer(battlefieldId))}
-          >
-            STOP
-          </TacButton>
-        </>
-      )}
-    </div>
-  );
-}
-
 export function ActiveProcesses({
   battlefieldId,
   initialProcesses,
-  initialDevServer,
   className,
 }: ActiveProcessesProps) {
   const router = useRouter();
@@ -245,9 +154,6 @@ export function ActiveProcesses({
           })}
         </div>
       )}
-
-      {/* Dev Server Widget */}
-      <DevServerWidget battlefieldId={battlefieldId} initialDevServer={initialDevServer} />
 
       <ConfirmDialog />
     </TacCard>

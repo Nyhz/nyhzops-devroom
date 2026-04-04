@@ -18,33 +18,6 @@ import type {
 } from '@/types';
 
 // ---------------------------------------------------------------------------
-// Dev server actions (delegated to console module)
-// ---------------------------------------------------------------------------
-
-import {
-  startDevServer as _startDevServer,
-  stopDevServer as _stopDevServer,
-  restartDevServer as _restartDevServer,
-  getDevServerStatus as _getDevServerStatus,
-} from '@/actions/console';
-
-export async function startDevServer(battlefieldId: string): Promise<void> {
-  return _startDevServer(battlefieldId);
-}
-
-export async function stopDevServer(battlefieldId: string): Promise<void> {
-  return _stopDevServer(battlefieldId);
-}
-
-export async function restartDevServer(battlefieldId: string): Promise<void> {
-  return _restartDevServer(battlefieldId);
-}
-
-export async function getDevServerStatus(battlefieldId: string) {
-  return _getDevServerStatus(battlefieldId);
-}
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
