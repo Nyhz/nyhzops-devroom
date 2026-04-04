@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import simpleGit from 'simple-git';
-import { eq, desc, isNotNull, inArray } from 'drizzle-orm';
+import { eq, desc, and, isNotNull, inArray } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { missions, battlefields } from '@/lib/db/schema';
 import { getRepoPath } from '@/actions/_helpers';
@@ -397,7 +397,10 @@ export async function getQuartermasterLog(
     })
     .from(missions)
     .where(
-      isNotNull(missions.mergeResult),
+      and(
+        eq(missions.battlefieldId, battlefieldId),
+        isNotNull(missions.mergeResult),
+      ),
     )
     .orderBy(desc(missions.mergeTimestamp))
     .limit(limit)

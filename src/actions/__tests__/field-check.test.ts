@@ -300,10 +300,9 @@ describe('pruneAllMerged', () => {
 // ---------------------------------------------------------------------------
 describe('getQuartermasterLog', () => {
   it('returns empty array when no merge records', async () => {
-    // mockAll returns [] by default; mockGet returns the battlefield
-    mockGet
-      .mockReturnValueOnce({ repoPath: TEST_REPO_PATH }) // getRepoPath — not called here
-      .mockReturnValue({ defaultBranch: 'main' });
+    // The query chain goes: select().from().where().orderBy().limit().all().filter()
+    // Default mockAll returns [], mockGet returns battlefield for the second query
+    mockGet.mockReturnValue({ defaultBranch: 'main' });
 
     const result = await getQuartermasterLog(TEST_BATTLEFIELD_ID);
     expect(result).toEqual([]);
@@ -312,8 +311,9 @@ describe('getQuartermasterLog', () => {
   it('maps DB rows to QMLogEntry shape', async () => {
     const ts = Date.now();
 
-    // First call: isNotNull missions query
-    mockAll.mockReturnValueOnce([
+    // The chain: select().from().where().orderBy().limit().all().filter()
+    // mockAll feeds the orderBy().limit().all() chain
+    const rows = [
       {
         id: 'mission-abc',
         title: 'Ghost Protocol',
@@ -322,10 +322,11 @@ describe('getQuartermasterLog', () => {
         mergeConflictFiles: '[]',
         mergeTimestamp: ts,
       },
-    ]);
+    ];
+    mockAll.mockReturnValueOnce(rows);
 
-    // Second call: battlefield defaultBranch
-    mockGet.mockReturnValueOnce({ defaultBranch: 'main' });
+    // battlefield query for defaultBranch
+    mockGet.mockReturnValue({ defaultBranch: 'main' });
 
     const result = await getQuartermasterLog(TEST_BATTLEFIELD_ID);
 
