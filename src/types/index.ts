@@ -311,3 +311,103 @@ export interface SystemMetrics {
   uptime: number;
   assets: { active: number; max: number };
 }
+
+// ---------------------------------------------------------------------------
+// Environment Variable Manager
+// ---------------------------------------------------------------------------
+export interface EnvFileInfo {
+  filename: string;
+  inGitignore: boolean;
+  varCount: number;
+}
+
+export interface EnvVariable {
+  key: string;
+  value: string;
+  comment?: string;
+  lineNumber: number;
+}
+
+// ---------------------------------------------------------------------------
+// Dependency Manager
+// ---------------------------------------------------------------------------
+export type PackageManager = 'pnpm' | 'npm' | 'yarn';
+
+export interface DepEntry {
+  name: string;
+  version: string;
+  isDev: boolean;
+}
+
+export interface DepsResult {
+  packageManager: PackageManager;
+  deps: DepEntry[];
+  devDeps: DepEntry[];
+}
+
+export interface OutdatedDep {
+  name: string;
+  current: string;
+  wanted: string;
+  latest: string;
+  isDev: boolean;
+}
+
+export interface AuditVulnerability {
+  name: string;
+  severity: string;
+  title: string;
+  url?: string;
+}
+
+export interface AuditResult {
+  vulnerabilities: AuditVulnerability[];
+  summary: {
+    critical: number;
+    high: number;
+    moderate: number;
+    low: number;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Test Runner
+// ---------------------------------------------------------------------------
+export type TestFramework = 'vitest' | 'jest' | 'playwright' | 'mocha';
+
+export type TestRunStatus = 'running' | 'passed' | 'failed' | 'error';
+
+export interface TestRun {
+  id: string;
+  battlefieldId: string;
+  framework: TestFramework;
+  command: string;
+  pattern?: string;
+  status: TestRunStatus;
+  totalTests: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  durationMs: number;
+  coveragePercent?: number;
+  results?: TestSuiteResult[];
+  createdAt: number;
+}
+
+export interface TestSuiteResult {
+  name: string;
+  file: string;
+  tests: TestCaseResult[];
+}
+
+export interface TestCaseResult {
+  name: string;
+  status: 'passed' | 'failed' | 'skipped';
+  durationMs: number;
+  error?: {
+    message: string;
+    expected?: string;
+    actual?: string;
+    stack?: string;
+  };
+}
