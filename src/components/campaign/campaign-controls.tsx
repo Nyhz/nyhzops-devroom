@@ -10,8 +10,8 @@ import {
   abandonCampaign,
   completeCampaign,
   deleteCampaign,
-  backToDraft,
 } from '@/actions/campaign';
+import { backToDraft } from '@/actions/campaign-plan';
 
 interface CampaignControlsProps {
   campaignId: string;

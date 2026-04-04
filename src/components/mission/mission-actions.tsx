@@ -14,7 +14,7 @@ import {
   retryMerge,
   retryReview,
 } from '@/actions/mission';
-import { tacticalOverride, skipMission, commanderOverride } from '@/actions/campaign';
+import { tacticalOverride, skipMission, commanderOverride } from '@/actions/campaign-overrides';
 import { tacTooltip } from '@/components/ui/tac-tooltip';
 
 interface MissionActionsProps {

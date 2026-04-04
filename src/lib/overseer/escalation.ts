@@ -129,7 +129,7 @@ export async function handleTelegramCallback(
         if (entityType === 'mission') {
           // Dynamic import to avoid circular deps
           const { getMission } = await import('@/actions/mission');
-          const { tacticalOverride } = await import('@/actions/campaign');
+          const { tacticalOverride } = await import('@/actions/campaign-overrides');
           const mission = await getMission(entityId);
           if (mission) {
             await tacticalOverride(entityId, mission.briefing);
@@ -163,7 +163,7 @@ export async function handleTelegramCallback(
 
       case 'skip': {
         if (entityType === 'campaign') {
-          const { skipAndContinueCampaign } = await import('@/actions/campaign');
+          const { skipAndContinueCampaign } = await import('@/actions/campaign-overrides');
           await skipAndContinueCampaign(entityId);
           await editMessage(messageId, '\u23e9 *Commander ordered skip & continue.* Advancing to next phase.');
         }

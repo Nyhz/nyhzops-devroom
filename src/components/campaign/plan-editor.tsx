@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacCard } from '@/components/ui/tac-card';
 import { TacTextarea } from '@/components/ui/tac-input';
-import { updateBattlePlan } from '@/actions/campaign';
+import { updateBattlePlan } from '@/actions/campaign-plan';
 import { phaseId, parseMissionId, parsePhaseId } from './plan-editor/plan-editor-utils';
 import { SortablePhaseItem } from './plan-editor/sortable-phase-item';
 import { PhaseOverlay } from './plan-editor/sortable-phase-item';

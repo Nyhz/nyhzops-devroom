@@ -15,7 +15,7 @@ import {
 import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
 import { buildBriefingPrompt } from './briefing-prompt';
-import { insertPlanFromJSON } from '@/actions/campaign';
+import { insertPlanFromJSON } from '@/actions/campaign-plan';
 import type { PlanJSON } from '@/types';
 import { detectCycle } from '@/lib/utils/dependency-graph';
 

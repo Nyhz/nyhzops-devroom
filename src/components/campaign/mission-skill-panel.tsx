@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { SkillToggleList } from '@/components/asset/skill-toggle-list';
-import { updateMissionSkillOverrides } from '@/actions/campaign';
+import { updateMissionSkillOverrides } from '@/actions/campaign-overrides';
 import {
   TacModal,
   TacModalContent,

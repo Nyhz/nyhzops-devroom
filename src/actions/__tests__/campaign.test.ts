@@ -82,8 +82,6 @@ import {
   listCampaigns,
   updateCampaign,
   deleteCampaign,
-  backToDraft,
-  updateBattlePlan,
   launchCampaign,
   completeCampaign,
   abandonCampaign,
@@ -92,11 +90,17 @@ import {
   runTemplate,
   listTemplates,
   resumeCampaign,
+} from '@/actions/campaign';
+import {
+  backToDraft,
+  updateBattlePlan,
+} from '@/actions/campaign-plan';
+import {
   skipAndContinueCampaign,
   tacticalOverride,
   commanderOverride,
   skipMission,
-} from '@/actions/campaign';
+} from '@/actions/campaign-overrides';
 
 // ---------------------------------------------------------------------------
 // Lifecycle

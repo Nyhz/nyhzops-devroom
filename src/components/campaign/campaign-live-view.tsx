@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCampaignComms } from '@/hooks/use-campaign-comms';
 import { PhaseTimeline } from '@/components/campaign/phase-timeline';
 import { TacButton } from '@/components/ui/tac-button';
-import { retryPhaseDebrief, skipPhaseDebrief } from '@/actions/campaign';
+import { retryPhaseDebrief, skipPhaseDebrief } from '@/actions/campaign-overrides';
 import { toast } from 'sonner';
 import type { CampaignStatus } from '@/types';
 
