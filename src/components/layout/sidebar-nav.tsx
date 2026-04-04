@@ -24,11 +24,7 @@ const OPS_TOOLS_ITEMS: NavItem[] = [
   { icon: "◇", label: "ENV", segment: "env" },
   { icon: "◎", label: "DEPS", segment: "deps" },
   { icon: "▸", label: "TESTS", segment: "tests" },
-];
-
-const BOTTOM_ITEMS: NavItem[] = [
   { icon: "⏱", label: "SCHEDULE", segment: "schedule" },
-  { icon: "⚙", label: "CONFIG", segment: "config" },
 ];
 
 const STORAGE_KEY = "sidebar-ops-tools-collapsed";
@@ -42,11 +38,13 @@ function subscribeToStorage(callback: () => void) {
 }
 
 function getCollapsedSnapshot(): boolean {
-  return localStorage.getItem(STORAGE_KEY) === "true";
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored === null) return true;
+  return stored === "true";
 }
 
 function getCollapsedServerSnapshot(): boolean {
-  return false;
+  return true;
 }
 
 interface SidebarNavProps {
@@ -147,8 +145,6 @@ export function SidebarNav({ missionCounts, campaignCounts }: SidebarNavProps) {
       </button>
 
       {isOpen && OPS_TOOLS_ITEMS.map((item) => renderItem(item, true))}
-
-      {BOTTOM_ITEMS.map((item) => renderItem(item))}
     </nav>
   );
 }
