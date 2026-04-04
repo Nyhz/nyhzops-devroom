@@ -32,10 +32,22 @@ fi
 
 echo "[DEVROOM] Starting in ${MODE} mode..."
 
+# Ensure ALL child processes (pnpm → tsx → node) die when this script is killed.
+# Without this, launchctl kickstart -k kills only this bash process and the
+# node server becomes an orphan holding the port — restarts silently fail.
+cleanup() {
+  kill -- -$$ 2>/dev/null || true
+}
+trap cleanup SIGTERM SIGINT EXIT
+
 if [ "$MODE" = "dev" ]; then
-  exec pnpm dev
+  pnpm dev &
 else
   echo "[DEVROOM] Building for production..."
   pnpm build
-  exec pnpm start
+  pnpm start &
 fi
+
+# Wait for the background process — this keeps the script alive so launchd
+# tracks this PID. The trap ensures children are killed on SIGTERM.
+wait

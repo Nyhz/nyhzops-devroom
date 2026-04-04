@@ -12,6 +12,7 @@ import {
   deployMission,
   removeMission,
   retryMerge,
+  retryReview,
 } from '@/actions/mission';
 import { tacticalOverride, skipMission, commanderOverride } from '@/actions/campaign';
 import { tacTooltip } from '@/components/ui/tac-tooltip';
@@ -25,6 +26,7 @@ interface MissionActionsProps {
   briefing?: string;
   worktreeBranch?: string | null;
   debrief?: string | null;
+  compromiseReason?: string | null;
 }
 
 export function MissionActions({
@@ -36,6 +38,7 @@ export function MissionActions({
   briefing,
   worktreeBranch,
   debrief,
+  compromiseReason,
 }: MissionActionsProps) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
@@ -50,7 +53,8 @@ export function MissionActions({
   const canContinue =
     (status === 'accomplished' || status === 'compromised') && sessionId != null;
   const canTacticalOverride = status === 'compromised' || status === 'abandoned';
-  const canRetryMerge = (status === 'compromised' || status === 'abandoned') && !!worktreeBranch;
+  const canRetryReview = status === 'compromised' && (compromiseReason === 'escalated' || compromiseReason === 'review-failed') && !!debrief;
+  const canRetryMerge = (status === 'compromised' || status === 'abandoned') && !!worktreeBranch && compromiseReason === 'merge-failed';
   const canSkipMission = status === 'compromised' && !!campaignId;
 
   const handleAbandon = async () => {
@@ -209,6 +213,27 @@ export function MissionActions({
               disabled={isPending}
             >
               APPROVE
+            </TacButton>
+          )}
+          {canRetryReview && (
+            <TacButton
+              variant="primary"
+              {...tacTooltip('Re-run the Overseer review. Use when the review process failed (not the work itself).')}
+              onClick={async () => {
+                setIsPending(true);
+                try {
+                  await retryReview(missionId);
+                  toast.success('Overseer review re-initiated');
+                  router.refresh();
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'Retry review failed');
+                } finally {
+                  setIsPending(false);
+                }
+              }}
+              disabled={isPending}
+            >
+              {isPending ? 'REVIEWING...' : 'RETRY REVIEW'}
             </TacButton>
           )}
           {canRetryMerge && (

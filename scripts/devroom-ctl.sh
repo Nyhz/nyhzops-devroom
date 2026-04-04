@@ -26,7 +26,9 @@ DIM='\033[0;90m'
 RESET='\033[0m'
 
 is_running() {
-  launchctl print "${GUI_DOMAIN}/${SERVICE_LABEL}" &>/dev/null
+  # Try launchctl first, fall back to checking if port 7777 is in use
+  launchctl print "${GUI_DOMAIN}/${SERVICE_LABEL}" &>/dev/null \
+    || lsof -i :7777 -sTCP:LISTEN &>/dev/null
 }
 
 get_mode() {
@@ -38,9 +40,15 @@ get_mode() {
 }
 
 get_pid() {
-  launchctl print "${GUI_DOMAIN}/${SERVICE_LABEL}" 2>/dev/null \
+  # Try launchctl first, fall back to lsof on port 7777
+  local pid
+  pid=$(launchctl print "${GUI_DOMAIN}/${SERVICE_LABEL}" 2>/dev/null \
     | grep -m1 "pid =" \
-    | awk '{print $3}'
+    | awk '{print $3}')
+  if [ -z "$pid" ] || [ "$pid" = "0" ]; then
+    pid=$(lsof -i :7777 -sTCP:LISTEN -t 2>/dev/null | head -1)
+  fi
+  echo "$pid"
 }
 
 get_uptime() {
@@ -74,7 +82,16 @@ cmd_stop() {
     return
   fi
   echo "Stopping DEVROOM..."
-  launchctl bootout "${GUI_DOMAIN}/${SERVICE_LABEL}"
+  # bootout unloads the service so KeepAlive won't respawn it.
+  # If bootout fails (e.g. headless xbar context), fall back to kill.
+  if ! launchctl bootout "${GUI_DOMAIN}/${SERVICE_LABEL}" 2>/dev/null; then
+    local pid
+    pid=$(get_pid)
+    if [ -n "$pid" ] && [ "$pid" != "0" ]; then
+      kill -- -"$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+      sleep 1
+    fi
+  fi
   echo -e "${DIM}DEVROOM stopped.${RESET}"
 }
 
@@ -85,7 +102,13 @@ cmd_restart() {
     return
   fi
   echo "Restarting DEVROOM..."
-  launchctl kickstart -k "${GUI_DOMAIN}/${SERVICE_LABEL}"
+  # kickstart -k sends SIGTERM and restarts the service.
+  # If it fails (headless xbar context), fall back to stop + start.
+  if ! launchctl kickstart -k "${GUI_DOMAIN}/${SERVICE_LABEL}" 2>/dev/null; then
+    cmd_stop
+    sleep 1
+    cmd_start
+  fi
   echo -e "${GREEN}DEVROOM restarted in $(get_mode) mode.${RESET}"
 }
 

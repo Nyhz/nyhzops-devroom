@@ -9,6 +9,7 @@ SERVICE_LABEL="com.devroom.app"
 GUI_DOMAIN="gui/$(id -u)"
 MODE_FILE="$HOME/.devroom/mode"
 CTL="$HOME/devroom/nyhzops-devroom/scripts/devroom-ctl.sh"
+XRUN="$HOME/devroom/nyhzops-devroom/scripts/devroom-xbar-run.sh"
 LOG_FILE="$HOME/.devroom/logs/devroom.log"
 STARTUP_GRACE_SECONDS=30
 
@@ -91,7 +92,7 @@ case $STATE in
     echo "● DEVROOM | color=#ff4444 size=13"
     ;;
   stopped)
-    echo "○ DEVROOM | color=#666666 size=13"
+    echo "○ DEVROOM | color=#ff4444 size=13"
     ;;
 esac
 
@@ -142,14 +143,14 @@ echo "---"
 # --- Actions ---
 if [ "$STATE" = "healthy" ] || [ "$STATE" = "starting" ] || [ "$STATE" = "crashed" ]; then
   if [ "$MODE" = "dev" ]; then
-    echo "Switch to Prod | bash=$CTL param1=prod terminal=false refresh=true"
+    echo "Switch to Prod | bash=$XRUN param1=prod terminal=false refresh=true"
   else
-    echo "Switch to Dev | bash=$CTL param1=dev terminal=false refresh=true"
+    echo "Switch to Dev | bash=$XRUN param1=dev terminal=false refresh=true"
   fi
-  echo "Restart | bash=$CTL param1=restart terminal=false refresh=true"
-  echo "Stop | bash=$CTL param1=stop terminal=false refresh=true"
+  echo "Restart | bash=$XRUN param1=restart terminal=false refresh=true"
+  echo "Stop | bash=$XRUN param1=stop terminal=false refresh=true"
 else
-  echo "Start | bash=$CTL param1=start terminal=false refresh=true"
+  echo "Start | bash=$XRUN param1=start terminal=false refresh=true"
 fi
 
 echo "---"

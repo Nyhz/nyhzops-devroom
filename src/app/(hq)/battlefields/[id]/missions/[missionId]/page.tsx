@@ -89,6 +89,7 @@ export default async function MissionDetailPage({
         campaignId={mission.campaignId}
         briefing={mission.briefing}
         worktreeBranch={mission.worktreeBranch}
+        compromiseReason={mission.compromiseReason}
       />
 
       {/* Follow-Up Suggestions */}

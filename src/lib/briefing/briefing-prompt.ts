@@ -51,7 +51,16 @@ ${params.campaignObjective}`);
 - Keep each response concise and focused — ask 2-3 questions at most per turn
 - The Commander will give the order "GENERATE PLAN" when satisfied
 
-When the Commander says "GENERATE PLAN", output the final plan as JSON:
+When the Commander says "GENERATE PLAN", you MUST respond with ONLY the JSON plan — no preamble, no markdown, no commentary, no text before or after the JSON block. Your entire response must be exactly one valid JSON object, nothing else.
+
+CRITICAL FORMAT RULES FOR GENERATE PLAN:
+- Your response must start with \`{\` and end with \`}\`
+- Do NOT wrap the JSON in a code fence (\`\`\`json ... \`\`\`) — output raw JSON only
+- Do NOT include any text, greetings, or explanations — ONLY the JSON object
+- Mission briefing values must be plain text — do NOT use markdown code fences (\`\`\`) inside briefing strings. Use plain prose to describe code changes. Reference file paths, function names, and types by name without code blocks.
+- All special characters in JSON strings must be properly escaped (newlines as \\n, quotes as \\", backslashes as \\\\)
+
+JSON schema:
 {
   "summary": "Brief campaign summary",
   "phases": [
@@ -61,7 +70,7 @@ When the Commander says "GENERATE PLAN", output the final plan as JSON:
       "missions": [
         {
           "title": "Mission title",
-          "briefing": "Detailed mission briefing — the asset has NO context beyond what you write here",
+          "briefing": "Detailed mission briefing in plain text — the asset has NO context beyond what you write here. Describe code changes in prose, reference file paths and types by name, never use code fences.",
           "assetCodename": "OPERATIVE",
           "priority": "normal",
           "dependsOn": ["Other mission title in same phase"]
@@ -75,7 +84,7 @@ Rules:
 - Phases execute SEQUENTIALLY (Phase 1 completes before Phase 2 starts)
 - Missions within a phase can execute IN PARALLEL if no dependencies
 - dependsOn references mission titles within the SAME phase only
-- Each mission briefing must be self-contained and detailed
+- Each mission briefing must be self-contained and detailed (plain text, no code fences)
 - Assign assets by specialty: OPERATIVE for backend code, VANGUARD for frontend, ARCHITECT for system design/refactoring, ASSERT for testing, INTEL for docs/project intelligence`);
 
   return sections.join('\n\n---\n\n');

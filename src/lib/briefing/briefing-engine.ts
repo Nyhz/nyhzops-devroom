@@ -124,8 +124,12 @@ export async function sendBriefingMessage(
   const assetArgs = buildAssetCliArgs(generalAsset);
   const filteredAssetArgs = filterFlags(assetArgs, ['--max-turns']);
 
-  // 6. Build CLI args
+  // 6. Detect GENERATE PLAN — uses a completely fresh process (no --resume)
+  // so the GENERAL gets up-to-date format instructions instead of relying on
+  // the old session's system prompt which may lack strict JSON requirements.
   const isFirstMessage = !session.sessionId;
+  const isGeneratePlan = message.trim().toUpperCase().includes('GENERATE PLAN');
+
   const cliArgs: string[] = [
     '--print',
     '--verbose',
@@ -136,14 +140,51 @@ export async function sendBriefingMessage(
     ...filteredAssetArgs,
   ];
 
-  if (!isFirstMessage && session.sessionId) {
+  // Resume the existing session for normal conversation messages only.
+  // GENERATE PLAN always starts fresh — the old session's system prompt doesn't
+  // include strict JSON format rules, so the GENERAL ignores them.
+  if (!isFirstMessage && session.sessionId && !isGeneratePlan) {
     cliArgs.push('--resume', session.sessionId);
   }
 
   // 7. Build stdin content
   let stdinContent: string;
 
-  if (isFirstMessage) {
+  if (isGeneratePlan && !isFirstMessage) {
+    // Build a self-contained prompt with conversation history and strict format rules.
+    const history = db
+      .select({ role: briefingMessages.role, content: briefingMessages.content })
+      .from(briefingMessages)
+      .where(eq(briefingMessages.briefingId, session!.id))
+      .all();
+
+    const conversationLines = history.map((m) =>
+      m.role === 'commander' ? `Commander: ${m.content}` : `GENERAL: ${m.content.slice(0, 2000)}`,
+    );
+
+    stdinContent = `You are GENERAL, a campaign planning specialist for NYHZ OPS DEVROOM.
+Campaign: "${campaign.name}" | Battlefield: ${battlefield.codename}
+
+CAMPAIGN OBJECTIVE:
+${campaign.objective}
+
+AVAILABLE ASSETS:
+${allAssets.filter(a => a.status === 'active' && a.codename !== 'GENERAL').map(a => `- ${a.codename}: ${a.specialty}`).join('\n')}
+
+BRIEFING CONVERSATION SUMMARY:
+${conversationLines.join('\n\n')}
+
+---
+
+The Commander has issued GENERATE PLAN. Output ONLY a single raw JSON object. Your ENTIRE response must start with { and end with } — no markdown, no code fences, no backticks, no preamble, no commentary.
+
+Mission briefing values must be PLAIN TEXT — do NOT use markdown code fences (\`\`\`) inside briefing strings. Describe code changes in prose, reference file paths and type names directly.
+
+JSON schema:
+{"summary":"...","phases":[{"name":"...","objective":"...","missions":[{"title":"...","briefing":"plain text only","assetCodename":"OPERATIVE","priority":"normal","dependsOn":["same-phase mission title"]}]}]}
+
+Rules: phases execute sequentially, missions within a phase run in parallel unless linked by dependsOn (same-phase only). Each briefing must be self-contained — the asset has NO other context.`;
+  } else if (isFirstMessage) {
     const systemPrompt = buildBriefingPrompt({
       campaignName: campaign.name,
       campaignObjective: campaign.objective,
@@ -277,47 +318,65 @@ export async function sendBriefingMessage(
 
       const responseText = fullResponse.trim();
 
-      // Store GENERAL's response
-      const msgId = generateId();
-      db.insert(briefingMessages)
-        .values({
-          id: msgId,
-          briefingId: session!.id,
-          role: 'general',
-          content: responseText,
-          timestamp: Date.now(),
-        })
-        .run();
-
-      io.to(room).emit('briefing:complete', { campaignId, messageId: msgId, content: responseText });
-
-      // Check if Commander requested plan generation
-      const normalizedMessage = message.trim().toUpperCase();
-      if (normalizedMessage.includes('GENERATE PLAN')) {
+      // For GENERATE PLAN: extract the plan first, then store a formatted
+      // summary in the chat instead of the raw JSON blob.
+      let storedContent = responseText;
+      if (isGeneratePlan) {
+        console.log(`[BRIEFING] GENERATE PLAN triggered for campaign ${campaignId}`);
+        console.log(`[BRIEFING] Response length: ${responseText.length}, starts with: ${JSON.stringify(responseText.slice(0, 40))}`);
         try {
           const plan = extractPlanJSON(responseText);
           if (plan) {
+            const totalMissions = plan.phases.reduce((s, p) => s + p.missions.length, 0);
+            console.log(`[BRIEFING] Plan extracted: ${plan.phases.length} phases, ${totalMissions} missions`);
             insertPlanFromBriefing(campaignId, campaign.battlefieldId, plan);
+            console.log(`[BRIEFING] Plan inserted into DB`);
 
             // Transition campaign to planning
             db.update(campaigns)
               .set({ status: 'planning', updatedAt: Date.now() })
               .where(eq(campaigns.id, campaignId))
               .run();
+            console.log(`[BRIEFING] Campaign status → planning`);
+
+            // Format a readable summary for the chat instead of raw JSON
+            storedContent = formatPlanSummary(plan);
 
             io.to(room).emit('briefing:plan-ready', {
               campaignId,
               plan,
             });
+            console.log(`[BRIEFING] briefing:plan-ready emitted to room ${room}`);
+          } else {
+            console.error(`[BRIEFING] extractPlanJSON returned null for campaign ${campaignId}`);
+            io.to(room).emit('briefing:error', {
+              campaignId,
+              error: 'Could not extract a valid JSON plan from GENERAL\'s response. Ask GENERAL to output the plan as a single JSON object with a "summary" key.',
+            });
           }
         } catch (err) {
           const planError = err instanceof Error ? err.message : String(err);
+          console.error(`[BRIEFING] Plan extraction/insertion failed for campaign ${campaignId}:`, planError);
           io.to(room).emit('briefing:error', {
             campaignId,
             error: `Plan extraction failed: ${planError}`,
           });
         }
       }
+
+      // Store GENERAL's response (formatted summary if plan succeeded, raw otherwise)
+      const msgId = generateId();
+      db.insert(briefingMessages)
+        .values({
+          id: msgId,
+          briefingId: session!.id,
+          role: 'general',
+          content: storedContent,
+          timestamp: Date.now(),
+        })
+        .run();
+
+      io.to(room).emit('briefing:complete', { campaignId, messageId: msgId, content: storedContent });
 
       resolve();
     });
@@ -378,48 +437,172 @@ export function deleteBriefingData(campaignId: string): void {
 }
 
 // ---------------------------------------------------------------------------
+// formatPlanSummary — render a PlanJSON as readable markdown for the chat
+// ---------------------------------------------------------------------------
+
+function formatPlanSummary(plan: PlanJSON): string {
+  const totalMissions = plan.phases.reduce((s, p) => s + p.missions.length, 0);
+  const lines: string[] = [];
+
+  lines.push(`**CAMPAIGN PLAN LOCKED** — ${plan.phases.length} phases, ${totalMissions} missions`);
+  lines.push('');
+  lines.push(`> ${plan.summary}`);
+  lines.push('');
+
+  for (let i = 0; i < plan.phases.length; i++) {
+    const phase = plan.phases[i];
+    lines.push(`**Phase ${i + 1}: ${phase.name}**`);
+    if (phase.objective) {
+      lines.push(`*${phase.objective}*`);
+    }
+    for (const m of phase.missions) {
+      const deps = m.dependsOn && m.dependsOn.length > 0
+        ? ` ← ${m.dependsOn.join(', ')}`
+        : '';
+      lines.push(`- ${m.title} — \`${m.assetCodename}\` [${m.priority || 'normal'}]${deps}`);
+    }
+    lines.push('');
+  }
+
+  lines.push('*Transitioning to planning phase...*');
+  return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
 // extractPlanJSON — find and parse the JSON plan from GENERAL's response
 // ---------------------------------------------------------------------------
 
 function extractPlanJSON(response: string): PlanJSON | null {
-  // Try to find JSON block in markdown code fence
-  const fenceMatch = response.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (fenceMatch) {
+  // Best case: the response is pure JSON (GENERAL followed instructions exactly).
+  // Try parsing the whole thing first, trimming any whitespace.
+  const trimmed = response.trim();
+  if (trimmed.startsWith('{')) {
     try {
-      return JSON.parse(fenceMatch[1]) as PlanJSON;
-    } catch { /* fall through to raw parse */ }
+      const direct = JSON.parse(trimmed) as PlanJSON;
+      if (direct.summary && direct.phases) return direct;
+    } catch { /* fall through to extraction */ }
   }
 
-  // Try to find a raw JSON object with "phases" key
-  const jsonStart = response.indexOf('{"summary"');
-  if (jsonStart === -1) {
-    const altStart = response.indexOf('{\n  "summary"');
-    if (altStart !== -1) {
-      return tryParseFrom(response, altStart);
+  // Find the start of the plan JSON — look for {"summary" which is always the
+  // first key. This works whether the JSON is inside a code fence or raw.
+  // We can't rely on code fence regex because briefing text inside the JSON
+  // often contains its own ``` code blocks, breaking lazy/greedy fence matching.
+  // Try all occurrences — GENERAL may output a draft plan before the final one,
+  // and earlier ones can be malformed. Iterate from last to first (the final
+  // plan in the response is typically the most complete).
+  const needles = ['{"summary"', '{\n  "summary"'];
+  const candidates: number[] = [];
+  for (const needle of needles) {
+    let searchFrom = 0;
+    while (true) {
+      const idx = response.indexOf(needle, searchFrom);
+      if (idx === -1) break;
+      candidates.push(idx);
+      searchFrom = idx + needle.length;
     }
-    return null;
   }
 
-  return tryParseFrom(response, jsonStart);
+  // Sort descending — try the last occurrence first (most likely the final plan)
+  candidates.sort((a, b) => b - a);
+  for (const start of candidates) {
+    const result = tryParseFrom(response, start);
+    if (result) return result;
+  }
+
+  return null;
 }
 
 function tryParseFrom(text: string, startIndex: number): PlanJSON | null {
-  // Find matching closing brace
+  // Find matching closing brace, respecting JSON string escaping.
+  // Briefing text inside JSON strings can contain { } characters,
+  // so we must track whether we're inside a string to avoid miscounting.
   let depth = 0;
+  let inString = false;
+  let escape = false;
   for (let i = startIndex; i < text.length; i++) {
-    if (text[i] === '{') depth++;
-    else if (text[i] === '}') {
+    const ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') {
       depth--;
       if (depth === 0) {
+        const raw = text.slice(startIndex, i + 1);
         try {
-          return JSON.parse(text.slice(startIndex, i + 1)) as PlanJSON;
+          return JSON.parse(raw) as PlanJSON;
         } catch {
-          return null;
+          // LLMs often produce JSON with literal newlines/tabs inside string
+          // values instead of proper \n \t escapes. Sanitize and retry.
+          const sanitized = sanitizeJsonStrings(raw);
+          try {
+            return JSON.parse(sanitized) as PlanJSON;
+          } catch {
+            return null;
+          }
         }
       }
     }
   }
   return null;
+}
+
+/**
+ * Walk a JSON string and escape control characters (newlines, tabs, etc.)
+ * that appear unescaped inside string literals. LLMs routinely produce these.
+ */
+function sanitizeJsonStrings(raw: string): string {
+  const out: string[] = [];
+  let inString = false;
+  let escape = false;
+
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+
+    if (escape) {
+      escape = false;
+      out.push(ch);
+      continue;
+    }
+
+    if (ch === '\\' && inString) {
+      escape = true;
+      out.push(ch);
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = !inString;
+      out.push(ch);
+      continue;
+    }
+
+    if (inString) {
+      const code = ch.charCodeAt(0);
+      if (code < 0x20) {
+        // Replace control characters with their JSON escape sequences
+        if (ch === '\n') out.push('\\n');
+        else if (ch === '\r') out.push('\\r');
+        else if (ch === '\t') out.push('\\t');
+        else out.push(`\\u${code.toString(16).padStart(4, '0')}`);
+        continue;
+      }
+    }
+
+    out.push(ch);
+  }
+
+  return out.join('');
 }
 
 // ---------------------------------------------------------------------------

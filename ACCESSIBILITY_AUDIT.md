@@ -549,7 +549,7 @@ Additionally, `text-dr-muted` (#6a6a7a) produces ~3.8:1 contrast on dark backgro
 | 160 | `text-dr-dim font-tactical text-xs` | CONTRAST+SIZE | HIGH | Empty state | `text-dr-muted text-sm` |
 | 178-189 | `text-[10px] text-dr-dim/muted` | CONTRAST+SIZE | HIGH | Mission metadata (multiple) | `text-xs text-dr-muted` |
 
-#### `src/app/(hq)/captain-log/page.tsx`
+#### `src/app/(hq)/overseer-log/page.tsx`
 
 | Line | Classes | Cat | Sev | Issue | Fix |
 |------|---------|-----|-----|-------|-----|

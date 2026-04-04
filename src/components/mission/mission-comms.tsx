@@ -26,6 +26,7 @@ interface MissionCommsProps {
   campaignId?: string | null;
   briefing?: string;
   worktreeBranch?: string | null;
+  compromiseReason?: string | null;
 }
 
 const TERMINAL_STATUSES: MissionStatus[] = ['accomplished', 'compromised', 'abandoned'];
@@ -42,6 +43,7 @@ export function MissionComms({
   campaignId,
   briefing,
   worktreeBranch,
+  compromiseReason,
 }: MissionCommsProps) {
   const router = useRouter();
   const { logs, status, debrief, tokens } = useMissionComms(
@@ -169,6 +171,7 @@ export function MissionComms({
         briefing={briefing}
         worktreeBranch={worktreeBranch}
         debrief={liveDebrief}
+        compromiseReason={compromiseReason}
       />
     </div>
   );

@@ -537,6 +537,7 @@ export async function retryMerge(missionId: string): Promise<void> {
 
       db.update(missions).set({
         status: 'accomplished',
+        compromiseReason: null,
         completedAt: Date.now(),
         updatedAt: Date.now(),
       }).where(eq(missions.id, missionId)).run();
@@ -574,6 +575,40 @@ export async function retryMerge(missionId: string): Promise<void> {
   }
 
   revalidatePath(`/battlefields/${mission.battlefieldId}/missions/${missionId}`);
+}
+
+// ---------------------------------------------------------------------------
+// retryReview — Re-run the Overseer review for a mission that failed at review
+// ---------------------------------------------------------------------------
+export async function retryReview(missionId: string): Promise<void> {
+  const db = getDatabase();
+  const mission = getOrThrow(missions, missionId, 'retryReview');
+
+  if (mission.status !== 'compromised') {
+    throw new Error('Can only retry review on compromised missions');
+  }
+  if (mission.compromiseReason !== 'escalated' && mission.compromiseReason !== 'review-failed') {
+    throw new Error('Mission did not fail at the review step');
+  }
+  if (!mission.debrief) {
+    throw new Error('Mission has no debrief to review');
+  }
+
+  // Reset to reviewing status
+  db.update(missions).set({
+    status: 'reviewing',
+    compromiseReason: null,
+    updatedAt: Date.now(),
+  }).where(eq(missions.id, missionId)).run();
+
+  emitStatusChange('mission', missionId, 'reviewing');
+  revalidatePath(`/battlefields/${mission.battlefieldId}/missions/${missionId}`);
+
+  // Re-run the Overseer review (async — don't await in the action)
+  const { runOverseerReview } = await import('@/lib/overseer/review-handler');
+  runOverseerReview(missionId).catch((err) => {
+    console.error(`[retryReview] Overseer review failed for ${missionId}:`, err);
+  });
 }
 
 // ---------------------------------------------------------------------------
