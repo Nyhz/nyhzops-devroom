@@ -54,6 +54,14 @@ export function setupSocketIO(io: SocketIOServer) {
       socket.leave(`tests:${battlefieldId}`);
     });
 
+    socket.on('telemetry:subscribe', (battlefieldId: string) => {
+      socket.join(`telemetry:${battlefieldId}`);
+    });
+
+    socket.on('telemetry:unsubscribe', (battlefieldId: string) => {
+      socket.leave(`telemetry:${battlefieldId}`);
+    });
+
     socket.on('devserver:unsubscribe', (battlefieldId: string) => {
       socket.leave(`devserver:${battlefieldId}`);
     });
