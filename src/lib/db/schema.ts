@@ -49,6 +49,9 @@ export const missions = sqliteTable('missions', {
   reviewAttempts: integer('review_attempts').default(0),
   compromiseReason: text('compromise_reason'),
   mergeRetryAt: integer('merge_retry_at'),
+  mergeResult: text('merge_result'),           // 'clean' | 'conflict_resolved' | 'failed' | null
+  mergeConflictFiles: text('merge_conflict_files'), // JSON array of file paths
+  mergeTimestamp: integer('merge_timestamp'),
   skillOverrides: text('skill_overrides'),
   durationMs: integer('duration_ms').default(0),
   startedAt: integer('started_at'),

@@ -240,6 +240,121 @@ export interface MergeResult {
   error?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Merge result metadata
+// ---------------------------------------------------------------------------
+export type MergeResultType = 'clean' | 'conflict_resolved' | 'failed';
+
+// ---------------------------------------------------------------------------
+// Field Check types
+// ---------------------------------------------------------------------------
+export type WorktreeState = 'active' | 'stale' | 'orphaned';
+
+export interface WorktreeEntry {
+  path: string;
+  branch: string;
+  linkedMission: { id: string; codename: string; status: MissionStatus } | null;
+  age: number;
+  diskUsage: number;
+  state: WorktreeState;
+}
+
+export interface BranchStats {
+  total: number;
+  merged: number;
+  unmerged: number;
+  active: number;
+}
+
+export type BranchProblem = 'merged' | 'stale' | 'diverged';
+
+export interface ProblemBranch {
+  name: string;
+  problem: BranchProblem;
+  lastCommitAge: number;
+  ahead?: number;
+  behind?: number;
+}
+
+export interface QMLogEntry {
+  missionId: string;
+  missionCodename: string;
+  sourceBranch: string;
+  targetBranch: string;
+  result: MergeResultType;
+  conflictFiles: string[];
+  resolutionSummary: string | null;
+  timestamp: number;
+}
+
+export interface RepoVitals {
+  repoSize: number;
+  totalCommits: number;
+  lastCommit: { message: string; timestamp: number } | null;
+  worktreeDisk: number;
+  mainBranch: string;
+  isDirty: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Telemetry types
+// ---------------------------------------------------------------------------
+export interface ProcessEntry {
+  missionId: string;
+  missionCodename: string;
+  asset: string;
+  pid: number;
+  startedAt: number;
+  status: MissionStatus;
+  memoryRss: number;
+  lastOutputAt: number;
+}
+
+export interface ResourceMetrics {
+  agentSlots: { active: number; max: number };
+  worktreeDisk: number;
+  tempDisk: number;
+  dbSize: number;
+  socketConnections: number;
+}
+
+export type FailureType = 'timeout' | 'auth_failure' | 'cli_error' | 'stall_killed' | 'killed' | 'unknown';
+
+export interface ExitEntry {
+  missionId: string;
+  missionCodename: string;
+  exitCode: number | null;
+  duration: number;
+  failureType: FailureType | null;
+  timestamp: number;
+}
+
+export interface ServiceHealthStatus {
+  scheduler: {
+    status: 'running' | 'stalled';
+    lastTick: number | null;
+    nextFire: number | null;
+    missedRuns: number;
+  };
+  overseer: {
+    pendingReviews: number;
+    avgReviewTime: number | null;
+    lastReview: number | null;
+  };
+  quartermaster: {
+    pendingMerges: number;
+    lastMerge: number | null;
+  };
+  stallDetection: {
+    count24h: number;
+    lastStall: {
+      missionCodename: string;
+      timestamp: number;
+      overseerDecision: string;
+    } | null;
+  };
+}
+
 // === Phase C1: Campaign Planning Types ===
 
 export interface PlanJSON {
