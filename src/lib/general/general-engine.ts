@@ -1,10 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
-import fs from 'fs';
-import os from 'os';
 import type { Server as SocketIOServer } from 'socket.io';
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
-import { extractKeychainCredentials } from '@/lib/process/claude-print';
+import { createAuthenticatedHomeAt } from '@/lib/process/claude-print';
 import { generalSessions, generalMessages, battlefields } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
@@ -125,18 +123,7 @@ export async function sendGeneralMessage(
 
   // 9. Spawn Claude process with isolated HOME
   // Use a persistent HOME per session so --resume can find previous session data
-  // Auth is handled natively via macOS Keychain — no credential file copying needed
-  const persistentHome = `/tmp/claude-general-${sessionId}`;
-  const persistentClaudeDir = `${persistentHome}/.claude`;
-  fs.mkdirSync(persistentClaudeDir, { recursive: true });
-  const realHome = process.env.HOME || os.homedir();
-  try { fs.copyFileSync(`${realHome}/.claude.json`, `${persistentHome}/.claude.json`); } catch { /* fine */ }
-  try { fs.copyFileSync(`${realHome}/.claude/settings.json`, `${persistentClaudeDir}/settings.json`); } catch { /* fine */ }
-  // Extract credentials from macOS Keychain into isolated HOME
-  const cred = extractKeychainCredentials();
-  if (cred) {
-    fs.writeFileSync(`${persistentClaudeDir}/.credentials.json`, cred, { mode: 0o600 });
-  }
+  const persistentHome = createAuthenticatedHomeAt(`/tmp/claude-general-${sessionId}`);
 
   const abortController = new AbortController();
   const proc = spawn(config.claudePath, cliArgs, {

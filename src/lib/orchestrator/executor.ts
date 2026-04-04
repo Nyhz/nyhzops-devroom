@@ -1,7 +1,6 @@
 import { spawn } from 'child_process';
 import { createInterface } from 'readline';
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { eq } from 'drizzle-orm';
 import { Server as SocketIOServer } from 'socket.io';
@@ -13,7 +12,7 @@ import { buildPrompt } from './prompt-builder';
 import { buildAssetCliArgs } from './asset-cli';
 import { StreamParser } from './stream-parser';
 import type { SkillOverrides } from '@/types';
-import { extractKeychainCredentials } from '@/lib/process/claude-print';
+import { createAuthenticatedHomeAt } from '@/lib/process/claude-print';
 import { createWorktree, removeWorktree } from './worktree';
 import { askOverseer } from '@/lib/overseer/overseer';
 import { storeOverseerLog, getRecentOverseerLogs } from '@/lib/overseer/overseer-db';
@@ -258,22 +257,7 @@ export async function executeMission(
 
     // Isolate Claude config per mission to prevent concurrent write corruption
     // and session ID collisions. Each mission gets its own HOME.
-    // Auth is handled natively via macOS Keychain — no credential file copying needed.
-    const missionHome = `/tmp/claude-config/${mission.id}`;
-    const missionClaudeDir = path.join(missionHome, '.claude');
-    fs.mkdirSync(missionClaudeDir, { recursive: true });
-    const realHome = process.env.HOME || os.homedir();
-    try {
-      fs.copyFileSync(path.join(realHome, '.claude.json'), path.join(missionHome, '.claude.json'));
-    } catch { /* no .claude.json — fine */ }
-    try {
-      fs.copyFileSync(path.join(realHome, '.claude', 'settings.json'), path.join(missionClaudeDir, 'settings.json'));
-    } catch { /* skip missing */ }
-    // Extract credentials from macOS Keychain into isolated HOME
-    const cred = extractKeychainCredentials();
-    if (cred) {
-      fs.writeFileSync(path.join(missionClaudeDir, '.credentials.json'), cred, { mode: 0o600 });
-    }
+    const missionHome = createAuthenticatedHomeAt(`/tmp/claude-config/${mission.id}`);
 
     const proc = spawn(config.claudePath, args, {
       cwd: workingDirectory,

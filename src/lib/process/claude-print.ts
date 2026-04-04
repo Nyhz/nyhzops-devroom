@@ -38,6 +38,32 @@ export function extractKeychainCredentials(): string | null {
 }
 
 /**
+ * Set up an isolated HOME at a specific path (for session persistence with --resume).
+ * Same credential/config extraction as createAuthenticatedHome, but caller controls the path.
+ */
+export function createAuthenticatedHomeAt(homePath: string): string {
+  const claudeDir = path.join(homePath, '.claude');
+  fs.mkdirSync(claudeDir, { recursive: true });
+
+  const realHome = process.env.HOME || os.homedir();
+
+  try {
+    fs.copyFileSync(path.join(realHome, '.claude.json'), path.join(homePath, '.claude.json'));
+  } catch { /* fine */ }
+
+  try {
+    fs.copyFileSync(path.join(realHome, '.claude', 'settings.json'), path.join(claudeDir, 'settings.json'));
+  } catch { /* fine */ }
+
+  const cred = extractKeychainCredentials();
+  if (cred) {
+    fs.writeFileSync(path.join(claudeDir, '.credentials.json'), cred, { mode: 0o600 });
+  }
+
+  return homePath;
+}
+
+/**
  * Set up an isolated HOME for a Claude CLI process.
  * Prevents concurrent config/session corruption when multiple agents run in parallel.
  * Extracts auth credentials from macOS Keychain into the isolated HOME.
@@ -45,28 +71,7 @@ export function extractKeychainCredentials(): string | null {
  */
 export function createAuthenticatedHome(): string {
   const tempHome = `/tmp/claude-print-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const tempClaudeDir = path.join(tempHome, '.claude');
-  fs.mkdirSync(tempClaudeDir, { recursive: true });
-
-  const realHome = process.env.HOME || os.homedir();
-
-  // Copy .claude.json (profile info — prevents concurrent write corruption)
-  try {
-    fs.copyFileSync(path.join(realHome, '.claude.json'), path.join(tempHome, '.claude.json'));
-  } catch { /* fine */ }
-
-  // Copy settings (read-only usage — prevents concurrent write corruption)
-  try {
-    fs.copyFileSync(path.join(realHome, '.claude', 'settings.json'), path.join(tempClaudeDir, 'settings.json'));
-  } catch { /* fine */ }
-
-  // Extract credentials from macOS Keychain into isolated HOME
-  const cred = extractKeychainCredentials();
-  if (cred) {
-    fs.writeFileSync(path.join(tempClaudeDir, '.credentials.json'), cred, { mode: 0o600 });
-  }
-
-  return tempHome;
+  return createAuthenticatedHomeAt(tempHome);
 }
 
 /**
