@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { ResponsiveTable, type Column } from '@/components/ui/responsive-table';
 import { TacButton } from '@/components/ui/tac-button';
 import { cn } from '@/lib/utils';
-import { updatePackage, removePackage, getOutdatedDeps } from '@/actions/deps';
+import { updatePackage, updateAndVerify, removePackage, getOutdatedDeps } from '@/actions/deps';
 import type { DepEntry, OutdatedDep } from '@/types';
 
 interface DepsTableProps {
@@ -43,6 +43,12 @@ export function DepsTable({
   function handleUpdate(name?: string) {
     startTransition(async () => {
       await updatePackage(battlefieldId, name);
+    });
+  }
+
+  function handleUpdateAndVerify(name?: string) {
+    startTransition(async () => {
+      await updateAndVerify(battlefieldId, name);
     });
   }
 
@@ -107,14 +113,25 @@ export function DepsTable({
       render: (dep) => (
         <div className="flex gap-2">
           {dep.outdated && (
-            <TacButton
-              size="sm"
-              variant="primary"
-              onClick={() => handleUpdate(dep.name)}
-              disabled={isPending}
-            >
-              UPDATE
-            </TacButton>
+            <>
+              <TacButton
+                size="sm"
+                variant="primary"
+                onClick={() => handleUpdate(dep.name)}
+                disabled={isPending}
+              >
+                UPDATE
+              </TacButton>
+              <TacButton
+                size="sm"
+                variant="ghost"
+                onClick={() => handleUpdateAndVerify(dep.name)}
+                disabled={isPending}
+                className="text-dr-amber"
+              >
+                UPDATE &amp; VERIFY
+              </TacButton>
+            </>
           )}
           <TacButton
             size="sm"
@@ -136,10 +153,10 @@ export function DepsTable({
           <TacButton
             size="sm"
             variant="primary"
-            onClick={() => handleUpdate()}
+            onClick={() => handleUpdateAndVerify()}
             disabled={isPending}
           >
-            UPDATE ALL OUTDATED ({outdated.length})
+            UPDATE ALL &amp; VERIFY ({outdated.length})
           </TacButton>
         )}
         <TacButton
