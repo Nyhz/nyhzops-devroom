@@ -38,6 +38,22 @@ export function setupSocketIO(io: SocketIOServer) {
       socket.leave(`console:${battlefieldId}`);
     });
 
+    socket.on('deps:subscribe', (battlefieldId: string) => {
+      socket.join(`deps:${battlefieldId}`);
+    });
+
+    socket.on('deps:unsubscribe', (battlefieldId: string) => {
+      socket.leave(`deps:${battlefieldId}`);
+    });
+
+    socket.on('tests:subscribe', (battlefieldId: string) => {
+      socket.join(`tests:${battlefieldId}`);
+    });
+
+    socket.on('tests:unsubscribe', (battlefieldId: string) => {
+      socket.leave(`tests:${battlefieldId}`);
+    });
+
     socket.on('devserver:unsubscribe', (battlefieldId: string) => {
       socket.leave(`devserver:${battlefieldId}`);
     });
