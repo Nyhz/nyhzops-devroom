@@ -3,6 +3,7 @@ import { getDatabase } from '@/lib/db/index';
 import { runClaudePrint } from '@/lib/process/claude-print';
 import { getSystemAsset } from '@/lib/orchestrator/system-asset';
 import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
+import { filterFlag } from '@/lib/utils/cli';
 import { overseerLogs } from '@/lib/db/schema';
 import type { Campaign, Phase, Mission } from '@/types';
 
@@ -10,18 +11,6 @@ export interface PhaseFailureDecision {
   decision: 'retry' | 'skip' | 'escalate';
   reasoning: string;
   retryBriefings?: Record<string, string>; // missionId -> modified briefing
-}
-
-/**
- * Filter a flag and its value from an args array.
- */
-function filterFlag(args: string[], flag: string): string[] {
-  const result: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === flag) { i++; continue; }
-    result.push(args[i]);
-  }
-  return result;
 }
 
 const FALLBACK_DECISION: PhaseFailureDecision = {

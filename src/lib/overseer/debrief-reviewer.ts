@@ -1,6 +1,7 @@
 import { runClaudePrint } from '@/lib/process/claude-print';
 import { getSystemAsset } from '@/lib/orchestrator/system-asset';
 import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
+import { filterFlag } from '@/lib/utils/cli';
 import { parseReviewOutput } from './review-parser';
 import type { OverseerReview } from '@/types';
 
@@ -74,19 +75,6 @@ Rules:
 IMPORTANT: Do NOT use any tools. Do NOT read files. Do NOT run commands. You have all the information you need above. Analyze the text and respond with your assessment only.`);
 
   return sections.join('\n\n---\n\n');
-}
-
-/**
- * Filter a flag and its value from an args array.
- * E.g., filterFlag(['--max-turns', '5', '--model', 'x'], '--max-turns') => ['--model', 'x']
- */
-function filterFlag(args: string[], flag: string): string[] {
-  const result: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === flag) { i++; continue; } // skip flag and its value
-    result.push(args[i]);
-  }
-  return result;
 }
 
 function spawnReview(prompt: string): Promise<string> {

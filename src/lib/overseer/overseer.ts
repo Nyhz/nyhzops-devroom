@@ -1,6 +1,7 @@
 import { runClaudePrint } from '@/lib/process/claude-print';
 import { getSystemAsset } from '@/lib/orchestrator/system-asset';
 import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
+import { filterFlag } from '@/lib/utils/cli';
 import type { OverseerLog, OverseerConfidence } from '@/types';
 
 export interface OverseerDecision {
@@ -130,18 +131,6 @@ function parseDecision(raw: string): OverseerDecision {
       confidence: 'low',
     };
   }
-}
-
-/**
- * Filter a flag and its value from an args array.
- */
-function filterFlag(args: string[], flag: string): string[] {
-  const result: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === flag) { i++; continue; }
-    result.push(args[i]);
-  }
-  return result;
 }
 
 export async function askOverseer(params: AskOverseerParams): Promise<OverseerDecision> {

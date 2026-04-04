@@ -12,18 +12,7 @@ import { buildGeneralPrompt } from './general-prompt';
 import { parseCommand } from './general-commands';
 import { getSystemAsset } from '@/lib/orchestrator/system-asset';
 import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
-
-// ---------------------------------------------------------------------------
-// Helper — filter one flag (and its value) from a CLI args array
-// ---------------------------------------------------------------------------
-function filterFlags(args: string[], flags: string[]): string[] {
-  const result: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    if (flags.includes(args[i])) { i++; continue; }
-    result.push(args[i]);
-  }
-  return result;
-}
+import { filterFlags } from '@/lib/utils/cli';
 
 // ---------------------------------------------------------------------------
 // Active process tracking

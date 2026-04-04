@@ -5,21 +5,10 @@ import { config } from '@/lib/config';
 import { createAuthenticatedHome } from '@/lib/process/claude-print';
 import { getSystemAsset } from '@/lib/orchestrator/system-asset';
 import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
+import { filterFlag } from '@/lib/utils/cli';
 import type { Mission } from '@/types';
 
 const RESOLUTION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
-
-/**
- * Filter a flag and its value from an args array.
- */
-function filterFlag(args: string[], flag: string): string[] {
-  const result: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === flag) { i++; continue; }
-    result.push(args[i]);
-  }
-  return result;
-}
 
 /**
  * Spawn Claude Code to resolve merge conflicts with rich context.

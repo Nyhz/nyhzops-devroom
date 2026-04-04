@@ -68,7 +68,6 @@ export function buildAssetCliArgs(
   }
 
   // Skill resolution with overrides
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let resolvedSkills: string[] = asset.skills ? (JSON.parse(asset.skills) as string[]) : [];
 
   if (skillOverrides?.removed) {
