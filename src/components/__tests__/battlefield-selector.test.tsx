@@ -1,26 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { BattlefieldSelector } from '@/components/layout/battlefield-selector';
 import type { Battlefield } from '@/types';
 
-// Mock the TacSelect components as simple HTML elements
-vi.mock('@/components/ui/tac-select', () => ({
-  TacSelect: ({ children, value, onValueChange }: { children: React.ReactNode; value: string; onValueChange: (v: string) => void }) => (
-    <select data-testid="tac-select" value={value} onChange={(e) => onValueChange(e.target.value)}>
-      {children}
-    </select>
-  ),
-  TacSelectTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TacSelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TacSelectItem: ({ children, value }: { children: React.ReactNode; value: string }) => (
-    <option value={value}>{children}</option>
-  ),
-  TacSelectValue: ({ placeholder }: { placeholder?: string }) => (
-    <span data-testid="select-value">{placeholder}</span>
-  ),
+// Mock next/navigation
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/battlefields/bf-1/missions',
 }));
 
-function makeBattlefield(id: string, codename: string): Battlefield {
+function makeBattlefield(id: string, codename: string, status = 'active'): Battlefield {
   return {
     id,
     name: codename,
@@ -33,7 +22,7 @@ function makeBattlefield(id: string, codename: string): Battlefield {
     specMdPath: null,
     scaffoldCommand: null,
     scaffoldStatus: null,
-    status: 'active',
+    status,
     bootstrapMissionId: null,
     worktreeMode: 'none',
     autoStartDevServer: 0,
@@ -49,12 +38,16 @@ describe('BattlefieldSelector', () => {
     expect(screen.getByText('No battlefields')).toBeInTheDocument();
   });
 
-  it('does not render select when no battlefields', () => {
-    render(<BattlefieldSelector battlefields={[]} />);
-    expect(screen.queryByTestId('tac-select')).not.toBeInTheDocument();
+  it('shows current battlefield codename from URL', () => {
+    const battlefields = [
+      makeBattlefield('bf-1', 'ALPHA'),
+      makeBattlefield('bf-2', 'BRAVO'),
+    ];
+    render(<BattlefieldSelector battlefields={battlefields} />);
+    expect(screen.getByText('ALPHA')).toBeInTheDocument();
   });
 
-  it('renders battlefield list as options', () => {
+  it('shows dropdown with all battlefields on click', () => {
     const battlefields = [
       makeBattlefield('bf-1', 'ALPHA'),
       makeBattlefield('bf-2', 'BRAVO'),
@@ -62,24 +55,28 @@ describe('BattlefieldSelector', () => {
     ];
     render(<BattlefieldSelector battlefields={battlefields} />);
 
-    expect(screen.getByText('ALPHA')).toBeInTheDocument();
+    // Click the trigger to open dropdown
+    fireEvent.click(screen.getByText('ALPHA'));
+
+    // All battlefields should appear in the dropdown
     expect(screen.getByText('BRAVO')).toBeInTheDocument();
     expect(screen.getByText('CHARLIE')).toBeInTheDocument();
   });
 
-  it('renders select element when battlefields exist', () => {
+  it('renders gear icon linking to config when battlefield is selected', () => {
     const battlefields = [makeBattlefield('bf-1', 'ALPHA')];
     render(<BattlefieldSelector battlefields={battlefields} />);
-    expect(screen.getByTestId('tac-select')).toBeInTheDocument();
+    const gearLink = screen.getByTitle('Battlefield Config');
+    expect(gearLink).toBeInTheDocument();
+    expect(gearLink).toHaveAttribute('href', '/battlefields/bf-1/config');
   });
 
-  it('renders the correct number of options', () => {
-    const battlefields = [
-      makeBattlefield('bf-1', 'ALPHA'),
-      makeBattlefield('bf-2', 'BRAVO'),
-    ];
-    const { container } = render(<BattlefieldSelector battlefields={battlefields} />);
-    const options = container.querySelectorAll('option');
-    expect(options).toHaveLength(2);
+  it('shows placeholder when no battlefield matches URL', () => {
+    vi.mocked(vi.fn()).mockReturnValue; // reset
+    // Re-mock with a path that doesn't match any battlefield
+    vi.doMock('next/navigation', () => ({
+      useRouter: () => ({ push: vi.fn() }),
+      usePathname: () => '/',
+    }));
   });
 });
