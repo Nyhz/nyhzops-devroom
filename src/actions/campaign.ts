@@ -131,7 +131,7 @@ function cloneCampaignPlan(
  * Shared helper: insert phases and missions from a PlanJSON structure.
  * Used by both generateBattlePlan (Task 3) and updateBattlePlan.
  */
-function insertPlanFromJSON(
+export function insertPlanFromJSON(
   campaignId: string,
   battlefieldId: string,
   plan: PlanJSON,

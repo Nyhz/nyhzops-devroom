@@ -11,12 +11,11 @@ import {
   campaigns,
   battlefields,
   assets,
-  phases,
-  missions,
 } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
 import { buildBriefingPrompt } from './briefing-prompt';
+import { insertPlanFromJSON } from '@/actions/campaign';
 import type { PlanJSON } from '@/types';
 import { detectCycle } from '@/lib/utils/dependency-graph';
 
@@ -316,7 +315,14 @@ Rules: phases execute sequentially, missions within a phase run in parallel unle
           if (plan) {
             const totalMissions = plan.phases.reduce((s, p) => s + p.missions.length, 0);
             console.log(`[BRIEFING] Plan extracted: ${plan.phases.length} phases, ${totalMissions} missions`);
-            insertPlanFromBriefing(campaignId, campaign.battlefieldId, plan);
+            // Validate no circular dependencies
+            const allMissions = plan.phases.flatMap((p) =>
+              p.missions.map((m) => ({ title: m.title, dependsOn: m.dependsOn ?? [] })),
+            );
+            const cycle = detectCycle(allMissions);
+            if (cycle) throw new Error(`Plan contains circular dependencies: ${cycle}`);
+
+            insertPlanFromJSON(campaignId, campaign.battlefieldId, plan);
             console.log(`[BRIEFING] Plan inserted into DB`);
 
             // Transition campaign to planning
@@ -590,73 +596,4 @@ function sanitizeJsonStrings(raw: string): string {
   }
 
   return out.join('');
-}
-
-// ---------------------------------------------------------------------------
-// insertPlanFromBriefing — replicate insertPlanFromJSON from campaign actions
-// ---------------------------------------------------------------------------
-
-function insertPlanFromBriefing(
-  campaignId: string,
-  battlefieldId: string,
-  plan: PlanJSON,
-): void {
-  const db = getDatabase();
-  const now = Date.now();
-
-  // Validate no circular dependencies across all missions in the plan
-  const allMissions = plan.phases.flatMap((p) =>
-    p.missions.map((m) => ({ title: m.title, dependsOn: m.dependsOn ?? [] })),
-  );
-  const cycle = detectCycle(allMissions);
-  if (cycle) throw new Error(`Plan contains circular dependencies: ${cycle}`);
-
-  // Pre-fetch all assets for codename -> id lookup
-  const allAssets = db.select().from(assets).all();
-  const assetByCodename = new Map(allAssets.map((a) => [a.codename, a]));
-
-  db.transaction(() => {
-    for (let i = 0; i < plan.phases.length; i++) {
-      const planPhase = plan.phases[i];
-      const phaseId = generateId();
-
-      db.insert(phases)
-        .values({
-          id: phaseId,
-          campaignId,
-          phaseNumber: i + 1,
-          name: planPhase.name,
-          objective: planPhase.objective || null,
-          status: 'standby',
-          createdAt: now,
-        })
-        .run();
-
-      for (const planMission of planPhase.missions) {
-        const asset = assetByCodename.get(planMission.assetCodename);
-        const missionId = generateId();
-
-        db.insert(missions)
-          .values({
-            id: missionId,
-            battlefieldId,
-            campaignId,
-            phaseId,
-            type: 'standard',
-            title: planMission.title,
-            briefing: planMission.briefing,
-            status: 'standby',
-            priority: planMission.priority || 'normal',
-            assetId: asset?.id ?? null,
-            dependsOn:
-              planMission.dependsOn && planMission.dependsOn.length > 0
-                ? JSON.stringify(planMission.dependsOn)
-                : null,
-            createdAt: now,
-            updatedAt: now,
-          })
-          .run();
-      }
-    }
-  });
 }
