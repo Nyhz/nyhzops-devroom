@@ -308,13 +308,11 @@ Rules: phases execute sequentially, missions within a phase run in parallel unle
       // summary in the chat instead of the raw JSON blob.
       let storedContent = responseText;
       if (isGeneratePlan) {
-        console.log(`[BRIEFING] GENERATE PLAN triggered for campaign ${campaignId}`);
-        console.log(`[BRIEFING] Response length: ${responseText.length}, starts with: ${JSON.stringify(responseText.slice(0, 40))}`);
         try {
           const plan = extractPlanJSON(responseText);
           if (plan) {
             const totalMissions = plan.phases.reduce((s, p) => s + p.missions.length, 0);
-            console.log(`[BRIEFING] Plan extracted: ${plan.phases.length} phases, ${totalMissions} missions`);
+            console.log(`[BRIEFING] Plan generated for campaign ${campaignId}: ${plan.phases.length} phases, ${totalMissions} missions`);
             // Validate no circular dependencies
             const allMissions = plan.phases.flatMap((p) =>
               p.missions.map((m) => ({ title: m.title, dependsOn: m.dependsOn ?? [] })),
@@ -323,14 +321,12 @@ Rules: phases execute sequentially, missions within a phase run in parallel unle
             if (cycle) throw new Error(`Plan contains circular dependencies: ${cycle}`);
 
             insertPlanFromJSON(campaignId, campaign.battlefieldId, plan);
-            console.log(`[BRIEFING] Plan inserted into DB`);
 
             // Transition campaign to planning
             db.update(campaigns)
               .set({ status: 'planning', updatedAt: Date.now() })
               .where(eq(campaigns.id, campaignId))
               .run();
-            console.log(`[BRIEFING] Campaign status → planning`);
 
             // Format a readable summary for the chat instead of raw JSON
             storedContent = formatPlanSummary(plan);
@@ -339,7 +335,6 @@ Rules: phases execute sequentially, missions within a phase run in parallel unle
               campaignId,
               plan,
             });
-            console.log(`[BRIEFING] briefing:plan-ready emitted to room ${room}`);
           } else {
             console.error(`[BRIEFING] extractPlanJSON returned null for campaign ${campaignId}`);
             io.to(room).emit('briefing:error', {
@@ -466,8 +461,7 @@ function formatPlanSummary(plan: PlanJSON): string {
 // ---------------------------------------------------------------------------
 
 function extractPlanJSON(response: string): PlanJSON | null {
-  // Best case: the response is pure JSON (GENERAL followed instructions exactly).
-  // Try parsing the whole thing first, trimming any whitespace.
+  // Best case: the response is pure JSON
   const trimmed = response.trim();
   if (trimmed.startsWith('{')) {
     try {
@@ -476,29 +470,23 @@ function extractPlanJSON(response: string): PlanJSON | null {
     } catch { /* fall through to extraction */ }
   }
 
-  // Find the start of the plan JSON — look for {"summary" which is always the
-  // first key. This works whether the JSON is inside a code fence or raw.
-  // We can't rely on code fence regex because briefing text inside the JSON
-  // often contains its own ``` code blocks, breaking lazy/greedy fence matching.
-  // Try all occurrences — GENERAL may output a draft plan before the final one,
-  // and earlier ones can be malformed. Iterate from last to first (the final
-  // plan in the response is typically the most complete).
-  const needles = ['{"summary"', '{\n  "summary"'];
+  // Find all candidate start positions for the plan JSON object.
+  // We search from last to first — the final plan in the response is
+  // typically the most complete when GENERAL outputs drafts before the final.
   const candidates: number[] = [];
-  for (const needle of needles) {
-    let searchFrom = 0;
-    while (true) {
-      const idx = response.indexOf(needle, searchFrom);
-      if (idx === -1) break;
-      candidates.push(idx);
-      searchFrom = idx + needle.length;
-    }
+  let searchFrom = 0;
+  while (true) {
+    const idx = response.indexOf('"summary"', searchFrom);
+    if (idx === -1) break;
+    // Walk backwards to find the opening brace
+    const braceIdx = response.lastIndexOf('{', idx);
+    if (braceIdx !== -1) candidates.push(braceIdx);
+    searchFrom = idx + 1;
   }
 
-  // Sort descending — try the last occurrence first (most likely the final plan)
-  candidates.sort((a, b) => b - a);
-  for (const start of candidates) {
-    const result = tryParseFrom(response, start);
+  // Try last occurrence first
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    const result = tryParseFrom(response, candidates[i]);
     if (result) return result;
   }
 
@@ -506,26 +494,17 @@ function extractPlanJSON(response: string): PlanJSON | null {
 }
 
 function tryParseFrom(text: string, startIndex: number): PlanJSON | null {
-  // Find matching closing brace, respecting JSON string escaping.
-  // Briefing text inside JSON strings can contain { } characters,
-  // so we must track whether we're inside a string to avoid miscounting.
+  // Track brace depth and string state to find the matching closing brace.
+  // Required because briefing text inside JSON strings can contain { } characters.
   let depth = 0;
   let inString = false;
   let escape = false;
+
   for (let i = startIndex; i < text.length; i++) {
     const ch = text[i];
-    if (escape) {
-      escape = false;
-      continue;
-    }
-    if (ch === '\\' && inString) {
-      escape = true;
-      continue;
-    }
-    if (ch === '"') {
-      inString = !inString;
-      continue;
-    }
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
     if (inString) continue;
     if (ch === '{') depth++;
     else if (ch === '}') {
@@ -535,11 +514,9 @@ function tryParseFrom(text: string, startIndex: number): PlanJSON | null {
         try {
           return JSON.parse(raw) as PlanJSON;
         } catch {
-          // LLMs often produce JSON with literal newlines/tabs inside string
-          // values instead of proper \n \t escapes. Sanitize and retry.
-          const sanitized = sanitizeJsonStrings(raw);
+          // LLMs sometimes produce literal control characters inside JSON strings.
           try {
-            return JSON.parse(sanitized) as PlanJSON;
+            return JSON.parse(sanitizeControlChars(raw)) as PlanJSON;
           } catch {
             return null;
           }
@@ -550,50 +527,24 @@ function tryParseFrom(text: string, startIndex: number): PlanJSON | null {
   return null;
 }
 
-/**
- * Walk a JSON string and escape control characters (newlines, tabs, etc.)
- * that appear unescaped inside string literals. LLMs routinely produce these.
- */
-function sanitizeJsonStrings(raw: string): string {
+/** Replace unescaped control characters inside JSON string values. */
+function sanitizeControlChars(raw: string): string {
   const out: string[] = [];
-  let inString = false;
-  let escape = false;
-
+  let inStr = false;
+  let esc = false;
   for (let i = 0; i < raw.length; i++) {
     const ch = raw[i];
-
-    if (escape) {
-      escape = false;
-      out.push(ch);
+    if (esc) { esc = false; out.push(ch); continue; }
+    if (ch === '\\' && inStr) { esc = true; out.push(ch); continue; }
+    if (ch === '"') { inStr = !inStr; out.push(ch); continue; }
+    if (inStr && ch.charCodeAt(0) < 0x20) {
+      if (ch === '\n') out.push('\\n');
+      else if (ch === '\r') out.push('\\r');
+      else if (ch === '\t') out.push('\\t');
+      else out.push(`\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`);
       continue;
     }
-
-    if (ch === '\\' && inString) {
-      escape = true;
-      out.push(ch);
-      continue;
-    }
-
-    if (ch === '"') {
-      inString = !inString;
-      out.push(ch);
-      continue;
-    }
-
-    if (inString) {
-      const code = ch.charCodeAt(0);
-      if (code < 0x20) {
-        // Replace control characters with their JSON escape sequences
-        if (ch === '\n') out.push('\\n');
-        else if (ch === '\r') out.push('\\r');
-        else if (ch === '\t') out.push('\\t');
-        else out.push(`\\u${code.toString(16).padStart(4, '0')}`);
-        continue;
-      }
-    }
-
     out.push(ch);
   }
-
   return out.join('');
 }
