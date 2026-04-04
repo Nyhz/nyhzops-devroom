@@ -18,10 +18,31 @@ import type {
 } from '@/types';
 
 // ---------------------------------------------------------------------------
-// Re-exports from console actions
+// Dev server actions (delegated to console module)
 // ---------------------------------------------------------------------------
 
-export { startDevServer, stopDevServer, restartDevServer, getDevServerStatus } from '@/actions/console';
+import {
+  startDevServer as _startDevServer,
+  stopDevServer as _stopDevServer,
+  restartDevServer as _restartDevServer,
+  getDevServerStatus as _getDevServerStatus,
+} from '@/actions/console';
+
+export async function startDevServer(battlefieldId: string): Promise<void> {
+  return _startDevServer(battlefieldId);
+}
+
+export async function stopDevServer(battlefieldId: string): Promise<void> {
+  return _stopDevServer(battlefieldId);
+}
+
+export async function restartDevServer(battlefieldId: string): Promise<void> {
+  return _restartDevServer(battlefieldId);
+}
+
+export async function getDevServerStatus(battlefieldId: string) {
+  return _getDevServerStatus(battlefieldId);
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -47,7 +68,7 @@ function getDirSize(dirPath: string): number {
  * Classify a mission failure type based on status, compromiseReason, and debrief text.
  * Returns null for non-failures or unclassifiable exits.
  */
-export function classifyFailure(
+function classifyFailure(
   status: string,
   compromiseReason: string | null,
   debrief: string | null,

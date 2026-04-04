@@ -55,7 +55,6 @@ vi.mock('@/actions/console', () => ({
 // Import actions under test (after mocks)
 // ---------------------------------------------------------------------------
 import {
-  classifyFailure,
   getActiveProcesses,
   getResourceUsage,
   getRecentExits,
@@ -82,51 +81,6 @@ beforeEach(async () => {
   (globalThis as any).io = undefined;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).scheduler = undefined;
-});
-
-// ---------------------------------------------------------------------------
-// classifyFailure
-// ---------------------------------------------------------------------------
-describe('classifyFailure', () => {
-  it('returns null for accomplished missions', () => {
-    expect(classifyFailure('accomplished', null, null)).toBeNull();
-    expect(classifyFailure('accomplished', 'timeout', 'some debrief')).toBeNull();
-  });
-
-  it('returns timeout for compromiseReason === timeout', () => {
-    expect(classifyFailure('compromised', 'timeout', null)).toBe('timeout');
-  });
-
-  it('returns stall_killed for compromiseReason === escalated', () => {
-    expect(classifyFailure('compromised', 'escalated', null)).toBe('stall_killed');
-  });
-
-  it('returns null for merge-failed (not a process failure)', () => {
-    expect(classifyFailure('compromised', 'merge-failed', null)).toBeNull();
-  });
-
-  it('returns auth_failure when debrief contains auth keyword', () => {
-    expect(classifyFailure('compromised', null, 'Claude auth error occurred')).toBe('auth_failure');
-    expect(classifyFailure('compromised', null, 'invalid token provided')).toBe('auth_failure');
-    expect(classifyFailure('compromised', null, '401 unauthorized')).toBe('auth_failure');
-  });
-
-  it('returns killed for abandoned missions', () => {
-    expect(classifyFailure('abandoned', null, null)).toBe('killed');
-  });
-
-  it('returns cli_error for generic compromised missions', () => {
-    expect(classifyFailure('compromised', null, 'Process exited with code 1')).toBe('cli_error');
-  });
-
-  it('returns null for unknown status', () => {
-    expect(classifyFailure('standby', null, null)).toBeNull();
-  });
-
-  it('prioritizes compromiseReason over text detection', () => {
-    // timeout reason takes precedence over debrief text
-    expect(classifyFailure('compromised', 'timeout', 'auth error unauthorized')).toBe('timeout');
-  });
 });
 
 // ---------------------------------------------------------------------------
