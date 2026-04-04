@@ -19,28 +19,23 @@ const BATTLEFIELD_ICONS = [
   { icon: "\u2715", label: "CAMPAIGNS", segment: "campaigns" },
   { icon: "\u25C6", label: "GIT", segment: "git" },
   { icon: "\u25B6", label: "CONSOLE", segment: "console" },
-  { icon: "\u23F1", label: "SCHEDULE", segment: "schedule" },
-  { icon: "\u2699", label: "CONFIG", segment: "config" },
 ] as const;
 
 const GLOBAL_BOTTOM_ICONS = [
   { href: "/overseer-log", icon: "\u2693", label: "OVERSEER'S LOG" },
   { href: "/assets", icon: "\u25CE", label: "ASSETS" },
-  { href: "/logistics", icon: "\u25C8", label: "LOGISTICS" },
 ] as const;
 
 interface CollapsibleSidebarProps {
   battlefields: Battlefield[];
   missionCounts: Record<string, number>;
   campaignCounts: Record<string, number>;
-  activeAgents: number;
 }
 
 export function CollapsibleSidebar({
   battlefields,
   missionCounts,
   campaignCounts,
-  activeAgents,
 }: CollapsibleSidebarProps) {
   const [expanded, setExpanded] = useState(() => {
     try {
@@ -208,7 +203,6 @@ export function CollapsibleSidebar({
           battlefields={battlefields}
           missionCounts={missionCounts}
           campaignCounts={campaignCounts}
-          activeAgents={activeAgents}
         />
       </aside>
 
@@ -226,7 +220,6 @@ export function CollapsibleSidebar({
               battlefields={battlefields}
               missionCounts={missionCounts}
               campaignCounts={campaignCounts}
-              activeAgents={activeAgents}
               onLinkClick={closeExpanded}
             />
             <div className="border-t border-dr-border">
