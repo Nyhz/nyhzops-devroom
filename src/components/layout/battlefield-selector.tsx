@@ -52,10 +52,9 @@ export function BattlefieldSelector({ battlefields }: BattlefieldSelectorProps) 
   }
 
   return (
-    <div ref={containerRef} className="flex items-center gap-1.5">
-      {/* Trigger + Dropdown grouped together */}
-      <div className="flex-1 min-w-0">
-        {/* Select trigger */}
+    <div ref={containerRef} className="flex items-center gap-2">
+      {/* Trigger + Dropdown wrapper */}
+      <div className="relative flex-1 min-w-0">
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
@@ -79,14 +78,14 @@ export function BattlefieldSelector({ battlefields }: BattlefieldSelectorProps) 
               {currentBattlefield?.codename ?? "Select battlefield"}
             </span>
           </span>
-          <span className="text-dr-dim text-[10px] shrink-0">
+          <span className="text-dr-dim text-sm shrink-0">
             {open ? "▴" : "▾"}
           </span>
         </button>
 
-        {/* Dropdown — naturally matches trigger width */}
+        {/* Dropdown — absolute, same width as trigger */}
         {open && (
-          <div className="bg-dr-elevated border border-dr-border border-t-0 rounded-b overflow-hidden">
+          <div className="absolute top-full left-0 right-0 z-10 bg-dr-elevated border border-dr-border border-t-0 rounded-b overflow-hidden">
             {battlefields.map((bf) => (
               <button
                 key={bf.id}
@@ -116,11 +115,7 @@ export function BattlefieldSelector({ battlefields }: BattlefieldSelectorProps) 
       {currentId && (
         <Link
           href={`/battlefields/${currentId}/config`}
-          className={cn(
-            "shrink-0 w-[34px] h-[34px] flex items-center justify-center",
-            "bg-dr-elevated border border-dr-border rounded",
-            "text-dr-dim hover:text-dr-amber hover:border-dr-amber transition-colors"
-          )}
+          className="shrink-0 text-lg text-dr-muted hover:text-dr-amber transition-colors"
           title="Battlefield Config"
         >
           ⚙

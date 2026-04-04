@@ -1,10 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCommandOutput } from '@/hooks/use-command-output';
+import { useSocket, useReconnectKey } from '@/hooks/use-socket';
 import { TacCard } from '@/components/ui/tac-card';
 import { Terminal } from '@/components/ui/terminal';
+
+interface ScaffoldLog {
+  content: string;
+  timestamp: number;
+}
 
 interface ScaffoldOutputProps {
   battlefieldId: string;
@@ -12,8 +17,52 @@ interface ScaffoldOutputProps {
 
 export function ScaffoldOutput({ battlefieldId }: ScaffoldOutputProps) {
   const router = useRouter();
-  const { logs, exitCode, isRunning, prependBufferedLogs } = useCommandOutput(battlefieldId);
+  const socket = useSocket();
+  const reconnectKey = useReconnectKey();
+  const [logs, setLogs] = useState<ScaffoldLog[]>([]);
+  const [exitCode, setExitCode] = useState<number | null>(null);
+  const [isRunning, setIsRunning] = useState(true);
   const [fetched, setFetched] = useState(false);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleOutput = (data: { battlefieldId: string; content: string; timestamp: number }) => {
+      if (data.battlefieldId === battlefieldId) {
+        setLogs(prev => [...prev, { content: data.content, timestamp: data.timestamp }]);
+      }
+    };
+
+    const handleExit = (data: { battlefieldId: string; exitCode: number }) => {
+      if (data.battlefieldId === battlefieldId) {
+        setExitCode(data.exitCode);
+        setIsRunning(false);
+      }
+    };
+
+    socket.on('console:output', handleOutput);
+    socket.on('console:exit', handleExit);
+
+    return () => {
+      socket.off('console:output', handleOutput);
+      socket.off('console:exit', handleExit);
+    };
+  }, [socket, battlefieldId, reconnectKey]);
+
+  const prependBufferedLogs = useCallback((buffered: string) => {
+    if (!buffered) return;
+    const lines = buffered.split('\n').filter(Boolean);
+    const bufferedLogs = lines.map((content, i) => ({
+      content: content + '\n',
+      timestamp: i,
+    }));
+    setLogs(prev => {
+      if (prev.length === 0 || prev[0].timestamp > 100) {
+        return [...bufferedLogs, ...prev];
+      }
+      return prev;
+    });
+  }, []);
 
   // Fetch buffered logs on mount for late subscribers
   useEffect(() => {
@@ -22,6 +71,10 @@ export function ScaffoldOutput({ battlefieldId }: ScaffoldOutputProps) {
       .then(r => r.json())
       .then((data: { logs?: string; exitCode?: number | null; isComplete?: boolean }) => {
         if (data.logs) prependBufferedLogs(data.logs);
+        if (data.isComplete) {
+          setExitCode(data.exitCode ?? null);
+          setIsRunning(false);
+        }
         setFetched(true);
       })
       .catch(() => setFetched(true));
@@ -35,7 +88,7 @@ export function ScaffoldOutput({ battlefieldId }: ScaffoldOutputProps) {
     }
   }, [isRunning, exitCode, router]);
 
-  // Convert hook logs to Terminal format
+  // Convert logs to Terminal format
   const terminalLogs = logs.map(l => ({
     timestamp: l.timestamp,
     type: 'log' as const,

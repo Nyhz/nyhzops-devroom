@@ -53,7 +53,7 @@ export function SidebarContent({
       <div className="border-t border-dr-border" />
 
       {/* Battlefield selector */}
-      <div className="px-4 py-3">
+      <div className="px-3 py-3">
         <BattlefieldSelector battlefields={battlefields} />
       </div>
 

@@ -8,7 +8,7 @@ const defaultProps = {
   accomplished: 12,
   compromised: 2,
   standby: 5,
-  cacheHitPercent: '87%',
+  abandoned: 4,
 };
 
 describe('StatsBar', () => {
@@ -19,7 +19,7 @@ describe('StatsBar', () => {
     expect(screen.getByText('12')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
-    expect(screen.getByText('87%')).toBeInTheDocument();
+    expect(screen.getByText('4')).toBeInTheDocument();
   });
 
   it('renders all stat labels', () => {
@@ -29,7 +29,7 @@ describe('StatsBar', () => {
     expect(screen.getByText('ACCOMPLISHED')).toBeInTheDocument();
     expect(screen.getByText('COMPROMISED')).toBeInTheDocument();
     expect(screen.getByText('STANDBY')).toBeInTheDocument();
-    expect(screen.getByText('CACHE HIT')).toBeInTheDocument();
+    expect(screen.getByText('ABANDONED')).toBeInTheDocument();
   });
 
   it('renders zero values correctly', () => {
@@ -39,13 +39,12 @@ describe('StatsBar', () => {
         accomplished={0}
         compromised={0}
         standby={0}
-        cacheHitPercent="0%"
+        abandoned={0}
       />,
     );
 
     const zeros = screen.getAllByText('0');
-    expect(zeros).toHaveLength(4);
-    expect(screen.getByText('0%')).toBeInTheDocument();
+    expect(zeros).toHaveLength(5);
   });
 
   it('renders large numbers', () => {
@@ -55,12 +54,12 @@ describe('StatsBar', () => {
         accomplished={1500}
         compromised={42}
         standby={300}
-        cacheHitPercent="99.9%"
+        abandoned={7}
       />,
     );
 
     expect(screen.getByText('999')).toBeInTheDocument();
     expect(screen.getByText('1500')).toBeInTheDocument();
-    expect(screen.getByText('99.9%')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
   });
 });

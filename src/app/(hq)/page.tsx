@@ -25,11 +25,14 @@ export default function ProjectsPage() {
     .where(eq(missions.status, 'compromised')).all();
   const totalStandbyResult = db.select({ value: count() }).from(missions)
     .where(eq(missions.status, 'standby')).all();
+  const totalAbandonedResult = db.select({ value: count() }).from(missions)
+    .where(eq(missions.status, 'abandoned')).all();
 
   const totalInCombat = totalInCombatResult[0]?.value ?? 0;
   const totalAccomplished = totalAccomplishedResult[0]?.value ?? 0;
   const totalCompromised = totalCompromisedResult[0]?.value ?? 0;
   const totalStandby = totalStandbyResult[0]?.value ?? 0;
+  const totalAbandoned = totalAbandonedResult[0]?.value ?? 0;
 
   // Cache hit calculation
   const tokenSums = db.select({
@@ -96,7 +99,7 @@ export default function ProjectsPage() {
           accomplished={totalAccomplished}
           compromised={totalCompromised}
           standby={totalStandby}
-          cacheHitPercent={cacheHitPercent}
+          abandoned={totalAbandoned}
         />
       </div>
 

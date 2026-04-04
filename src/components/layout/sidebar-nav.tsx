@@ -19,8 +19,8 @@ const TOP_ITEMS: NavItem[] = [
 ];
 
 const OPS_TOOLS_ITEMS: NavItem[] = [
-  { icon: "◆", label: "GIT", segment: "git" },
-  { icon: "▶", label: "CONSOLE", segment: "console" },
+  { icon: "◆", label: "FIELD CHECK", segment: "field-check" },
+  { icon: "▶", label: "TELEMETRY", segment: "telemetry" },
   { icon: "◇", label: "ENV", segment: "env" },
   { icon: "◎", label: "DEPS", segment: "deps" },
   { icon: "▸", label: "TESTS", segment: "tests" },

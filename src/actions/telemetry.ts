@@ -249,7 +249,7 @@ export async function getRecentExits(
     const exitCode = row.status === 'accomplished' ? 0 : 1;
 
     const failureType = classifyFailure(
-      row.status,
+      row.status ?? '',
       row.compromiseReason ?? null,
       row.debrief ?? null,
     );

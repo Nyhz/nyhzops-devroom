@@ -384,42 +384,6 @@ export interface CampaignWithPlan extends Campaign {
 }
 
 // ---------------------------------------------------------------------------
-// Git Dashboard types
-// ---------------------------------------------------------------------------
-export interface FileEntry {
-  path: string;
-  status: string;
-}
-
-export interface CommitEntry {
-  hash: string;
-  message: string;
-  author: string;
-  date: string;
-  refs: string;
-}
-
-export interface BranchEntry {
-  name: string;
-  current: boolean;
-}
-
-export interface GitStatusResult {
-  staged: FileEntry[];
-  modified: FileEntry[];
-  untracked: FileEntry[];
-}
-
-export interface GitLogResult {
-  commits: CommitEntry[];
-}
-
-export interface GitBranchesResult {
-  current: string;
-  local: BranchEntry[];
-}
-
-// ---------------------------------------------------------------------------
 // System monitoring
 // ---------------------------------------------------------------------------
 export interface SystemMetrics {

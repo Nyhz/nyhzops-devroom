@@ -3,7 +3,7 @@ interface StatsBarProps {
   accomplished: number;
   compromised: number;
   standby: number;
-  cacheHitPercent: string;
+  abandoned: number;
 }
 
 export function StatsBar({
@@ -11,7 +11,7 @@ export function StatsBar({
   accomplished,
   compromised,
   standby,
-  cacheHitPercent,
+  abandoned,
 }: StatsBarProps) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 bg-dr-border gap-px">
@@ -40,9 +40,9 @@ export function StatsBar({
         </div>
       </div>
       <div className="col-span-2 md:col-span-1 bg-dr-surface p-3 md:p-5 text-center">
-        <div className="text-dr-green font-tactical text-4xl">{cacheHitPercent}</div>
+        <div className="text-dr-dim font-tactical text-4xl">{abandoned}</div>
         <div className="text-dr-muted font-tactical text-sm tracking-wider uppercase mt-1">
-          CACHE HIT
+          ABANDONED
         </div>
       </div>
     </div>

@@ -159,6 +159,7 @@ export default async function BattlefieldOverviewPage({
   const accomplishedCount = missionRows.filter(m => m.status === 'accomplished').length;
   const compromisedCount = missionRows.filter(m => m.status === 'compromised').length;
   const standbyCount = missionRows.filter(m => m.status === 'standby' || m.status === 'queued').length;
+  const abandonedCount = missionRows.filter(m => m.status === 'abandoned').length;
 
   // Cache hit calculation: cache / (cache + uncached input) = % of input context served from cache
   const totalInput = missionRows.reduce((sum, m) => sum + (m.costInput || 0), 0);
@@ -194,7 +195,7 @@ export default async function BattlefieldOverviewPage({
         accomplished={accomplishedCount}
         compromised={compromisedCount}
         standby={standbyCount}
-        cacheHitPercent={cacheHitPercent}
+        abandoned={abandonedCount}
       />
 
       {/* Cost summary */}
