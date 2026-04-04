@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderWithProviders } from '@/lib/test/render';
-import { TacBadge, getStatusColor, getStatusBorderColor, statusColorMap } from '../tac-badge';
+import { TacBadge, getStatusColor, getStatusBorderColor } from '../tac-badge';
 
 describe('TacBadge', () => {
   it('renders the status label in uppercase', () => {

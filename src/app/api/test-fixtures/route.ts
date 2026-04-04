@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/db/index';
-import { battlefields, campaigns, phases, missions, assets } from '@/lib/db/schema';
+import { battlefields, campaigns, phases, missions } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { ulid } from 'ulid';
 

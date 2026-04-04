@@ -12,7 +12,7 @@ import {
   TacSelectTrigger,
   TacSelectValue,
 } from '@/components/ui/tac-select';
-import { updateAsset, toggleAssetStatus } from '@/actions/asset';
+import { updateAsset } from '@/actions/asset';
 import type { Asset } from '@/types';
 
 const MODEL_OPTIONS = [
@@ -57,18 +57,6 @@ export function AssetProfileTab({ asset }: AssetProfileTabProps) {
         router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Failed to update asset');
-      }
-    });
-  }
-
-  function handleToggleStatus() {
-    startTransition(async () => {
-      try {
-        await toggleAssetStatus(asset.id);
-        toast.success('Asset status changed');
-        router.refresh();
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Failed to toggle status');
       }
     });
   }

@@ -33,16 +33,6 @@ function getRooms(): string[] {
   return mockTo.mock.calls.map((call: unknown[]) => call[0] as string);
 }
 
-function getEmitCalls(): Array<[string, Record<string, unknown>]> {
-  const io = globalThis.io!;
-  const mockTo = io.to as ReturnType<typeof vi.fn>;
-  // Each `to(room)` returns `{ emit }`. We read the emit fn from the returned value.
-  // setup.ts wires: mockTo = vi.fn(() => ({ emit: mockEmit }))
-  // So we inspect the shared mockEmit that came from setup.ts.
-  const mockEmit = (mockTo.mock.results[0]?.value as { emit: ReturnType<typeof vi.fn> } | undefined)?.emit;
-  if (!mockEmit) return [];
-  return mockEmit.mock.calls as Array<[string, Record<string, unknown>]>;
-}
 
 // ---------------------------------------------------------------------------
 // Suite

@@ -120,7 +120,7 @@ describe('battlefield actions', () => {
     });
 
     it('creates battlefield with initialBriefing and triggers bootstrap', async () => {
-      const asset = createTestAsset(testDb, { codename: 'INTEL' });
+      const _asset = createTestAsset(testDb, { codename: 'INTEL' });
 
       const result = await createBattlefield({
         name: 'Bootstrap Test',
@@ -295,11 +295,11 @@ describe('battlefield actions', () => {
   // -------------------------------------------------------------------------
   describe('listBattlefields', () => {
     it('returns battlefields ordered by updatedAt desc', async () => {
-      const older = createTestBattlefield(testDb, {
+      const _older = createTestBattlefield(testDb, {
         name: 'Older',
         updatedAt: 1000,
       });
-      const newer = createTestBattlefield(testDb, {
+      const _newer = createTestBattlefield(testDb, {
         name: 'Newer',
         updatedAt: 2000,
       });
@@ -473,7 +473,7 @@ describe('battlefield actions', () => {
   // -------------------------------------------------------------------------
   describe('regenerateBootstrap', () => {
     it('deletes files, creates new mission, and triggers orchestrator', async () => {
-      const asset = createTestAsset(testDb, { codename: 'INTEL' });
+      const _asset = createTestAsset(testDb, { codename: 'INTEL' });
       const bf = createTestBattlefield(testDb, {
         status: 'initializing',
         repoPath: '/tmp/regen-repo',

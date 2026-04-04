@@ -6,8 +6,6 @@ import { useMissionComms } from '@/hooks/use-mission-comms';
 import { Terminal } from '@/components/ui/terminal';
 import { MissionActions } from '@/components/mission/mission-actions';
 import { Markdown } from '@/components/ui/markdown';
-import { TacCard } from '@/components/ui/tac-card';
-import { formatDuration } from '@/lib/utils';
 import type { MissionLog, MissionStatus } from '@/types';
 
 interface MissionCommsProps {
@@ -70,13 +68,13 @@ export function MissionComms({
 
   // Token display values — prefer live data, fall back to initial
   const displayInput = tokens?.input ?? initialTokens.input;
-  const displayOutput = tokens?.output ?? initialTokens.output;
+  const _displayOutput = tokens?.output ?? initialTokens.output;
   const displayCacheHit = tokens?.cacheHit ?? initialTokens.cacheHit;
-  const displayDuration = initialTokens.duration; // Duration comes from DB on completion
-  const displayCostUsd = tokens?.costUsd ?? null;
+  const _displayDuration = initialTokens.duration; // Duration comes from DB on completion
+  const _displayCostUsd = tokens?.costUsd ?? null;
 
   const totalInputContext = displayInput + displayCacheHit;
-  const cachePercent =
+  const _cachePercent =
     totalInputContext > 0 ? Math.round((displayCacheHit / totalInputContext) * 100) : 0;
 
   // Build terminal logs

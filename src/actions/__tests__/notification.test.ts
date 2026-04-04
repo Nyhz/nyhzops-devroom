@@ -35,9 +35,9 @@ describe('notification actions', () => {
     });
 
     it('returns all notifications ordered by createdAt desc', async () => {
-      const n1 = createTestNotification(db, { title: 'First', createdAt: 1000 });
-      const n2 = createTestNotification(db, { title: 'Second', createdAt: 2000 });
-      const n3 = createTestNotification(db, { title: 'Third', createdAt: 3000 });
+      const _n1 = createTestNotification(db, { title: 'First', createdAt: 1000 });
+      const _n2 = createTestNotification(db, { title: 'Second', createdAt: 2000 });
+      const _n3 = createTestNotification(db, { title: 'Third', createdAt: 3000 });
 
       const result = await getNotifications();
       expect(result).toHaveLength(3);

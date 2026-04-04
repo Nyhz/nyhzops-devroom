@@ -45,10 +45,10 @@ export function NotePanel({
   useEffect(() => {
     if (note === null) {
       setTitle(''); // eslint-disable-line react-hooks/set-state-in-effect
-      setDescription(''); // eslint-disable-line react-hooks/set-state-in-effect
+      setDescription('');
     } else {
-      setTitle(note.title); // eslint-disable-line react-hooks/set-state-in-effect
-      setDescription(note.description ?? ''); // eslint-disable-line react-hooks/set-state-in-effect
+      setTitle(note.title);
+      setDescription(note.description ?? '');
     }
   }, [note]);
 

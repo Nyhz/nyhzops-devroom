@@ -2,7 +2,7 @@
 
 import { eq, inArray } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
-import { campaigns, phases, missions, missionLogs, assets, battlefields, intelNotes } from '@/lib/db/schema';
+import { campaigns, phases, missions, missionLogs, assets, intelNotes } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import { emitStatusChange } from '@/lib/socket/emit';
 import { revalidatePath } from 'next/cache';

@@ -5,7 +5,7 @@ import { eq, count, inArray } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { assets, missions } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
-import type { Asset, AssetStatus } from '@/types';
+import type { AssetStatus } from '@/types';
 
 
 export interface AssetDeploymentEntry {

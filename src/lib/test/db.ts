@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from '@/lib/db/schema';
-import { getTableColumns, sql } from 'drizzle-orm';
+import { getTableColumns } from 'drizzle-orm';
 import type { SQLiteTableWithColumns } from 'drizzle-orm/sqlite-core';
 
 export type TestDB = ReturnType<typeof drizzle<typeof schema>>;

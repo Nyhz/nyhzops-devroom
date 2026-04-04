@@ -1,15 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderWithProviders } from '@/lib/test/render';
 import { TacTextareaWithImages } from '../tac-textarea-with-images';
 
-function ControlledTextarea({ initialValue = '' }: { initialValue?: string }) {
-  const [value, setValue] = __import_react.useState(initialValue);
-  return <TacTextareaWithImages value={value} onChange={setValue} placeholder="Enter briefing" />;
-}
-
-// Need React for the controlled wrapper
-import * as __import_react from 'react';
 
 describe('TacTextareaWithImages', () => {
   it('renders a textarea with placeholder', () => {

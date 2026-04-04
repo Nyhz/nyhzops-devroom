@@ -8,7 +8,7 @@ import {
   createTestMission,
   createTestAsset,
 } from '@/lib/test/fixtures';
-import { campaigns, phases, missions, intelNotes, missionLogs } from '@/lib/db/schema';
+import { campaigns, phases, missions, intelNotes } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { createMockDbModule } from '@/lib/test/mock-db';
 import type { DB } from '@/lib/db/index';
@@ -568,7 +568,7 @@ describe('abandonCampaign', () => {
 
 describe('redeployCampaign', () => {
   it('clones campaign into a new planning campaign', async () => {
-    const { campaign, phase, mission } = createLaunchableCampaign('accomplished');
+    const { campaign, phase: _phase, mission: _mission } = createLaunchableCampaign('accomplished');
 
     const cloned = await redeployCampaign(campaign.id);
     expect(cloned.status).toBe('planning');

@@ -9,8 +9,6 @@ import fs from 'fs';
 import { scanHostSkills } from '../skill-scanner';
 
 const PLUGINS_DIR = '/Users/testuser/.claude/plugins';
-const MANIFEST_PATH = `${PLUGINS_DIR}/installed_plugins.json`;
-const SETTINGS_PATH = '/Users/testuser/.claude/settings.json';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -18,23 +16,6 @@ const SETTINGS_PATH = '/Users/testuser/.claude/settings.json';
 
 function mockExistsSync(paths: Record<string, boolean>) {
   vi.mocked(fs.existsSync).mockImplementation((p) => paths[p as string] ?? false);
-}
-
-function mockReadFileSync(files: Record<string, string>) {
-  vi.mocked(fs.readFileSync).mockImplementation((p, _enc) => {
-    const content = files[p as string];
-    if (content === undefined) throw new Error(`ENOENT: ${String(p)}`);
-    return content;
-  });
-}
-
-function mockReaddirSync(dirs: Record<string, fs.Dirent[]>) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  vi.mocked(fs.readdirSync).mockImplementation((p, _opts) => {
-    const entries = dirs[p as string];
-    if (!entries) return [] as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-    return entries as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  });
 }
 
 function makeDirent(name: string, isDir: boolean): fs.Dirent {
@@ -155,7 +136,6 @@ description: "Brainstorm features before implementing"
       throw new Error(`ENOENT: ${s}`);
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(fs.readdirSync).mockImplementation(((p: unknown, _opts: unknown) => {
       if (String(p) === skillsDir) {
         return [makeDirent('brainstorming', true)];

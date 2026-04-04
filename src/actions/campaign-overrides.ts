@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { campaigns, phases, missions } from '@/lib/db/schema';
 import { emitStatusChange } from '@/lib/socket/emit';

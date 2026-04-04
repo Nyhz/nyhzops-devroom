@@ -9,7 +9,6 @@ import { BoardColumn } from './board-column';
 import { NotePanel } from './note-panel';
 import { useBoard, BOARD_COLUMNS } from '@/hooks/use-board';
 import { moveNote } from '@/actions/intel';
-import { cn } from '@/lib/utils';
 import type { IntelNoteWithMission, IntelNoteColumn } from '@/types';
 
 // ---------------------------------------------------------------------------

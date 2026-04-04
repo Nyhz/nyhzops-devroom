@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { eq, asc } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
-import { followUpSuggestions, missions, campaigns } from '@/lib/db/schema';
+import { followUpSuggestions } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import { extractNextActions } from '@/lib/utils/debrief-parser';
 import { createNote } from '@/actions/intel';

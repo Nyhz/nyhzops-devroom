@@ -7,7 +7,7 @@ import { campaigns, phases, missions as missionsTable } from '@/lib/db/schema';
 function buildCampaignMissionPrompt(
   mission: Mission,
   battlefield: Battlefield,
-  asset: Asset | null,
+  _asset: Asset | null,
 ): string {
   const db = getDatabase();
   const sections: string[] = [];
