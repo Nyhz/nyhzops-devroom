@@ -2,14 +2,9 @@ import { runClaudePrint } from '@/lib/process/claude-print';
 import { getSystemAsset } from '@/lib/orchestrator/system-asset';
 import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
 import { filterFlag } from '@/lib/utils/cli';
-import type { OverseerLog, OverseerConfidence } from '@/types';
-
-export interface OverseerDecision {
-  answer: string;
-  reasoning: string;
-  escalate: boolean;
-  confidence: OverseerConfidence;
-}
+import type { OverseerLog } from '@/types';
+import { parseOverseerDecision, type OverseerDecision } from './parse-decision';
+export type { OverseerDecision } from './parse-decision';
 
 interface AskOverseerParams {
   question: string;
@@ -83,56 +78,6 @@ function buildOverseerPrompt(params: AskOverseerParams): string {
   return sections.join('\n\n---\n\n');
 }
 
-function parseDecision(raw: string): OverseerDecision {
-  // Try to extract JSON from the output — may have markdown fences or extra text
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    return {
-      answer: raw.trim(),
-      reasoning: 'Failed to parse structured response — using raw output.',
-      escalate: false,
-      confidence: 'low',
-    };
-  }
-
-  try {
-    const parsed = JSON.parse(jsonMatch[0]) as {
-      answer?: string;
-      reasoning?: string;
-      escalate?: boolean;
-      confidence?: string;
-    };
-
-    if (!parsed.answer) {
-      return {
-        answer: raw.trim(),
-        reasoning: 'Parsed JSON had no answer field — using raw output.',
-        escalate: false,
-        confidence: 'low',
-      };
-    }
-
-    const validConfidence = ['high', 'medium', 'low'];
-    const confidence = validConfidence.includes(parsed.confidence || '')
-      ? (parsed.confidence as OverseerConfidence)
-      : 'low';
-
-    return {
-      answer: parsed.answer,
-      reasoning: parsed.reasoning || 'No reasoning provided.',
-      escalate: !!parsed.escalate,
-      confidence,
-    };
-  } catch {
-    return {
-      answer: raw.trim(),
-      reasoning: 'JSON parse failed — using raw output.',
-      escalate: false,
-      confidence: 'low',
-    };
-  }
-}
-
 export async function askOverseer(params: AskOverseerParams): Promise<OverseerDecision> {
   const prompt = buildOverseerPrompt(params);
 
@@ -145,7 +90,7 @@ export async function askOverseer(params: AskOverseerParams): Promise<OverseerDe
       maxTurns: 1,
       extraArgs: filtered,
     });
-    return parseDecision(stdout);
+    return parseOverseerDecision(stdout);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`[Overseer] Process failed: ${msg}`);

@@ -6,17 +6,8 @@ import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
 import { filterFlag } from '@/lib/utils/cli';
 import { overseerLogs } from '@/lib/db/schema';
 import type { Campaign, Phase, Mission } from '@/types';
-
-export interface PhaseFailureDecision {
-  decision: 'retry' | 'skip' | 'escalate';
-  reasoning: string;
-  retryBriefings?: Record<string, string>; // missionId -> modified briefing
-}
-
-const FALLBACK_DECISION: PhaseFailureDecision = {
-  decision: 'escalate',
-  reasoning: 'Unable to parse Overseer decision. Escalating to Commander.',
-};
+import { parsePhaseFailureDecision, FALLBACK_PHASE_DECISION, type PhaseFailureDecision } from './parse-decision';
+export type { PhaseFailureDecision } from './parse-decision';
 
 function buildPhaseFailurePrompt(params: {
   campaign: Campaign;
@@ -77,36 +68,6 @@ Respond with a JSON object only. No markdown fences, no extra text.`);
   return sections.join('\n\n---\n\n');
 }
 
-function parseDecision(raw: string): PhaseFailureDecision {
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    return FALLBACK_DECISION;
-  }
-
-  try {
-    const parsed = JSON.parse(jsonMatch[0]) as {
-      decision?: string;
-      reasoning?: string;
-      retryBriefings?: Record<string, string>;
-    };
-
-    const validDecisions = ['retry', 'skip', 'escalate'] as const;
-    const decision = validDecisions.includes(
-      parsed.decision as typeof validDecisions[number],
-    )
-      ? (parsed.decision as PhaseFailureDecision['decision'])
-      : 'escalate';
-
-    return {
-      decision,
-      reasoning: parsed.reasoning || 'No reasoning provided.',
-      retryBriefings: decision === 'retry' ? (parsed.retryBriefings || {}) : undefined,
-    };
-  } catch {
-    return FALLBACK_DECISION;
-  }
-}
-
 /**
  * Check how many retry decisions the Overseer has already made for this
  * campaign's current phase. If >= 2, force escalation.
@@ -159,7 +120,7 @@ export async function handlePhaseFailure(params: {
       maxTurns: 1,
       extraArgs: filtered,
     });
-    const decision = parseDecision(stdout);
+    const decision = parsePhaseFailureDecision(stdout);
     if (decision.decision === 'retry' && retryCount >= 2) {
       return {
         decision: 'escalate',
@@ -170,6 +131,6 @@ export async function handlePhaseFailure(params: {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`[Overseer] Phase failure handler failed: ${msg}`);
-    return FALLBACK_DECISION;
+    return FALLBACK_PHASE_DECISION;
   }
 }
