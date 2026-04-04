@@ -6,7 +6,7 @@ import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { campaigns, phases, missions } from '@/lib/db/schema';
 import { emitStatusChange } from '@/lib/socket/emit';
 import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
-import { reactivateCampaignIfNeeded, notifyCampaignExecutor, revalidateCampaignPaths } from './campaign';
+import { reactivateCampaignIfNeeded, notifyCampaignExecutor, revalidateCampaignPaths } from './campaign-helpers';
 
 // ---------------------------------------------------------------------------
 // skipAndContinueCampaign

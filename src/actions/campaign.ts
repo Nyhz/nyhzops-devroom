@@ -1,6 +1,5 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { eq, desc, and, inArray } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
@@ -8,49 +7,8 @@ import { campaigns, phases, missions, assets, battlefields, intelNotes } from '@
 import { generateId } from '@/lib/utils';
 import { emitStatusChange } from '@/lib/socket/emit';
 import type { Campaign, CampaignWithPlan } from '@/types';
-import { cloneCampaignPlan, deletePlanData } from './campaign-plan';
+import { cloneCampaignPlan, deletePlanData, revalidateCampaignPaths } from './campaign-helpers';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * If a campaign exists and isn't active, move it back to active.
- */
-export function reactivateCampaignIfNeeded(campaignId: string) {
-  const db = getDatabase();
-  const campaign = db.select().from(campaigns).where(eq(campaigns.id, campaignId)).get();
-  if (campaign && campaign.status !== 'active') {
-    db.update(campaigns).set({
-      status: 'active',
-      updatedAt: Date.now(),
-    }).where(eq(campaigns.id, campaignId)).run();
-    emitStatusChange('campaign', campaignId, 'active');
-  }
-}
-
-/**
- * Ensure a CampaignExecutor is registered and notify it of mission completion.
- * Auto-registers executor if missing (e.g. after server restart).
- */
-export async function notifyCampaignExecutor(campaignId: string, missionId: string) {
-  let executor = globalThis.orchestrator?.activeCampaigns.get(campaignId);
-  if (!executor && globalThis.orchestrator) {
-    const { CampaignExecutor } = await import('@/lib/orchestrator/campaign-executor');
-    executor = new CampaignExecutor(campaignId, globalThis.io!);
-    globalThis.orchestrator.activeCampaigns.set(campaignId, executor);
-  }
-  if (executor) {
-    executor.onCampaignMissionComplete(missionId).catch(console.error);
-  }
-}
-
-export function revalidateCampaignPaths(battlefieldId: string, campaignId?: string) {
-  revalidatePath(`/battlefields/${battlefieldId}/campaigns`);
-  if (campaignId) {
-    revalidatePath(`/battlefields/${battlefieldId}/campaigns/${campaignId}`);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // 1. createCampaign
