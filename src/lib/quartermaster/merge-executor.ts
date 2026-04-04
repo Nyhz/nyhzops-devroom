@@ -89,6 +89,11 @@ export async function executeMerge(params: {
 
     // Conflict detected — attempt resolution
     console.log(`[MergeExecutor] Conflict detected for mission ${missionId}, attempting resolution...`);
+
+    // Capture conflicted files for logging
+    const conflictStatus = await git.status();
+    const conflictFiles = conflictStatus.conflicted;
+
     const resolved = await resolveConflicts({
       repoPath,
       sourceBranch,
@@ -98,7 +103,7 @@ export async function executeMerge(params: {
     });
 
     if (resolved) {
-      return { success: true, conflictResolved: true };
+      return { success: true, conflictResolved: true, conflictFiles };
     }
 
     // Resolution failed — abort merge, schedule retry

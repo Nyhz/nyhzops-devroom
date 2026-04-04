@@ -237,6 +237,7 @@ export interface LiveTokenData {
 export interface MergeResult {
   success: boolean;
   conflictResolved: boolean;
+  conflictFiles?: string[];
   error?: string;
 }
 

@@ -8,7 +8,7 @@ import { removeWorktree } from '@/lib/orchestrator/worktree';
 import { extractAndSaveSuggestions } from '@/actions/follow-up';
 import { escalate } from '@/lib/overseer/escalation';
 import { executeMerge } from './merge-executor';
-import type { Mission } from '@/types';
+import type { Mission, MergeResultType } from '@/types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -143,6 +143,21 @@ export async function triggerQuartermaster(missionId: string): Promise<void> {
       emitStatusChange('mission', missionId, 'merging', { mergeRetryAt: retryAt });
     },
   });
+
+  // Persist merge metadata for Field Check page
+  const mergeResult: MergeResultType = result.success
+    ? (result.conflictResolved ? 'conflict_resolved' : 'clean')
+    : 'failed';
+
+  db.update(missions)
+    .set({
+      mergeResult,
+      mergeConflictFiles: result.conflictFiles ? JSON.stringify(result.conflictFiles) : null,
+      mergeTimestamp: Date.now(),
+      updatedAt: Date.now(),
+    })
+    .where(eq(missions.id, missionId))
+    .run();
 
   if (result.success) {
     // Clean up worktree
