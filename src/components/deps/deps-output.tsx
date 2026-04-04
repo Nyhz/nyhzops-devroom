@@ -11,7 +11,7 @@ interface DepsOutputProps {
 }
 
 export function DepsOutput({ battlefieldId, className }: DepsOutputProps) {
-  const { logs, exitCode, isRunning } = useDepsOutput(battlefieldId);
+  const { logs, exitCode, isRunning, verifyStatus, verifyPhase } = useDepsOutput(battlefieldId);
 
   const terminalLogs = useMemo(
     () => logs.map(l => ({ content: l.content, timestamp: l.timestamp, type: 'log' as const })),
@@ -45,6 +45,23 @@ export function DepsOutput({ battlefieldId, className }: DepsOutputProps) {
         </div>
       )}
       <Terminal logs={terminalLogs} />
+      {verifyStatus === 'running' && (
+        <div className="border border-amber-500/50 bg-amber-900/30 px-3 py-2 font-mono text-xs text-dr-amber">
+          Verifying build and tests...
+        </div>
+      )}
+      {verifyStatus === 'passed' && (
+        <div className="border border-green-500/50 bg-green-900/30 px-3 py-2 font-mono text-xs text-dr-green">
+          Verification PASSED — build and tests OK
+        </div>
+      )}
+      {verifyStatus === 'failed' && (
+        <div className="border border-red-500/50 bg-red-900/30 px-3 py-2 font-mono text-xs text-dr-red">
+          {verifyPhase === 'update'
+            ? 'Update FAILED'
+            : 'Update succeeded but verification FAILED — build or tests broken'}
+        </div>
+      )}
     </div>
   );
 }

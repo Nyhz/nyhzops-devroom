@@ -16,6 +16,8 @@ export function useDepsOutput(battlefieldId: string) {
   const [logs, setLogs] = useState<DepsLog[]>([]);
   const [exitCode, setExitCode] = useState<number | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [verifyStatus, setVerifyStatus] = useState<'idle' | 'running' | 'passed' | 'failed'>('idle');
+  const [verifyPhase, setVerifyPhase] = useState<string | null>(null);
 
   useEffect(() => {
     if (!socket) return;
@@ -41,12 +43,30 @@ export function useDepsOutput(battlefieldId: string) {
       }
     };
 
+    const handleVerifyPassed = (data: { battlefieldId: string }) => {
+      if (data.battlefieldId === battlefieldId) {
+        setVerifyStatus('passed');
+        setVerifyPhase(null);
+      }
+    };
+
+    const handleVerifyFailed = (data: { battlefieldId: string; phase: string }) => {
+      if (data.battlefieldId === battlefieldId) {
+        setVerifyStatus('failed');
+        setVerifyPhase(data.phase);
+      }
+    };
+
     socket.on('console:output', handleOutput);
     socket.on('console:exit', handleExit);
+    socket.on('deps:verify-passed', handleVerifyPassed);
+    socket.on('deps:verify-failed', handleVerifyFailed);
 
     return () => {
       socket.off('console:output', handleOutput);
       socket.off('console:exit', handleExit);
+      socket.off('deps:verify-passed', handleVerifyPassed);
+      socket.off('deps:verify-failed', handleVerifyFailed);
       socket.emit('deps:unsubscribe', battlefieldId);
     };
   }, [socket, battlefieldId, reconnectKey]);
@@ -70,7 +90,9 @@ export function useDepsOutput(battlefieldId: string) {
     setLogs([]);
     setExitCode(null);
     setIsRunning(true);
+    setVerifyStatus('idle');
+    setVerifyPhase(null);
   }, []);
 
-  return { logs, exitCode, isRunning, prependBufferedLogs, reset };
+  return { logs, exitCode, isRunning, verifyStatus, verifyPhase, prependBufferedLogs, reset };
 }
