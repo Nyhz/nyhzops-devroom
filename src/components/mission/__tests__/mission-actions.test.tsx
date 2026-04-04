@@ -20,7 +20,7 @@ const mockTacticalOverride = vi.fn();
 const mockSkipMission = vi.fn();
 const mockCommanderOverride = vi.fn();
 
-vi.mock('@/actions/campaign', () => ({
+vi.mock('@/actions/campaign-overrides', () => ({
   tacticalOverride: (...args: unknown[]) => mockTacticalOverride(...args),
   skipMission: (...args: unknown[]) => mockSkipMission(...args),
   commanderOverride: (...args: unknown[]) => mockCommanderOverride(...args),

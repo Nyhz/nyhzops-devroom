@@ -15,6 +15,9 @@ vi.mock('@/actions/campaign', () => ({
   abandonCampaign: (...args: unknown[]) => mockAbandonCampaign(...args),
   completeCampaign: (...args: unknown[]) => mockCompleteCampaign(...args),
   deleteCampaign: (...args: unknown[]) => mockDeleteCampaign(...args),
+}));
+
+vi.mock('@/actions/campaign-plan', () => ({
   backToDraft: (...args: unknown[]) => mockBackToDraft(...args),
 }));
 

@@ -6,7 +6,7 @@ import type { PlanJSON } from '@/types';
 
 // Mock updateBattlePlan
 const mockUpdateBattlePlan = vi.fn().mockResolvedValue(undefined);
-vi.mock('@/actions/campaign', () => ({
+vi.mock('@/actions/campaign-plan', () => ({
   updateBattlePlan: (...args: unknown[]) => mockUpdateBattlePlan(...args),
 }));
 
