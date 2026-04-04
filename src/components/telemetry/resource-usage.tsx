@@ -84,27 +84,17 @@ export function ResourceUsage({ metrics, className }: ResourceUsageProps) {
           <div className="text-[10px] font-mono text-dr-dim mt-1">{slotPct}% utilized</div>
         </div>
 
-        {/* Disk metrics — horizontal bar layout */}
-        <div>
-          <span className="text-xs font-tactical text-dr-muted tracking-wider">DISK</span>
-          <div className="mt-1.5 space-y-2">
-            {diskItems.map(item => (
-              <div key={item.label} className="flex items-center gap-3">
-                <span className="text-[10px] font-tactical text-dr-dim tracking-wider w-20 shrink-0">
-                  {item.label}
-                </span>
-                <div className="flex-1 h-1 bg-dr-bg rounded-sm overflow-hidden">
-                  <div
-                    className={cn('h-full rounded-sm', HEALTH_BG[item.health])}
-                    style={{ width: item.health === 'green' ? '15%' : item.health === 'amber' ? '60%' : '90%' }}
-                  />
-                </div>
-                <span className={cn('text-xs font-mono w-16 text-right shrink-0', HEALTH_TEXT[item.health])}>
-                  {item.value}
-                </span>
+        {/* Disk metrics */}
+        <div className="grid grid-cols-3 gap-3">
+          {diskItems.map(item => (
+            <div key={item.label} className="bg-dr-bg border border-dr-border px-3 py-2">
+              <span className="text-[10px] font-tactical text-dr-dim tracking-wider">{item.label}</span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={cn('text-[8px] leading-none', HEALTH_TEXT[item.health])}>●</span>
+                <span className={cn('text-sm font-mono', HEALTH_TEXT[item.health])}>{item.value}</span>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
 
         {/* Socket connections — simple inline */}
