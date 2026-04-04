@@ -71,12 +71,4 @@ describe('BattlefieldSelector', () => {
     expect(gearLink).toHaveAttribute('href', '/battlefields/bf-1/config');
   });
 
-  it('shows placeholder when no battlefield matches URL', () => {
-    vi.mocked(vi.fn()).mockReturnValue; // reset
-    // Re-mock with a path that doesn't match any battlefield
-    vi.doMock('next/navigation', () => ({
-      useRouter: () => ({ push: vi.fn() }),
-      usePathname: () => '/',
-    }));
-  });
 });
