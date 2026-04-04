@@ -11,6 +11,7 @@ import { parseCommand } from './general-commands';
 import { getSystemAsset } from '@/lib/orchestrator/system-asset';
 import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
 import { filterFlags } from '@/lib/utils/cli';
+import { StreamParser } from '@/lib/orchestrator/stream-parser';
 
 // ---------------------------------------------------------------------------
 // Active process tracking
@@ -139,39 +140,28 @@ export async function sendGeneralMessage(
   let extractedSessionId: string | null = null;
   let lineBuffer = '';
 
-  // Parse stream-json output line by line
+  const parser = new StreamParser();
+
+  parser.onDelta((text) => {
+    fullResponse += text;
+    io.to(room).emit('general:chunk', { sessionId, content: text });
+  });
+
+  parser.onResult((result) => {
+    const sid = parser.getSessionId();
+    if (sid) extractedSessionId = sid;
+    if (!fullResponse && result.result && typeof result.result === 'string') {
+      fullResponse = result.result;
+      io.to(room).emit('general:chunk', { sessionId, content: result.result });
+    }
+  });
+
   proc.stdout.on('data', (chunk: Buffer) => {
     lineBuffer += chunk.toString();
     const lines = lineBuffer.split('\n');
     lineBuffer = lines.pop() ?? '';
-
     for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const event = JSON.parse(line);
-
-        if (event.session_id && !extractedSessionId) {
-          extractedSessionId = event.session_id;
-        }
-
-        if (event.type === 'stream_event' && event.event) {
-          const inner = event.event;
-          if (inner.type === 'content_block_delta' && inner.delta?.type === 'text_delta' && inner.delta.text) {
-            fullResponse += inner.delta.text;
-            io.to(room).emit('general:chunk', { sessionId, content: inner.delta.text });
-          }
-        }
-
-        if (event.type === 'result') {
-          if (event.session_id) extractedSessionId = event.session_id;
-          if (!fullResponse && event.result && typeof event.result === 'string') {
-            fullResponse = event.result;
-            io.to(room).emit('general:chunk', { sessionId, content: event.result });
-          }
-        }
-      } catch {
-        // Not valid JSON — ignore
-      }
+      if (line.trim()) parser.feed(line);
     }
   });
 
@@ -191,18 +181,12 @@ export async function sendGeneralMessage(
 
       // Process remaining buffer
       if (lineBuffer.trim()) {
-        try {
-          const event = JSON.parse(lineBuffer);
-          if (event.session_id && !extractedSessionId) {
-            extractedSessionId = event.session_id;
-          }
-          if (event.type === 'result') {
-            if (event.session_id) extractedSessionId = event.session_id;
-            if (!fullResponse && event.result && typeof event.result === 'string') {
-              fullResponse = event.result;
-            }
-          }
-        } catch { /* ignore */ }
+        parser.feed(lineBuffer);
+      }
+
+      // Pick up session ID from parser if not already captured
+      if (!extractedSessionId) {
+        extractedSessionId = parser.getSessionId();
       }
 
       // Persist Claude's session ID for --resume
