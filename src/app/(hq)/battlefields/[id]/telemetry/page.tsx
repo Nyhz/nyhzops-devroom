@@ -4,12 +4,10 @@ import { battlefields } from '@/lib/db/schema';
 import {
   getActiveProcesses,
   getResourceUsage,
-  getRecentExits,
   getServiceHealth,
 } from '@/actions/telemetry';
 import { ActiveProcesses } from '@/components/telemetry/active-processes';
 import { ResourceUsage } from '@/components/telemetry/resource-usage';
-import { RecentExits } from '@/components/telemetry/recent-exits';
 import { ServiceHealth } from '@/components/telemetry/service-health';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 
@@ -20,10 +18,9 @@ export default async function TelemetryPage({
 }) {
   const { id } = await params;
 
-  const [processes, resources, exits, health] = await Promise.all([
+  const [processes, resources, health] = await Promise.all([
     getActiveProcesses(id),
     getResourceUsage(id),
-    getRecentExits(id),
     getServiceHealth(id),
   ]);
 
@@ -45,7 +42,6 @@ export default async function TelemetryPage({
         initialProcesses={processes}
       />
       <ResourceUsage metrics={resources} />
-      <RecentExits battlefieldId={id} initialExits={exits} />
       <ServiceHealth health={health} />
     </PageWrapper>
   );

@@ -5,14 +5,12 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { eq, and, desc, inArray, sql, gte, like } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
-import { missions, battlefields, scheduledTasks, overseerLogs, notifications, missionLogs, assets } from '@/lib/db/schema';
+import { missions, battlefields, scheduledTasks, overseerLogs, notifications, assets } from '@/lib/db/schema';
 import { getRepoPath } from '@/actions/_helpers';
 import { config } from '@/lib/config';
 import type {
   ProcessEntry,
   ResourceMetrics,
-  ExitEntry,
-  FailureType,
   ServiceHealthStatus,
   MissionStatus,
 } from '@/types';
@@ -35,33 +33,6 @@ function getDirSize(dirPath: string): number {
   } catch {
     return 0;
   }
-}
-
-/**
- * Classify a mission failure type based on status, compromiseReason, and debrief text.
- * Returns null for non-failures or unclassifiable exits.
- */
-function classifyFailure(
-  status: string,
-  compromiseReason: string | null,
-  debrief: string | null,
-): FailureType | null {
-  if (status === 'accomplished') return null;
-
-  if (compromiseReason === 'timeout') return 'timeout';
-  if (compromiseReason === 'escalated') return 'stall_killed';
-  if (compromiseReason === 'merge-failed') return null;
-
-  // Text-based auth failure detection
-  const text = (debrief ?? '').toLowerCase();
-  if (text.includes('auth') || text.includes('token') || text.includes('unauthorized')) {
-    return 'auth_failure';
-  }
-
-  if (status === 'abandoned') return 'killed';
-  if (status === 'compromised') return 'cli_error';
-
-  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -203,76 +174,6 @@ export async function getResourceUsage(battlefieldId: string): Promise<ResourceM
 // ---------------------------------------------------------------------------
 // Recent Exits
 // ---------------------------------------------------------------------------
-
-const TERMINAL_STATUSES: MissionStatus[] = ['accomplished', 'compromised', 'abandoned'];
-
-export async function getRecentExits(
-  battlefieldId: string,
-  filter?: 'accomplished' | 'compromised' | 'abandoned',
-): Promise<ExitEntry[]> {
-  const db = getDatabase();
-
-  const statusFilter = filter
-    ? [filter as MissionStatus]
-    : TERMINAL_STATUSES;
-
-  const rows = db
-    .select({
-      id: missions.id,
-      title: missions.title,
-      status: missions.status,
-      compromiseReason: missions.compromiseReason,
-      debrief: missions.debrief,
-      startedAt: missions.startedAt,
-      completedAt: missions.completedAt,
-      durationMs: missions.durationMs,
-    })
-    .from(missions)
-    .where(
-      and(
-        eq(missions.battlefieldId, battlefieldId),
-        inArray(missions.status, statusFilter),
-      ),
-    )
-    .orderBy(desc(missions.completedAt))
-    .limit(20)
-    .all();
-
-  return rows.map((row) => {
-    // Approximate exit code: 0 = accomplished, 1 = compromised/abandoned
-    const exitCode = row.status === 'accomplished' ? 0 : 1;
-
-    const failureType = classifyFailure(
-      row.status ?? '',
-      row.compromiseReason ?? null,
-      row.debrief ?? null,
-    );
-
-    return {
-      missionId: row.id,
-      missionCodename: row.title,
-      exitCode,
-      duration: row.durationMs ?? 0,
-      failureType,
-      timestamp: row.completedAt ?? 0,
-    };
-  });
-}
-
-export async function getExitContext(missionId: string): Promise<string[]> {
-  const db = getDatabase();
-
-  const rows = db
-    .select({ content: missionLogs.content })
-    .from(missionLogs)
-    .where(eq(missionLogs.missionId, missionId))
-    .orderBy(desc(missionLogs.timestamp))
-    .limit(20)
-    .all();
-
-  // Reverse to return in chronological order
-  return rows.map((r) => r.content).reverse();
-}
 
 // ---------------------------------------------------------------------------
 // Service Health
