@@ -108,7 +108,7 @@ export function AssetProfileTab({ asset }: AssetProfileTabProps) {
         <label className="block text-dr-muted font-tactical text-xs tracking-widest uppercase mb-1">
           Effort
         </label>
-        <TacSelect value={effort} onValueChange={(val) => setEffort(val)}>
+        <TacSelect value={effort} onValueChange={(val) => setEffort(val ?? '')}>
           <TacSelectTrigger>
             <TacSelectValue placeholder="Default" />
           </TacSelectTrigger>

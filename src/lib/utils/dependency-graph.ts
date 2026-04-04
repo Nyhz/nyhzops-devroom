@@ -58,5 +58,5 @@ export function detectCycle(nodes: DependencyNode[]): string | null {
   }
 
   if (!cyclePath) return null;
-  return `Circular dependency: ${cyclePath.join(' -> ')}`;
+  return `Circular dependency: ${(cyclePath as string[]).join(' -> ')}`;
 }
