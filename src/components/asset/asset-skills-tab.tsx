@@ -48,7 +48,7 @@ export function AssetSkillsTab({ asset, discovery }: AssetSkillsTabProps) {
   );
   const [skills, setSkills] = useState(discovery.skills);
   const [mcpServers, setMcpServers] = useState(discovery.mcpServers);
-  const [lastScanned, setLastScanned] = useState(Date.now());
+  const [lastScanned, setLastScanned] = useState(() => Date.now());
 
   function handleSkillToggle(id: string, enabled: boolean) {
     const next = enabled

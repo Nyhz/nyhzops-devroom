@@ -32,8 +32,8 @@ function mockReaddirSync(dirs: Record<string, fs.Dirent[]>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   vi.mocked(fs.readdirSync).mockImplementation((p, _opts) => {
     const entries = dirs[p as string];
-    if (!entries) return [] as any;
-    return entries as any;
+    if (!entries) return [] as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    return entries as any; // eslint-disable-line @typescript-eslint/no-explicit-any
   });
 }
 
@@ -161,7 +161,7 @@ description: "Brainstorm features before implementing"
         return [makeDirent('brainstorming', true)];
       }
       return [];
-    }) as any);
+    }) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
     const result = scanHostSkills();
 

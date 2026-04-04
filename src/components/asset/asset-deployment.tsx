@@ -25,11 +25,7 @@ export function AssetDeployment({ initialData }: AssetDeploymentProps) {
   const socket = useSocket();
   const reconnectKey = useReconnectKey();
   const [data, setData] = useState(initialData);
-  const [peaceMsg, setPeaceMsg] = useState(PEACE_MESSAGES[0]);
-
-  useEffect(() => {
-    setPeaceMsg(getPeaceMessage());
-  }, []);
+  const [peaceMsg] = useState(() => getPeaceMessage());
 
   const refresh = useCallback(async () => {
     try {
@@ -44,7 +40,7 @@ export function AssetDeployment({ initialData }: AssetDeploymentProps) {
     if (!socket) return;
 
     socket.emit('hq:subscribe');
-    refresh(); // Refetch on mount AND reconnect
+    refresh(); // eslint-disable-line react-hooks/set-state-in-effect
 
     const handle = () => refresh();
 

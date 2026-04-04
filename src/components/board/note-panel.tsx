@@ -44,11 +44,11 @@ export function NotePanel({
   // Reset form when note prop changes
   useEffect(() => {
     if (note === null) {
-      setTitle('');
-      setDescription('');
+      setTitle(''); // eslint-disable-line react-hooks/set-state-in-effect
+      setDescription(''); // eslint-disable-line react-hooks/set-state-in-effect
     } else {
-      setTitle(note.title);
-      setDescription(note.description ?? '');
+      setTitle(note.title); // eslint-disable-line react-hooks/set-state-in-effect
+      setDescription(note.description ?? ''); // eslint-disable-line react-hooks/set-state-in-effect
     }
   }, [note]);
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { BootSequence } from './boot-sequence';
 
 interface BootGateProps {
@@ -19,15 +19,13 @@ interface BootGateProps {
  * - Returning visit → transitions to 'done' (overlay removed immediately)
  */
 export function BootGate({ children, battlefieldCount, inCombatCount }: BootGateProps) {
-  const [state, setState] = useState<'pending' | 'booting' | 'done'>('pending');
-
-  useEffect(() => {
-    if (sessionStorage.getItem('devroom-booted') === 'true') {
-      setState('done');
-    } else {
-      setState('booting');
+  const [state, setState] = useState<'booting' | 'done'>(() => {
+    try {
+      return sessionStorage.getItem('devroom-booted') === 'true' ? 'done' : 'booting';
+    } catch {
+      return 'booting';
     }
-  }, []);
+  });
 
   const handleBootComplete = useCallback(() => {
     sessionStorage.setItem('devroom-booted', 'true');

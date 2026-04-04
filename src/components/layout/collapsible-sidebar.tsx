@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -42,20 +42,14 @@ export function CollapsibleSidebar({
   campaignCounts,
   activeAgents,
 }: CollapsibleSidebarProps) {
-  const [expanded, setExpanded] = useState(false);
-  const pathname = usePathname();
-
-  // Load persisted expand state on mount
-  useEffect(() => {
+  const [expanded, setExpanded] = useState(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === "expanded") {
-        setExpanded(true);
-      }
+      return localStorage.getItem(STORAGE_KEY) === "expanded";
     } catch {
-      // localStorage unavailable
+      return false;
     }
-  }, []);
+  });
+  const pathname = usePathname();
 
   const toggleExpanded = useCallback(() => {
     setExpanded((prev) => {

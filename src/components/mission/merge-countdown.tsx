@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 
 export function MergeCountdown({ retryAt }: { retryAt: number }) {
-  const [remaining, setRemaining] = useState(Math.max(0, Math.ceil((retryAt - Date.now()) / 1000)));
+  const [remaining, setRemaining] = useState(() => Math.max(0, Math.ceil((retryAt - Date.now()) / 1000)));
 
   useEffect(() => {
     const interval = setInterval(() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { TacButton } from '@/components/ui/tac-button';
 
 const ERROR_QUOTES = [
@@ -18,11 +18,7 @@ export default function RootError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  const [quote, setQuote] = useState(ERROR_QUOTES[0]);
-
-  useEffect(() => {
-    setQuote(ERROR_QUOTES[Math.floor(Math.random() * ERROR_QUOTES.length)]);
-  }, []);
+  const [quote] = useState(() => ERROR_QUOTES[Math.floor(Math.random() * ERROR_QUOTES.length)]);
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-8">

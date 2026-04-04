@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { TacButton } from '@/components/ui/tac-button';
 import { GitDiff } from '@/components/git/git-diff';
 import { TacCard } from '@/components/ui/tac-card';
@@ -30,15 +30,11 @@ export function GitLog({ battlefieldId, initialCommits, className }: GitLogProps
     });
   }
 
-  const nowRef = useRef(Date.now());
-
-  useEffect(() => {
-    nowRef.current = Date.now();
-  }, []);
+  const [nowMs] = useState(() => Date.now());
 
   function formatDate(dateStr: string): string {
     const date = new Date(dateStr);
-    const diff = nowRef.current - date.getTime();
+    const diff = nowMs - date.getTime();
     const seconds = Math.floor(diff / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
