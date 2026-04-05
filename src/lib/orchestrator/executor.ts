@@ -19,6 +19,8 @@ import { storeOverseerLog, getRecentOverseerLogs } from '@/lib/overseer/overseer
 import { escalate } from '@/lib/overseer/escalation';
 import { runOverseerReview } from '@/lib/overseer/review-handler';
 import { extractAndSaveSuggestions } from '@/actions/follow-up';
+import { runSelfReflection } from './self-reflection';
+import { getAssetMemory } from '@/actions/asset';
 import { getOverseerLogs } from '@/actions/overseer';
 import type { Mission, StreamResult } from '@/types';
 import { checkCliAuth } from './auth-check';
@@ -554,6 +556,27 @@ export async function executeMission(
           db.update(assets).set({
             missionsCompleted: (currentAsset.missionsCompleted || 0) + 1,
           }).where(eq(assets.id, mission.assetId)).run();
+        }
+      }
+
+      // Self-reflection — asset reviews its memory after debrief, before Overseer
+      if (mission.assetId && debrief && finalStatus === 'reviewing') {
+        try {
+          const asset = db.select().from(assets)
+            .where(eq(assets.id, mission.assetId)).get();
+          if (asset) {
+            const currentMemory = await getAssetMemory(mission.assetId);
+            await runSelfReflection({
+              assetId: mission.assetId,
+              assetCodename: asset.codename,
+              debrief,
+              currentMemory,
+              missionId: mission.id,
+              io,
+            });
+          }
+        } catch (err) {
+          console.error('[SelfReflection] Failed for mission', mission.id, err);
         }
       }
 
