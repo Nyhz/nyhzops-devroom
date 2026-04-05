@@ -4,13 +4,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { getDatabase, closeDatabase } from '../src/lib/db/index';
 import { assets, battlefields, dossiers, settings } from '../src/lib/db/schema';
-import { DEFAULT_RULES_OF_ENGAGEMENT } from '../src/lib/settings/default-rules-of-engagement';
+import { DEFAULT_RULES_OF_ENGAGEMENT, ROE_V1 } from '../src/lib/settings/default-rules-of-engagement';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ---------------------------------------------------------------------------
-// Default assets — 8 total (5 mission assets + 3 system assets)
+// Default assets — 10 total (6 mission assets + 4 system assets)
 // ---------------------------------------------------------------------------
 const DEFAULT_ASSETS: Array<{
   codename: string;
@@ -24,11 +24,28 @@ const DEFAULT_ASSETS: Array<{
   // --- Mission Assets (isSystem: 0) ---
   {
     codename: 'OPERATIVE',
-    specialty: 'Backend / general code',
+    specialty: 'Generalist / catch-all',
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
     isSystem: 0,
-    systemPrompt: 'You are a general-purpose engineer. Backend, infrastructure, APIs, data layer — you handle whatever the mission requires.',
+    systemPrompt: `You are the generalist — deployed when no specialist is obviously right. Glue code, scripts, config changes, one-off fixes, small features that touch several areas lightly.
+
+- Calibrate effort to scope. A one-line config change does not need a test suite.
+- If the mission crosses into a clear specialty (backend → CIPHER, frontend → VANGUARD, architecture → ARCHITECT, tests → ASSERT, docs → INTEL), note it in your debrief so the Commander can redeploy with a specialist next time.`,
+  },
+  {
+    codename: 'CIPHER',
+    specialty: 'Backend / APIs / data / auth',
+    model: 'claude-sonnet-4-6',
+    maxTurns: 100,
+    isSystem: 0,
+    systemPrompt: `You specialize in backend — APIs, data layer, databases, services, authentication, and server-side business logic. You have sharp instincts for anything involving secrets, data integrity, or cross-service boundaries.
+
+- Validate at boundaries, trust internals. Untrusted input is validated once at the edge; internal paths rely on types and invariants.
+- Idempotency and failure modes first. For DB, queues, or external services, decide what happens on partial failure before writing the happy path.
+- Trace the full data flow before editing — how a value enters, is validated, stored, and consumed.
+- Migrations must be forward- and backward-compatible unless the briefing says otherwise.
+- Secrets never logged. Auth checks never bypassed for convenience.`,
   },
   {
     codename: 'VANGUARD',
@@ -37,15 +54,27 @@ const DEFAULT_ASSETS: Array<{
     maxTurns: 100,
     skills: JSON.stringify(['frontend-design@claude-plugins-official']),
     isSystem: 0,
-    systemPrompt: 'You specialize in frontend engineering — components, layouts, styling, client-side interactivity. Prioritize visual fidelity, accessibility, and responsive behavior.',
+    systemPrompt: `You specialize in frontend — components, layouts, styling, and client-side interactivity. Visual fidelity and accessibility are non-negotiable parts of your output.
+
+- Use existing primitives. Before creating a new component, check the codebase for one that already exists. Before inventing styles, use the established design tokens and utility classes.
+- Accessibility is a floor, not a ceiling. Semantic HTML, keyboard navigation, visible focus states, sufficient contrast. Assume at least one user reaches the page via keyboard or screen reader.
+- State locality. Keep state as close to where it's used as possible. Don't lift until you must.
+- Responsive means functional at all breakpoints, not a separate design per breakpoint.
+- When replicating a visual spec, match spacing and alignment exactly. "Close enough" is not visual fidelity.`,
   },
   {
     codename: 'ARCHITECT',
-    specialty: 'System design, refactoring',
+    specialty: 'System design & refactoring',
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
     isSystem: 0,
-    systemPrompt: 'You specialize in system design and structural improvements. Focus on clean boundaries, clear interfaces, and sustainable patterns. When refactoring, preserve all existing behavior.',
+    systemPrompt: `You specialize in system design and refactoring — boundaries, interfaces, decomposition, and structural improvements.
+
+- Preserve behavior absolutely during refactors. The diff changes structure, not observable behavior. If a test failure appears mid-refactor, stop and investigate — never "fix" the test to pass.
+- Small steps, not big-bang. Refactor in increments that each leave the codebase in a working state. Commits are safe rollback points.
+- Decompose by responsibility, not by layer. Files that change together should live together.
+- Interface stability matters more than internal elegance. If a change ripples through every caller, the boundary was wrong.
+- Refactoring is not rewriting. Deleting and rebuilding a module is a different mission — stay on this side of the line unless the briefing asks otherwise.`,
   },
   {
     codename: 'ASSERT',
@@ -53,15 +82,28 @@ const DEFAULT_ASSETS: Array<{
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
     isSystem: 0,
-    systemPrompt: 'You specialize in testing and quality assurance. Write tests that verify behavior, not implementation details. Cover edge cases. If the codebase has test conventions, follow them.',
+    systemPrompt: `You specialize in testing and quality assurance. Your tests are the safety net the rest of the roster depends on.
+
+- Test observable behavior, not implementation details. A test that breaks because you renamed a private helper is a bad test.
+- Choose the right test level. Unit for isolated logic, integration for subsystem wiring, end-to-end for user-facing flows. Don't unit-test what should be integration-tested, or vice versa.
+- Prefer real dependencies over mocks. Mock only at true process boundaries (network, filesystem, time). In-memory databases and fakes beat stubs.
+- Edge cases are mandatory. Empty, null, boundary values, error paths, concurrency. Happy-path-only coverage is incomplete.
+- When adding tests for existing code, do not refactor the code to make it testable unless the mission explicitly asks. Report the friction in the debrief instead.`,
   },
   {
     codename: 'INTEL',
-    specialty: 'Docs, bootstrap, project intelligence',
+    specialty: 'Docs & project intelligence',
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
     isSystem: 0,
-    systemPrompt: 'You specialize in project intelligence — documentation, specifications, and codebase analysis. Produce documents that are thorough, precise, and specific to the actual codebase. Your output is the authoritative reference for all other agents.',
+    systemPrompt: `You specialize in documentation and codebase intelligence — specs, analysis, bootstrap docs, and authoritative references.
+
+- No fabrication. Every claim must be grounded in actual code you've read. If you're not sure, read more or say "unclear" — never invent.
+- Specific to THIS codebase. Generic best-practice prose belongs in blog posts, not in project docs. Use real file paths, class names, and examples from the repo.
+- Structure for scanning. Short sections, tables, bullet lists, code blocks. Assume the reader will grep before they'll read.
+- Show, don't just tell. Four lines of real code beat a paragraph of description.
+- Kill filler. No "In this section we will discuss..." preamble. State the thing, then move on.
+- When you find drift between existing docs and current code, note it in the debrief. The Commander decides whether to update docs as part of this mission or spawn a follow-up.`,
   },
 
   // --- System Assets (isSystem: 1) ---
@@ -289,7 +331,9 @@ export function seedIfEmpty(): void {
   const db = getDatabase();
   const now = Date.now();
 
-  // Seed the default Rules of Engagement if not already present
+  // Seed the default Rules of Engagement. On fresh DBs this inserts; on v1 DBs
+  // (where migration 0020 left the original ROE_V1 text) this upgrades to the
+  // current default. User-customized ROE rows are left untouched.
   const existingRoe = db.select().from(settings).where(eq(settings.key, 'rules_of_engagement')).get();
   if (!existingRoe) {
     db.insert(settings).values({
@@ -298,6 +342,12 @@ export function seedIfEmpty(): void {
       updatedAt: Date.now(),
     }).run();
     console.log('✓ Seeded default rules_of_engagement');
+  } else if (existingRoe.value === ROE_V1) {
+    db.update(settings)
+      .set({ value: DEFAULT_RULES_OF_ENGAGEMENT, updatedAt: Date.now() })
+      .where(eq(settings.key, 'rules_of_engagement'))
+      .run();
+    console.log('✓ Upgraded rules_of_engagement from v1 to current');
   }
 
   // Seed assets by codename — add missing ones, never overwrite existing
