@@ -4,9 +4,6 @@ import { BRIEFING_CONTRACT, CLAUDE_MD_CAP, SPEC_MD_CAP } from './briefing-contra
 import { formatAssetRoster } from './asset-roster';
 
 export interface BriefingSystemPromptParams {
-  campaignName: string;
-  campaignObjective: string;
-  battlefieldCodename: string;
   claudeMdPath: string | null;
   specMdPath: string | null;
   allAssets: Asset[];
