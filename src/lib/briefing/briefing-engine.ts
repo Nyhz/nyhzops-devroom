@@ -15,6 +15,8 @@ import {
 import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
 import { buildBriefingSystemPrompt, buildBriefingUserMessage } from './briefing-prompt';
+import { GENERATE_PLAN_CONTRACT } from './briefing-contract';
+import { formatAssetRoster } from './asset-roster';
 import { insertPlanFromJSON } from '@/actions/campaign-helpers';
 import type { PlanJSON } from '@/types';
 import { detectCycle } from '@/lib/utils/dependency-graph';
@@ -116,16 +118,31 @@ export async function sendBriefingMessage(
   // 5. Load STRATEGIST asset for full config (model, system prompt, skills, MCPs)
   const strategistAsset = getSystemAsset('STRATEGIST');
 
-  // Build asset CLI args, filtering --max-turns (we set our own).
-  // --append-system-prompt carries the STRATEGIST's identity and is kept.
+  // Build asset CLI args. We strip:
+  //  - --max-turns: we set our own below.
+  //  - --append-system-prompt: buildAssetCliArgs emits the stored seed prompt,
+  //    but we always replace it at runtime with the composed system prompt
+  //    (identity + contract + CLAUDE.md + SPEC.md + roster). Passing both
+  //    would duplicate the identity section.
   const assetArgs = buildAssetCliArgs(strategistAsset);
-  const filteredAssetArgs = filterFlags(assetArgs, ['--max-turns']);
+  const filteredAssetArgs = filterFlags(assetArgs, [
+    '--max-turns',
+    '--append-system-prompt',
+  ]);
 
   // 6. Detect GENERATE PLAN — uses a completely fresh process (no --resume)
   // so the STRATEGIST gets up-to-date format instructions instead of relying on
   // the old session's system prompt which may lack strict JSON requirements.
   const isFirstMessage = !session.sessionId;
   const isGeneratePlan = message.trim().toUpperCase().includes('GENERATE PLAN');
+
+  // Composed system prompt: stable across turns within a briefing and across
+  // briefings on the same battlefield, so eligible for prompt caching.
+  const composedSystemPrompt = buildBriefingSystemPrompt({
+    claudeMdPath: battlefield.claudeMdPath,
+    specMdPath: battlefield.specMdPath,
+    allAssets,
+  });
 
   const cliArgs: string[] = [
     '--print',
@@ -134,6 +151,7 @@ export async function sendBriefingMessage(
     '--include-partial-messages',
     '--dangerously-skip-permissions',
     '--max-turns', '3',
+    '--append-system-prompt', composedSystemPrompt,
     ...filteredAssetArgs,
   ];
 
@@ -144,58 +162,47 @@ export async function sendBriefingMessage(
     cliArgs.push('--resume', session.sessionId);
   }
 
-  // 7. Build stdin content
+  // 7. Build stdin content. The stable contract + CLAUDE.md + SPEC.md + roster
+  // are already in --append-system-prompt, so stdin only carries volatile
+  // per-turn content.
   let stdinContent: string;
 
-  if (isGeneratePlan && !isFirstMessage) {
-    // Build a self-contained prompt with conversation history and strict format rules.
+  if (isGeneratePlan) {
+    // GENERATE PLAN runs fresh (no --resume), so it needs enough context to
+    // re-ground itself: the conversation history plus the strict format rules.
     const history = db
       .select({ role: briefingMessages.role, content: briefingMessages.content })
       .from(briefingMessages)
-      .where(eq(briefingMessages.briefingId, session!.id))
+      .where(eq(briefingMessages.briefingId, session.id))
       .all();
 
     const conversationLines = history.map((m) =>
-      m.role === 'commander' ? `Commander: ${m.content}` : `STRATEGIST: ${m.content.slice(0, 2000)}`,
+      m.role === 'commander'
+        ? `Commander: ${m.content}`
+        : `STRATEGIST: ${m.content.slice(0, 2000)}`,
     );
 
-    stdinContent = `You are STRATEGIST, a campaign planning specialist for NYHZ OPS DEVROOM.
-Campaign: "${campaign.name}" | Battlefield: ${battlefield.codename}
+    stdinContent = `Campaign: "${campaign.name}" | Battlefield: ${battlefield.codename}
 
 CAMPAIGN OBJECTIVE:
 ${campaign.objective}
 
-AVAILABLE ASSETS:
-${allAssets.filter(a => a.status === 'active' && a.codename !== 'STRATEGIST').map(a => `- ${a.codename}: ${a.specialty}`).join('\n')}
+AVAILABLE MISSION ASSETS:
+${formatAssetRoster(allAssets)}
 
 BRIEFING CONVERSATION SUMMARY:
 ${conversationLines.join('\n\n')}
 
 ---
 
-The Commander has issued GENERATE PLAN. Output ONLY a single raw JSON object. Your ENTIRE response must start with { and end with } — no markdown, no code fences, no backticks, no preamble, no commentary.
-
-Mission briefing values must be PLAIN TEXT — do NOT use markdown code fences (\`\`\`) inside briefing strings. Describe code changes in prose, reference file paths and type names directly.
-
-JSON schema:
-{"summary":"...","phases":[{"name":"...","objective":"...","missions":[{"title":"...","briefing":"plain text only","assetCodename":"OPERATIVE","priority":"routine","type":"direct_action","dependsOn":["same-phase mission title"]}]}]}
-
-Rules: phases execute sequentially, missions within a phase run in parallel unless linked by dependsOn (same-phase only). Each briefing must be self-contained — the asset has NO other context.
-
-Mission "type" is optional and defaults to "direct_action". Use "verification" for strictly read-only missions that run tests/type-checks/audits and report results without modifying code. Verification missions must produce zero commits; direct_action missions must produce at least one. Use "verification" whenever the briefing verbs are run/check/verify/confirm/audit/report; use "direct_action" whenever the briefing asks to write/edit/refactor/fix/implement.`;
+${GENERATE_PLAN_CONTRACT}`;
   } else if (isFirstMessage) {
-    const systemPrompt = buildBriefingSystemPrompt({
-      claudeMdPath: battlefield.claudeMdPath,
-      specMdPath: battlefield.specMdPath,
-      allAssets,
-    });
-    const userMessage = buildBriefingUserMessage({
+    stdinContent = buildBriefingUserMessage({
       campaignName: campaign.name,
       campaignObjective: campaign.objective,
       battlefieldCodename: battlefield.codename,
       commanderMessage: message,
     });
-    stdinContent = systemPrompt + '\n\n---\n\n' + userMessage;
   } else {
     stdinContent = message;
   }
