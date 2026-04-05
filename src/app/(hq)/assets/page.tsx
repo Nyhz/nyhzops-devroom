@@ -1,3 +1,4 @@
+import { asc } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { assets } from '@/lib/db/schema';
 import { AssetList } from '@/components/asset/asset-list';
@@ -9,7 +10,7 @@ import type { Asset } from '@/types';
 
 export default async function AssetsPage() {
   const db = getDatabase();
-  const allAssets = db.select().from(assets).all() as Asset[];
+  const allAssets = db.select().from(assets).orderBy(asc(assets.createdAt)).all() as Asset[];
   const missionAssets = allAssets.filter(a => !a.isSystem);
   const systemAssets = allAssets.filter(a => a.isSystem);
   const roe = await getRulesOfEngagementAction();

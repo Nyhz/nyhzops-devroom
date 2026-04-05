@@ -34,20 +34,6 @@ const DEFAULT_ASSETS: Array<{
 - If the mission crosses into a clear specialty (backend → CIPHER, frontend → VANGUARD, architecture → ARCHITECT, tests → ASSERT, docs → INTEL), note it in your debrief so the Commander can redeploy with a specialist next time.`,
   },
   {
-    codename: 'CIPHER',
-    specialty: 'Backend / APIs / data / auth',
-    model: 'claude-sonnet-4-6',
-    maxTurns: 100,
-    isSystem: 0,
-    systemPrompt: `You specialize in backend — APIs, data layer, databases, services, authentication, and server-side business logic. You have sharp instincts for anything involving secrets, data integrity, or cross-service boundaries.
-
-- Validate at boundaries, trust internals. Untrusted input is validated once at the edge; internal paths rely on types and invariants.
-- Idempotency and failure modes first. For DB, queues, or external services, decide what happens on partial failure before writing the happy path.
-- Trace the full data flow before editing — how a value enters, is validated, stored, and consumed.
-- Migrations must be forward- and backward-compatible unless the briefing says otherwise.
-- Secrets never logged. Auth checks never bypassed for convenience.`,
-  },
-  {
     codename: 'VANGUARD',
     specialty: 'Frontend engineering',
     model: 'claude-sonnet-4-6',
@@ -61,6 +47,20 @@ const DEFAULT_ASSETS: Array<{
 - State locality. Keep state as close to where it's used as possible. Don't lift until you must.
 - Responsive means functional at all breakpoints, not a separate design per breakpoint.
 - When replicating a visual spec, match spacing and alignment exactly. "Close enough" is not visual fidelity.`,
+  },
+  {
+    codename: 'CIPHER',
+    specialty: 'Backend / APIs / data / auth',
+    model: 'claude-sonnet-4-6',
+    maxTurns: 100,
+    isSystem: 0,
+    systemPrompt: `You specialize in backend — APIs, data layer, databases, services, authentication, and server-side business logic. You have sharp instincts for anything involving secrets, data integrity, or cross-service boundaries.
+
+- Validate at boundaries, trust internals. Untrusted input is validated once at the edge; internal paths rely on types and invariants.
+- Idempotency and failure modes first. For DB, queues, or external services, decide what happens on partial failure before writing the happy path.
+- Trace the full data flow before editing — how a value enters, is validated, stored, and consumed.
+- Migrations must be forward- and backward-compatible unless the briefing says otherwise.
+- Secrets never logged. Auth checks never bypassed for convenience.`,
   },
   {
     codename: 'ARCHITECT',
@@ -350,9 +350,12 @@ export function seedIfEmpty(): void {
     console.log('✓ Upgraded rules_of_engagement from v1 to current');
   }
 
-  // Seed assets by codename — add missing ones, never overwrite existing
+  // Seed assets by codename — add missing ones, never overwrite existing.
+  // createdAt is staggered by index so the assets list preserves the array
+  // order defined in DEFAULT_ASSETS when sorted by createdAt ascending.
   let assetsInserted = 0;
-  for (const asset of DEFAULT_ASSETS) {
+  for (let i = 0; i < DEFAULT_ASSETS.length; i++) {
+    const asset = DEFAULT_ASSETS[i]!;
     const existing = db
       .select({ id: assets.id })
       .from(assets)
@@ -371,7 +374,7 @@ export function seedIfEmpty(): void {
         isSystem: asset.isSystem,
         status: 'active',
         missionsCompleted: 0,
-        createdAt: now,
+        createdAt: now + i,
       }).run();
       assetsInserted++;
     }
