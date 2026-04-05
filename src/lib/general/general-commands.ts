@@ -11,14 +11,14 @@ const CUSTOM_COMMANDS: CustomCommand[] = [
     description: 'Full situation report on all operations',
     usage: '/sitrep',
     expand: () =>
-      'Give me a full situation report. Query the DEVROOM database at /data/devroom.db. Report: all active missions and their status, any stuck or failed missions in the last hour, active campaigns and their phase progress, asset deployment status, and any Overseer escalations. Be concise — use tables where appropriate.',
+      'Give me a full situation report. Query the DEVROOM database at /data/devroom.db. Report: all active missions and their status, any stuck or failed missions in the last hour, active campaigns and their current phase progress (join the phases table for per-phase status), asset deployment status, and any Overseer escalations from the overseer_logs table. Be concise — use tables where appropriate.',
   },
   {
     name: 'diagnose',
     description: 'Deep-dive a specific mission',
     usage: '/diagnose <missionId>',
     expand: (args: string) =>
-      `Investigate mission ${args.trim()}. Query the DEVROOM database at /data/devroom.db. Read the mission record, its comms/logs from the missionLogs table (type column has 'comms', 'sitrep', 'alert'), any Overseer log entries from overseerLogs, and the debrief if available. Tell me: what was the objective, what happened, where it went wrong (if it did), and what you recommend.`,
+      `Investigate mission ${args.trim()}. Query the DEVROOM database at /data/devroom.db. Read the mission record from the missions table, its comms/logs from the mission_logs table (type column has 'comms', 'sitrep', 'alert'), any Overseer log entries from the overseer_logs table, and the debrief if available. Tell me: what was the objective, what happened, where it went wrong (if it did), and what you recommend.`,
   },
 ];
 
