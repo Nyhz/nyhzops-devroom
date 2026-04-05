@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS missions (
   battlefield_id TEXT NOT NULL REFERENCES battlefields(id),
   campaign_id TEXT REFERENCES campaigns(id),
   phase_id TEXT REFERENCES phases(id),
-  type TEXT DEFAULT 'standard',
+  type TEXT DEFAULT 'direct_action',
   title TEXT NOT NULL,
   briefing TEXT NOT NULL,
   status TEXT DEFAULT 'standby',

@@ -31,7 +31,7 @@ export const missions = sqliteTable('missions', {
   battlefieldId: text('battlefield_id').notNull().references(() => battlefields.id),
   campaignId: text('campaign_id').references(() => campaigns.id),
   phaseId: text('phase_id').references(() => phases.id),
-  type: text('type').default('standard'),
+  type: text('type').default('direct_action'),
   title: text('title').notNull(),
   briefing: text('briefing').notNull(),
   status: text('status').default('standby'),

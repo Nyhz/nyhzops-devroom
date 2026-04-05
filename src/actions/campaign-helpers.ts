@@ -164,7 +164,7 @@ export function insertPlanFromJSON(
         battlefieldId,
         campaignId,
         phaseId,
-        type: 'standard',
+        type: 'direct_action',
         title: planMission.title,
         briefing: planMission.briefing,
         status: 'standby',
