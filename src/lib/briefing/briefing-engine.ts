@@ -14,7 +14,7 @@ import {
 } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
-import { buildBriefingPrompt } from './briefing-prompt';
+import { buildBriefingSystemPrompt } from './briefing-prompt';
 import { insertPlanFromJSON } from '@/actions/campaign-helpers';
 import type { PlanJSON } from '@/types';
 import { detectCycle } from '@/lib/utils/dependency-graph';
@@ -184,7 +184,7 @@ Rules: phases execute sequentially, missions within a phase run in parallel unle
 
 Mission "type" is optional and defaults to "direct_action". Use "verification" for strictly read-only missions that run tests/type-checks/audits and report results without modifying code. Verification missions must produce zero commits; direct_action missions must produce at least one. Use "verification" whenever the briefing verbs are run/check/verify/confirm/audit/report; use "direct_action" whenever the briefing asks to write/edit/refactor/fix/implement.`;
   } else if (isFirstMessage) {
-    const systemPrompt = buildBriefingPrompt({
+    const systemPrompt = buildBriefingSystemPrompt({
       campaignName: campaign.name,
       campaignObjective: campaign.objective,
       battlefieldCodename: battlefield.codename,
