@@ -131,8 +131,9 @@ export async function sendBriefingMessage(
   ]);
 
   // 6. Detect GENERATE PLAN — uses a completely fresh process (no --resume)
-  // so the STRATEGIST gets up-to-date format instructions instead of relying on
-  // the old session's system prompt which may lack strict JSON requirements.
+  // so the model gets a single clean instruction with conversation history
+  // replayed in stdin, rather than carrying accumulated multi-turn context
+  // from the chat session.
   const isFirstMessage = !session.sessionId;
   const isGeneratePlan = message.trim().toUpperCase().includes('GENERATE PLAN');
 
@@ -156,8 +157,10 @@ export async function sendBriefingMessage(
   ];
 
   // Resume the existing session for normal conversation messages only.
-  // GENERATE PLAN always starts fresh — the old session's system prompt doesn't
-  // include strict JSON format rules, so the STRATEGIST ignores them.
+  // GENERATE PLAN uses a fresh process (no --resume) so the model gets
+  // a single clean instruction with conversation history replayed in
+  // stdin, rather than carrying accumulated multi-turn context from the
+  // chat session.
   if (!isFirstMessage && session.sessionId && !isGeneratePlan) {
     cliArgs.push('--resume', session.sessionId);
   }
@@ -377,6 +380,7 @@ ${GENERATE_PLAN_CONTRACT}`;
                 campaignId,
                 error: parseFailureMessage,
               });
+              storedContent = parseFailureMessage;
             }
           }
 
