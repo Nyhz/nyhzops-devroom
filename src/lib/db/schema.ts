@@ -306,3 +306,12 @@ export const intelNotes = sqliteTable('intel_notes', {
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// Settings — global key/value configuration (single row per key)
+// ---------------------------------------------------------------------------
+export const settings = sqliteTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
