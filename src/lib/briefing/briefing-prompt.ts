@@ -37,7 +37,19 @@ ${params.campaignObjective}`);
 
   const assetList = params.allAssets
     .filter(a => a.status === 'active' && a.codename !== 'STRATEGIST')
-    .map(a => `- ${a.codename}: ${a.specialty}`)
+    .map(a => {
+      let line = `- ${a.codename}: ${a.specialty}`;
+      const memory = (a as Asset & { memory?: string | null }).memory;
+      if (memory) {
+        try {
+          const entries = JSON.parse(memory);
+          if (Array.isArray(entries) && entries.length > 0) {
+            line += ` (has ${entries.length} memory ${entries.length === 1 ? 'entry' : 'entries'})`;
+          }
+        } catch { /* invalid JSON — skip */ }
+      }
+      return line;
+    })
     .join('\n');
   sections.push(`AVAILABLE ASSETS:\n${assetList}`);
 

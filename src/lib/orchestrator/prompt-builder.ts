@@ -4,6 +4,27 @@ import type { Mission, Battlefield, Asset } from '@/types';
 import { getDatabase } from '@/lib/db/index';
 import { campaigns, phases, missions as missionsTable } from '@/lib/db/schema';
 
+function parseAssetMemory(asset: Asset | null): string[] {
+  const memory = (asset as Asset & { memory?: string | null } | null)?.memory;
+  if (!memory) return [];
+  try {
+    const parsed = JSON.parse(memory);
+    return Array.isArray(parsed) ? parsed.filter((e): e is string => typeof e === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function buildMemorySection(asset: Asset | null): string | null {
+  const entries = parseAssetMemory(asset);
+  if (entries.length === 0) return null;
+  return [
+    'YOUR MEMORY (lessons from past missions):',
+    'These are patterns and lessons you have accumulated from previous missions. Apply them where relevant.',
+    ...entries.map(e => `- ${e}`),
+  ].join('\n');
+}
+
 function buildCampaignMissionPrompt(
   mission: Mission,
   battlefield: Battlefield,
@@ -129,6 +150,10 @@ function buildCampaignMissionPrompt(
     mission.briefing,
   ].join('\n'));
 
+  // 4. Asset memory (after briefing, before workspace context)
+  const memorySection = buildMemorySection(_asset);
+  if (memorySection) sections.push(memorySection);
+
   return sections.join('\n\n---\n\n');
 }
 
@@ -223,6 +248,10 @@ export function buildPrompt(
     mission.briefing,
   ].join('\n');
   sections.push(briefingSection);
+
+  // 3. Asset memory (after briefing)
+  const memorySection = buildMemorySection(asset);
+  if (memorySection) sections.push(memorySection);
 
   return sections.join('\n\n---\n\n');
 }
