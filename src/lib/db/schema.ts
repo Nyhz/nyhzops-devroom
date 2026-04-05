@@ -136,6 +136,7 @@ export const assets = sqliteTable('assets', {
   maxTurns: integer('max_turns'),
   effort: text('effort'),
   isSystem: integer('is_system').default(0),
+  memory: text('memory'),
   createdAt: integer('created_at').notNull(),
 });
 

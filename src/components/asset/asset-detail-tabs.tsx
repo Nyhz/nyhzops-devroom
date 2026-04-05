@@ -5,9 +5,10 @@ import { cn } from '@/lib/utils';
 import { AssetProfileTab } from '@/components/asset/asset-profile-tab';
 import { AssetPromptTab } from '@/components/asset/asset-prompt-tab';
 import { AssetSkillsTab } from '@/components/asset/asset-skills-tab';
+import { AssetMemoryTab } from '@/components/asset/asset-memory-tab';
 import type { Asset, DiscoveredSkill, DiscoveredMcp } from '@/types';
 
-const TABS = ['PROFILE', 'SYSTEM PROMPT', 'SKILLS & MCPs'] as const;
+const TABS = ['PROFILE', 'SYSTEM PROMPT', 'SKILLS & MCPs', 'MEMORY'] as const;
 type Tab = (typeof TABS)[number];
 
 interface AssetDetailTabsProps {
@@ -46,6 +47,7 @@ export function AssetDetailTabs({ asset, discovery }: AssetDetailTabsProps) {
       {activeTab === 'SKILLS & MCPs' && (
         <AssetSkillsTab asset={asset} discovery={discovery} />
       )}
+      {activeTab === 'MEMORY' && <AssetMemoryTab asset={asset} />}
     </div>
   );
 }

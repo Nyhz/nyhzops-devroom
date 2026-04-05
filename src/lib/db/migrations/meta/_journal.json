@@ -134,6 +134,13 @@
       "when": 1775606500000,
       "tag": "0018_strategist_verification_prompt",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1775387851650,
+      "tag": "0019_even_doctor_spectrum",
+      "breakpoints": true
     }
   ]
 }
