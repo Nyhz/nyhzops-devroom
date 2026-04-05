@@ -277,7 +277,7 @@ ${GENERATE_PLAN_CONTRACT}`;
 
   // Wait for process to complete
   return new Promise<void>((resolve, reject) => {
-    proc.on('close', (code) => {
+    proc.on('close', async (code) => {
       activeProcesses.delete(campaignId);
 
       // Process any remaining buffered line
@@ -317,49 +317,56 @@ ${GENERATE_PLAN_CONTRACT}`;
       const responseText = fullResponse.trim();
 
       // For GENERATE PLAN: extract the plan first, then store a formatted
-      // summary in the chat instead of the raw JSON blob.
+      // summary in the chat instead of the raw JSON blob. If extraction
+      // fails, attempt one silent retry with a stricter re-prompt before
+      // giving up with a distinct failure notification.
       let storedContent = responseText;
       if (isGeneratePlan) {
-        try {
-          const plan = extractPlanJSON(responseText);
-          if (plan) {
-            const totalMissions = plan.phases.reduce((s, p) => s + p.missions.length, 0);
-            console.log(`[BRIEFING] Plan generated for campaign ${campaignId}: ${plan.phases.length} phases, ${totalMissions} missions`);
-            // Validate no circular dependencies
-            const allMissions = plan.phases.flatMap((p) =>
-              p.missions.map((m) => ({ title: m.title, dependsOn: m.dependsOn ?? [] })),
-            );
-            const cycle = detectCycle(allMissions);
-            if (cycle) throw new Error(`Plan contains circular dependencies: ${cycle}`);
+        let planText = responseText;
+        let plan = tryExtractAndValidatePlan(planText);
 
-            insertPlanFromJSON(campaignId, campaign.battlefieldId, plan);
-
-            // Transition campaign to planning
-            db.update(campaigns)
-              .set({ status: 'planning', updatedAt: Date.now() })
-              .where(eq(campaigns.id, campaignId))
-              .run();
-
-            // Format a readable summary for the chat instead of raw JSON
-            storedContent = formatPlanSummary(plan);
-
-            io.to(room).emit('briefing:plan-ready', {
-              campaignId,
-              plan,
+        if (!plan) {
+          console.warn(
+            `[BRIEFING] Plan parse failed for campaign ${campaignId}; retrying once with stricter re-prompt`,
+          );
+          try {
+            const retryStdin = `Your previous response was not valid JSON. Output ONLY the JSON object now — no prose, no code fences, no backticks, no preamble.\n\n${stdinContent}`;
+            const retry = await spawnStrategistPlan({
+              battlefieldRepoPath: battlefield.repoPath,
+              persistentHome,
+              cliArgs,
+              stdinContent: retryStdin,
             });
-          } else {
-            console.error(`[BRIEFING] extractPlanJSON returned null for campaign ${campaignId}`);
-            io.to(room).emit('briefing:error', {
-              campaignId,
-              error: 'Could not extract a valid JSON plan from STRATEGIST\'s response. Ask the STRATEGIST to output the plan as a single JSON object with a "summary" key.',
-            });
+            planText = retry.text;
+            plan = tryExtractAndValidatePlan(planText);
+          } catch (retryErr) {
+            console.error(`[BRIEFING] Retry spawn failed:`, retryErr);
           }
-        } catch (err) {
-          const planError = err instanceof Error ? err.message : String(err);
-          console.error(`[BRIEFING] Plan extraction/insertion failed for campaign ${campaignId}:`, planError);
-          io.to(room).emit('briefing:error', {
+        }
+
+        if (plan) {
+          const totalMissions = plan.phases.reduce((s, p) => s + p.missions.length, 0);
+          console.log(
+            `[BRIEFING] Plan generated for campaign ${campaignId}: ${plan.phases.length} phases, ${totalMissions} missions`,
+          );
+          insertPlanFromJSON(campaignId, campaign.battlefieldId, plan);
+
+          db.update(campaigns)
+            .set({ status: 'planning', updatedAt: Date.now() })
+            .where(eq(campaigns.id, campaignId))
+            .run();
+
+          storedContent = formatPlanSummary(plan);
+
+          io.to(room).emit('briefing:plan-ready', { campaignId, plan });
+        } else {
+          console.error(
+            `[BRIEFING] Plan extraction failed after retry for campaign ${campaignId}`,
+          );
+          io.to(room).emit('briefing:plan-parse-failed', {
             campaignId,
-            error: `Plan extraction failed: ${planError}`,
+            error:
+              "STRATEGIST's plan could not be parsed as JSON after one retry. Ask the STRATEGIST to output the plan as a single JSON object with a \"summary\" key.",
           });
         }
       }
@@ -466,6 +473,105 @@ function formatPlanSummary(plan: PlanJSON): string {
 
   lines.push('*Transitioning to planning phase...*');
   return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// spawnStrategistPlan — one-shot silent spawn for GENERATE PLAN retries
+// ---------------------------------------------------------------------------
+
+/**
+ * Spawn a one-shot STRATEGIST process for GENERATE PLAN. Returns the raw
+ * response text. Used by the retry path when the primary GENERATE PLAN
+ * attempt produced un-parseable output. Intentionally NOT plumbed into
+ * active-process tracking or streaming emits — retries are brief and silent
+ * (the user already saw the primary attempt stream).
+ */
+async function spawnStrategistPlan(params: {
+  battlefieldRepoPath: string;
+  persistentHome: string;
+  cliArgs: string[];
+  stdinContent: string;
+}): Promise<{ text: string; code: number | null; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(config.claudePath, params.cliArgs, {
+      cwd: params.battlefieldRepoPath,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, HOME: params.persistentHome },
+    });
+
+    let text = '';
+    let stderr = '';
+    let lineBuffer = '';
+
+    proc.stdout.on('data', (chunk: Buffer) => {
+      lineBuffer += chunk.toString();
+      const lines = lineBuffer.split('\n');
+      lineBuffer = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line);
+          if (event.type === 'stream_event' && event.event) {
+            const inner = event.event;
+            if (
+              inner.type === 'content_block_delta' &&
+              inner.delta?.type === 'text_delta' &&
+              inner.delta.text
+            ) {
+              text += inner.delta.text;
+            }
+          }
+          if (event.type === 'result') {
+            if (!text && event.result && typeof event.result === 'string') {
+              text = event.result;
+            }
+          }
+        } catch { /* ignore non-JSON lines */ }
+      }
+    });
+
+    proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+
+    proc.stdin.write(params.stdinContent);
+    proc.stdin.end();
+
+    proc.on('close', (code) => resolve({ text, code, stderr }));
+    proc.on('error', reject);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// tryExtractAndValidatePlan — combined parse + cycle-detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Combined extract + validate for a STRATEGIST plan response. Returns a
+ * valid PlanJSON on success, or null on any failure (parse error, cycle
+ * detected, insert-time validation error). Errors are logged so retries
+ * and final failures are attributable.
+ */
+function tryExtractAndValidatePlan(text: string): PlanJSON | null {
+  try {
+    const plan = extractPlanJSON(text);
+    if (!plan) return null;
+
+    const allMissions = plan.phases.flatMap((p) =>
+      p.missions.map((m) => ({ title: m.title, dependsOn: m.dependsOn ?? [] })),
+    );
+    const cycle = detectCycle(allMissions);
+    if (cycle) {
+      console.warn(`[BRIEFING] Plan contains circular dependencies: ${cycle}`);
+      return null;
+    }
+
+    return plan;
+  } catch (err) {
+    console.warn(
+      '[BRIEFING] Plan extraction/validation threw:',
+      err instanceof Error ? err.message : String(err),
+    );
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
