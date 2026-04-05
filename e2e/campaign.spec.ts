@@ -116,8 +116,8 @@ test.describe('Create Campaign Flow', () => {
     await page.waitForLoadState('networkidle');
 
     // Should see the campaign name and DRAFT status indicators
-    // In draft mode, the BriefingChat is shown with "GENERAL — BRIEFING SESSION"
-    await expect(page.getByText('GENERAL — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
+    // In draft mode, the BriefingChat is shown with "STRATEGIST — BRIEFING SESSION"
+    await expect(page.getByText('STRATEGIST — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
 
     // Should see DELETE button (draft status control)
     await expect(page.getByRole('button', { name: /DELETE/i })).toBeVisible();

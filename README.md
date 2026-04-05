@@ -22,7 +22,7 @@ Built for one operator. Designed like a war room.
 
 You are the **Commander**. Your codebase is a **Battlefield**. Every task is a **Mission** — a Claude Code process deployed into an isolated git worktree with a briefing, an objective, and an asset (agent) assigned to carry it out.
 
-Need to coordinate multiple missions across sequential phases? That's a **Campaign**. Plan it interactively with the **GENERAL** (a planning-specialized agent), review the operation, then hit **GREEN LIGHT** and watch your phases execute in sequence — missions within each phase running in parallel.
+Need to coordinate multiple missions across sequential phases? That's a **Campaign**. Plan it interactively with the **STRATEGIST** (a planning-specialized agent), review the operation, then hit **GREEN LIGHT** and watch your phases execute in sequence — missions within each phase running in parallel.
 
 When a mission completes, the **Overseer** reviews the debrief and code diffs, issues a verdict (approve / retry / escalate), and hands approved work to the **Quartermaster** for merging. If confidence is low, the Commander gets a Telegram alert.
 
@@ -45,8 +45,8 @@ Every mission. Every decision. Every token. Logged, tracked, and reported back t
 ### Campaign Operations
 
 - **Multi-phase campaigns** — Sequential phases, parallel missions within each phase
-- **Interactive briefing** — Plan campaigns conversationally with the GENERAL asset
-- **Plan generation** — GENERAL produces structured phase/mission plans from your briefing
+- **Interactive briefing** — Plan campaigns conversationally with the STRATEGIST asset
+- **Plan generation** — STRATEGIST produces structured phase/mission plans from your briefing
 - **Visual plan editor** — Drag-and-drop reordering of phases and missions before launch
 - **Live timeline** — Track campaign progress across phases in real-time
 - **Auto phase transitions** — Next phase begins automatically when current phase is secured
@@ -83,7 +83,7 @@ Every mission. Every decision. Every token. Logged, tracked, and reported back t
 
 | Codename | Role | Model |
 |----------|------|-------|
-| **GENERAL** | Campaign planning strategist | Claude Opus 4.6 |
+| **STRATEGIST** | Campaign planning specialist | Claude Opus 4.6 |
 | **OVERSEER** | Mission review & evaluation | Claude Sonnet 4.6 |
 | **QUARTERMASTER** | Merge & integration | Claude Sonnet 4.6 |
 
@@ -157,7 +157,7 @@ D E V R O O M
 │                                                         │
 │   Claude Code CLI Processes                             │
 │   ├── Mission agents (isolated worktrees)               │
-│   ├── GENERAL (campaign planning + standalone chat)     │
+│   ├── STRATEGIST (campaign planning) + GENERAL (chat)   │
 │   ├── Overseer review agents (--print mode)             │
 │   ├── Quartermaster merge agents                        │
 │   └── Bootstrap agents (CLAUDE.md + SPEC.md gen)        │
@@ -206,7 +206,7 @@ Everything has a codename. This isn't a project management tool — it's an oper
 | Merge Layer | **Quartermaster** | Merge and integration specialist — worktree merging, conflict resolution |
 | Dashboard | **HQ** | Main overview screen |
 | Alert | **Notification** | In-app + Telegram alert |
-| Planning Chat | **Briefing** | Interactive campaign planning with GENERAL |
+| Planning Chat | **Briefing** | Interactive campaign planning with STRATEGIST |
 | Cost Tracking | **Logistics** | Token usage, rate limits, cost dashboard |
 | Startup | **War Room** | Boot sequence animation |
 
@@ -349,8 +349,8 @@ Set `CLAUDE_CODE_OAUTH_TOKEN` in `.env.local`. All spawned processes inherit it 
 ### Run a Campaign
 
 1. **New Campaign** — Navigate to Campaigns, create one with an objective
-2. **Brief the GENERAL** — Chat about what you need. Discuss phases, priorities, constraints.
-3. **Generate Plan** — Hit `GENERATE PLAN`. GENERAL structures your conversation into phases and missions.
+2. **Brief the STRATEGIST** — Chat about what you need. Discuss phases, priorities, constraints.
+3. **Generate Plan** — Hit `GENERATE PLAN`. The STRATEGIST structures your conversation into phases and missions.
 4. **Review** — Reorder phases, reassign assets, adjust priorities in the plan editor.
 5. **GREEN LIGHT** — Launch the campaign. Phases execute in sequence, missions in parallel.
 6. **Debrief** — Review results per mission and per phase when complete.

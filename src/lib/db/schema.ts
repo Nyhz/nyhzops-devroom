@@ -98,7 +98,7 @@ export const phases = sqliteTable('phases', {
 });
 
 // ---------------------------------------------------------------------------
-// Briefing Sessions (GENERAL 1-on-1 chat for campaign planning)
+// Briefing Sessions (STRATEGIST 1-on-1 chat for campaign planning)
 // ---------------------------------------------------------------------------
 export const briefingSessions = sqliteTable('briefing_sessions', {
   id: text('id').primaryKey(),

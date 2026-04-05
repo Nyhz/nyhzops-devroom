@@ -108,8 +108,8 @@ devroom/
 │   │   │   ├── general-prompt.ts     # System prompt builder with optional battlefield context
 │   │   │   └── general-commands.ts   # Command parser (/clear, /compact)
 │   │   ├── briefing/
-│   │   │   ├── briefing-engine.ts    # Spawn Claude Code (GENERAL) for interactive campaign planning
-│   │   │   └── briefing-prompt.ts    # System prompt builder for GENERAL with campaign context
+│   │   │   ├── briefing-engine.ts    # Spawn Claude Code (STRATEGIST) for interactive campaign planning
+│   │   │   └── briefing-prompt.ts    # System prompt builder for STRATEGIST with campaign context
 │   │   ├── orchestrator/
 │   │   │   ├── orchestrator.ts       # Core engine — queue loop, concurrency
 │   │   │   ├── executor.ts           # Claude Code spawn + stream management
@@ -120,7 +120,7 @@ devroom/
 │   │   │   ├── auth-check.ts         # Claude Code auth verification
 │   │   │   ├── asset-cli.ts          # Build CLI args per asset (skills, MCP servers, effort, max turns)
 │   │   │   ├── safe-queue.ts         # Safe queue processing with error boundaries
-│   │   │   ├── system-asset.ts       # Cached lookups for system assets (OVERSEER, GENERAL, QUARTERMASTER)
+│   │   │   ├── system-asset.ts       # Cached lookups for system assets (OVERSEER, STRATEGIST, QUARTERMASTER)
 │   │   │   └── __tests__/
 │   │   │       ├── asset-cli.test.ts
 │   │   │       ├── phase-guard.test.ts
@@ -271,7 +271,7 @@ devroom/
 │   │   │       ├── mission-actions.test.tsx
 │   │   │       └── mission-comms.test.tsx
 │   │   ├── campaign/
-│   │   │   ├── briefing-chat.tsx     # Interactive campaign planning chat with GENERAL
+│   │   │   ├── briefing-chat.tsx     # Interactive campaign planning chat with STRATEGIST
 │   │   │   ├── campaign-controls.tsx # MISSION ACCOMPLISHED | REDEPLOY | ABANDON
 │   │   │   ├── campaign-live-view.tsx # Real-time campaign progress viewer
 │   │   │   ├── campaign-results.tsx  # Campaign completion metrics (cost, tokens, duration)

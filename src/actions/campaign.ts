@@ -273,7 +273,7 @@ export async function launchCampaign(
 
     // Replace original backlog notes with mission-linked notes.
     // The original notes (selected from the intel board) no longer match the actual
-    // missions after planning with GENERAL. Delete them and create new notes that
+    // missions after planning with STRATEGIST. Delete them and create new notes that
     // track real mission status on the board.
     db.delete(intelNotes).where(eq(intelNotes.campaignId, campaignId)).run();
 

@@ -338,11 +338,11 @@ precise, and specific to this actual codebase — not generic.
 The Commander will review and approve before committing.
 ```
 
-## GENERAL — Briefing Prompt
+## STRATEGIST — Briefing Prompt
 
 Used for interactive campaign planning sessions. Implementation: `src/lib/briefing/briefing-prompt.ts`.
 
-The GENERAL briefing persona is a "campaign planning and coordination specialist." It receives: campaign name, objective, battlefield codename, CLAUDE.md (up to 8000 chars), SPEC.md (up to 8000 chars), and a list of available active assets.
+The STRATEGIST briefing persona is a "campaign planning and coordination specialist." It receives: campaign name, objective, battlefield codename, CLAUDE.md (up to 8000 chars), SPEC.md (up to 8000 chars), and a list of available active assets.
 
 Key rules injected:
 - This is a **conversation** — each response stops and waits for Commander reply. No tool use unless asked.

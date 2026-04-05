@@ -195,7 +195,7 @@ Assets are Claude Code agent profiles — a specialty, system prompt, model, and
 | ARCHITECT      | mission | System design, refactoring         | claude-sonnet-4-6  |
 | ASSERT         | mission | Testing & QA                       | claude-sonnet-4-6  |
 | INTEL          | mission | Docs, bootstrap, project intel     | claude-sonnet-4-6  |
-| GENERAL        | system  | Campaign planning                  | claude-opus-4-6    |
+| STRATEGIST     | system  | Campaign planning                  | claude-opus-4-6    |
 | OVERSEER       | system  | Mission review — debrief verdicts   | claude-sonnet-4-6  |
 | QUARTERMASTER  | system  | Merge & integration                | claude-sonnet-4-6  |
 
@@ -210,7 +210,7 @@ Assets are Claude Code agent profiles — a specialty, system prompt, model, and
 | `status`         | string       | `active` or `offline`. |
 | `skills`         | JSON string  | Array of Claude Code plugin skill identifiers (e.g. `["frontend-design@claude-plugins-official"]`). Resolved to `--plugin-dir` flags via `asset-cli.ts`. |
 | `mcpServers`     | JSON string  | Array of MCP server configurations. Passed as `--mcp-config`. |
-| `maxTurns`       | integer      | Maximum turns for Claude Code invocation (e.g. 100 for mission assets, 3 for GENERAL). |
+| `maxTurns`       | integer      | Maximum turns for Claude Code invocation (e.g. 100 for mission assets, 3 for STRATEGIST). |
 | `effort`         | string       | Effort level: `low`, `medium`, `high`, or `max`. Passed as `--effort` flag. |
 | `isSystem`       | integer      | `0` = mission asset, `1` = system asset. |
 | `missionsCompleted` | integer   | Running count of completed missions. |

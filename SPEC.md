@@ -103,9 +103,9 @@ Standalone Claude Code chat interface at `/general`. Supports multiple independe
 
 - **Multi-tab sessions**: create, rename, switch between, and close sessions.
 - **Slash commands**: `/sitrep` (situation report), `/diagnose <missionId>` (mission deep-dive), plus native Claude Code commands (`/clear`, `/compact`, `/cost`, `/status`, `/model`, `/memory`).
-- **Briefing mode**: used within campaign creation to plan operations with the GENERAL asset.
+- **Briefing mode**: used within campaign creation to plan operations with the STRATEGIST asset.
 - **Engine**: spawns Claude Code CLI processes via `src/lib/general/general-engine.ts`. Sessions persist via `generalSessions` and `generalMessages` tables.
-- **Prompts**: see `.devroom/spec-prompts.md` for GENERAL briefing and admin prompts.
+- **Prompts**: see `.devroom/spec-prompts.md` for STRATEGIST briefing and admin prompts.
 
 ---
 
@@ -159,7 +159,7 @@ Rate-limit exit → `queued` (not compromised) → exponential backoff (1m, 2m, 
 
 ## 12. Prompt Architecture
 
-See `.devroom/spec-prompts.md` for all prompt templates: standard mission, campaign mission, conflict resolution, phase debrief generation, bootstrap, and GENERAL (briefing + admin) prompts.
+See `.devroom/spec-prompts.md` for all prompt templates: standard mission, campaign mission, conflict resolution, phase debrief generation, bootstrap, and STRATEGIST (briefing) prompts.
 
 ---
 

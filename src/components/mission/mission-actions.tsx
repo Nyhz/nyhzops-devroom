@@ -218,7 +218,7 @@ export function MissionActions({
           {canRetryReview && (
             <TacButton
               variant="primary"
-              {...tacTooltip('Re-run the Overseer review. Use when the review process failed (not the work itself).')}
+              {...tacTooltip('Send the work back to the AI reviewer for another pass. Use when the review process itself failed, not the work.')}
               onClick={async () => {
                 setIsPending(true);
                 try {
@@ -239,7 +239,7 @@ export function MissionActions({
           {canRetryMerge && (
             <TacButton
               variant="primary"
-              {...tacTooltip('Reintegrate the worktree branch into the target branch.')}
+              {...tacTooltip('Try merging the work branch back into the main branch again.')}
               onClick={async () => {
                 setIsPending(true);
                 try {

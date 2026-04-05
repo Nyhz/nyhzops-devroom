@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, desc, lt } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { notifications } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
@@ -9,6 +9,8 @@ import {
   editMessage,
 } from '@/lib/telegram/telegram';
 import type { NotificationLevel, NotificationEntityType } from '@/types';
+
+const MAX_NOTIFICATIONS = 100;
 
 // ---------------------------------------------------------------------------
 // escalate — central entry point for all escalations
@@ -41,7 +43,21 @@ export async function escalate(params: {
     createdAt: now,
   }).run();
 
-  // 2. Emit Socket.IO event to HQ
+  // 2. Prune old notifications beyond the cap
+  const cutoff = db
+    .select({ createdAt: notifications.createdAt })
+    .from(notifications)
+    .orderBy(desc(notifications.createdAt))
+    .limit(1)
+    .offset(MAX_NOTIFICATIONS)
+    .get();
+  if (cutoff) {
+    db.delete(notifications)
+      .where(lt(notifications.createdAt, cutoff.createdAt))
+      .run();
+  }
+
+  // 3. Emit Socket.IO event to HQ
   if (globalThis.io) {
     globalThis.io.to('hq:activity').emit('notification:new', {
       id,
@@ -55,7 +71,7 @@ export async function escalate(params: {
     });
   }
 
-  // 3. Send Telegram message for warning/critical levels
+  // 4. Send Telegram message for warning/critical levels
   if ((params.level === 'warning' || params.level === 'critical') && telegramEnabled()) {
     try {
       let telegramMsgId: number;

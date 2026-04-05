@@ -11,7 +11,7 @@ export function buildBriefingPrompt(params: {
 }): string {
   const sections: string[] = [];
 
-  sections.push(`You are GENERAL, a campaign planning and coordination specialist for NYHZ OPS DEVROOM.
+  sections.push(`You are STRATEGIST, a campaign planning and coordination specialist for NYHZ OPS DEVROOM.
 
 You are in a briefing session with the Commander for campaign: "${params.campaignName}"
 Battlefield: ${params.battlefieldCodename}
@@ -36,7 +36,7 @@ ${params.campaignObjective}`);
   }
 
   const assetList = params.allAssets
-    .filter(a => a.status === 'active' && a.codename !== 'GENERAL')
+    .filter(a => a.status === 'active' && a.codename !== 'STRATEGIST')
     .map(a => `- ${a.codename}: ${a.specialty}`)
     .join('\n');
   sections.push(`AVAILABLE ASSETS:\n${assetList}`);

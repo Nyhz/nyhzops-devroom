@@ -7,9 +7,10 @@ interface ChatMessageProps {
   content: string;
   isStreaming?: boolean;
   className?: string;
+  displayName?: string;
 }
 
-export function ChatMessage({ role, content, isStreaming, className }: ChatMessageProps) {
+export function ChatMessage({ role, content, isStreaming, className, displayName }: ChatMessageProps) {
   if (role === 'system') {
     return (
       <div className={cn('flex justify-center py-2', className)}>
@@ -29,7 +30,7 @@ export function ChatMessage({ role, content, isStreaming, className }: ChatMessa
             isCommander ? 'text-dr-green text-right' : 'text-dr-amber',
           )}
         >
-          {isCommander ? 'COMMANDER' : 'GENERAL'}
+          {isCommander ? 'COMMANDER' : (displayName ?? 'GENERAL')}
         </div>
         <div
           className={cn(
@@ -53,11 +54,11 @@ export function ChatMessage({ role, content, isStreaming, className }: ChatMessa
   );
 }
 
-export function ChatThinking({ className }: { className?: string }) {
+export function ChatThinking({ className, displayName }: { className?: string; displayName?: string }) {
   return (
     <div className={cn('flex justify-start', className)}>
       <div className="text-dr-dim font-mono text-sm animate-pulse">
-        GENERAL is thinking...
+        {displayName ?? 'GENERAL'} is thinking...
       </div>
     </div>
   );

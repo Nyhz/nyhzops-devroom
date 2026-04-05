@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Share_Tech_Mono, IBM_Plex_Mono, Courier_Prime } from 'next/font/google';
 import { SocketProvider } from '@/components/providers/socket-provider';
 import { ToastProvider } from '@/components/providers/toast-provider';
+import { ActivityToasts } from '@/components/providers/activity-toasts';
 import { TacTooltipProvider } from '@/components/ui/tac-tooltip';
 import './globals.css';
 
@@ -45,6 +46,7 @@ export default function RootLayout({
         <SocketProvider>
           {children}
           <ToastProvider />
+          <ActivityToasts />
           <TacTooltipProvider />
         </SocketProvider>
       </body>

@@ -53,7 +53,7 @@ Key details:
 
 ### System Asset Lookup
 
-`src/lib/orchestrator/system-asset.ts` provides cached lookups for system assets (OVERSEER, GENERAL, QUARTERMASTER). Uses a 60-second TTL in-memory cache to avoid repeated DB queries.
+`src/lib/orchestrator/system-asset.ts` provides cached lookups for system assets (OVERSEER, STRATEGIST, QUARTERMASTER). Uses a 60-second TTL in-memory cache to avoid repeated DB queries.
 
 ```typescript
 getSystemAsset('OVERSEER')  // returns Asset, throws if not found
@@ -94,7 +94,7 @@ For campaign missions, `prompt-builder.ts` queries previous phase debriefs, sibl
 | `mission:{id}` | Per mission | Mission logs, status, debrief, tokens |
 | `campaign:{id}` | Per campaign | Campaign and phase status changes, mission status within campaign |
 | `battlefield:{id}` | Per battlefield | All mission/campaign status changes within battlefield |
-| `briefing:{campaignId}` | Per briefing session | Campaign planning chat with GENERAL asset |
+| `briefing:{campaignId}` | Per briefing session | Campaign planning chat with STRATEGIST asset |
 | `general:{sessionId}` | Per GENERAL session | Standalone GENERAL chat streaming |
 | `devserver:{battlefieldId}` | Per battlefield | Dev server log output |
 | `console:{battlefieldId}` | Per battlefield | Command console output |

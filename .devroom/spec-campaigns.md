@@ -10,7 +10,7 @@ Implementation: `src/lib/orchestrator/campaign-executor.ts` (execution), `src/ac
 
 **Step 1**: Name and objective. Server Action `createCampaign()` → `draft`. Worktree mode defaults to `'phase'` (schema field exists but not exposed in UI).
 
-**Step 2**: `[GENERATE PLAN]` opens the `<BriefingChat />` (GENERAL conversation). Campaign transitions to `planning`.
+**Step 2**: `[GENERATE PLAN]` opens the `<BriefingChat />` (STRATEGIST conversation). Campaign transitions to `planning`.
 
 **Step 3**: `<PlanEditor />` shows editable plan with drag-and-drop. Reorder/add/remove phases and missions. Recruit recommended assets. Assign assets. `dependsOn` field enables intra-phase ordering — missions can declare dependencies on other missions within the same phase.
 

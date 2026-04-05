@@ -1,0 +1,1 @@
+UPDATE `assets` SET `codename` = 'STRATEGIST' WHERE `codename` = 'GENERAL' AND `is_system` = 1;

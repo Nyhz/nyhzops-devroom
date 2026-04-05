@@ -335,13 +335,13 @@ test.describe('Briefing Chat Flow', () => {
     await createDraftCampaign(page);
 
     // Should see the briefing session header
-    await expect(page.getByText('GENERAL — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('STRATEGIST — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
 
     // Should see the GENERATE PLAN button
     await expect(page.getByRole('button', { name: /GENERATE PLAN/i })).toBeVisible();
 
     // Should see the input placeholder
-    await expect(page.locator('textarea[placeholder="Brief the GENERAL..."]')).toBeVisible();
+    await expect(page.locator('textarea[placeholder="Brief the STRATEGIST..."]')).toBeVisible();
 
     // Should see the SEND button
     await expect(page.getByText('SEND')).toBeVisible();
@@ -349,17 +349,17 @@ test.describe('Briefing Chat Flow', () => {
 
   test('empty state message shown when no messages', async ({ page }) => {
     await createDraftCampaign(page);
-    await expect(page.getByText('GENERAL — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('STRATEGIST — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
 
     // Should see the empty state instructions
     await expect(
-      page.getByText('Begin your briefing with GENERAL', { exact: false })
+      page.getByText('Begin your briefing with the STRATEGIST', { exact: false })
     ).toBeVisible();
   });
 
   test('GENERATE PLAN button disabled with fewer than 2 messages', async ({ page }) => {
     await createDraftCampaign(page);
-    await expect(page.getByText('GENERAL — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('STRATEGIST — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
 
     // With no messages, GENERATE PLAN should be disabled
     const generateBtn = page.getByRole('button', { name: /GENERATE PLAN/i });
@@ -368,7 +368,7 @@ test.describe('Briefing Chat Flow', () => {
 
   test('SEND button disabled when input is empty', async ({ page }) => {
     await createDraftCampaign(page);
-    await expect(page.getByText('GENERAL — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('STRATEGIST — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
 
     // SEND button should appear disabled (dim styling, not a disabled attribute)
     const sendBtn = page.getByText('SEND');
@@ -382,9 +382,9 @@ test.describe('Briefing Chat Flow', () => {
 
   test('type a message in the input field', async ({ page }) => {
     await createDraftCampaign(page);
-    await expect(page.getByText('GENERAL — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('STRATEGIST — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
 
-    const input = page.locator('textarea[placeholder="Brief the GENERAL..."]');
+    const input = page.locator('textarea[placeholder="Brief the STRATEGIST..."]');
     await input.fill('Test briefing message');
     await expect(input).toHaveValue('Test briefing message');
 
@@ -396,29 +396,29 @@ test.describe('Briefing Chat Flow', () => {
 
   test('send a message via SEND button', async ({ page }) => {
     await createDraftCampaign(page);
-    await expect(page.getByText('GENERAL — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('STRATEGIST — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
 
-    const input = page.locator('textarea[placeholder="Brief the GENERAL..."]');
-    await input.fill('Hello GENERAL, this is a test');
+    const input = page.locator('textarea[placeholder="Brief the STRATEGIST..."]');
+    await input.fill('Hello STRATEGIST, this is a test');
     await page.getByText('SEND').click();
 
     // Input should be cleared after sending
     await expect(input).toHaveValue('');
 
     // The message should appear in the chat (user message)
-    await expect(page.getByText('Hello GENERAL, this is a test')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText('Hello STRATEGIST, this is a test')).toBeVisible({ timeout: 5_000 });
 
     // Empty state should be gone
     await expect(
-      page.getByText('Begin your briefing with GENERAL', { exact: false })
+      page.getByText('Begin your briefing with the STRATEGIST', { exact: false })
     ).not.toBeVisible();
   });
 
   test('send a message via Enter key', async ({ page }) => {
     await createDraftCampaign(page);
-    await expect(page.getByText('GENERAL — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('STRATEGIST — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
 
-    const input = page.locator('textarea[placeholder="Brief the GENERAL..."]');
+    const input = page.locator('textarea[placeholder="Brief the STRATEGIST..."]');
     await input.fill('Enter key test message');
     await input.press('Enter');
 
@@ -431,9 +431,9 @@ test.describe('Briefing Chat Flow', () => {
 
   test('Shift+Enter does not send message (allows newline)', async ({ page }) => {
     await createDraftCampaign(page);
-    await expect(page.getByText('GENERAL — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('STRATEGIST — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
 
-    const input = page.locator('textarea[placeholder="Brief the GENERAL..."]');
+    const input = page.locator('textarea[placeholder="Brief the STRATEGIST..."]');
     await input.fill('Line one');
     await input.press('Shift+Enter');
 
@@ -444,13 +444,13 @@ test.describe('Briefing Chat Flow', () => {
 
     // The empty state should still be visible (no message sent)
     await expect(
-      page.getByText('Begin your briefing with GENERAL', { exact: false })
+      page.getByText('Begin your briefing with the STRATEGIST', { exact: false })
     ).toBeVisible();
   });
 
   test('DELETE button available on draft campaign', async ({ page }) => {
     await createDraftCampaign(page);
-    await expect(page.getByText('GENERAL — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('STRATEGIST — BRIEFING SESSION')).toBeVisible({ timeout: 10_000 });
 
     // Draft campaigns should show DELETE button
     await expect(page.getByRole('button', { name: /DELETE/i })).toBeVisible();

@@ -545,6 +545,17 @@ export async function retryMerge(missionId: string): Promise<void> {
 
       emitLog(`[REINTEGRATE] Agent successfully merged \`${mission.worktreeBranch}\` into \`${targetBranch}\`. Worktree cleaned up.`);
 
+      // Notify Commander of successful completion
+      const { escalate } = await import('@/lib/overseer/escalation');
+      await escalate({
+        level: 'info',
+        title: `Mission Accomplished — ${mission.title}`,
+        detail: `Branch \`${mission.worktreeBranch}\` merged into \`${targetBranch}\`.`,
+        entityType: 'mission',
+        entityId: missionId,
+        battlefieldId: mission.battlefieldId,
+      });
+
       // Notify campaign executor if applicable
       if (mission.campaignId) {
         const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);

@@ -57,7 +57,7 @@ The interface follows a tactical operations center aesthetic. Dark backgrounds, 
 | Merge Layer   | **Quartermaster** | Merge and integration specialist — worktree merging, conflict resolution, follow-up extraction. |
 | Alert         | **Notification**  | In-app + Telegram alert for events and escalations.            |
 | Startup       | **War Room**      | Boot sequence animation shown on first visit.                  |
-| Planning Chat | **Briefing**      | Interactive campaign planning chat with GENERAL asset.         |
+| Planning Chat | **Briefing**      | Interactive campaign planning chat with STRATEGIST asset.      |
 | Cost Tracking | **Logistics**     | Token usage, rate limits, and cost tracking dashboard.         |
 
 ### Status Terms
@@ -150,7 +150,7 @@ Phase        = Campaign step (parallel missions)
 Mission      = Single task (one Claude Code process)
 Asset        = Agent profile (specialty + system prompt)
 Dossier      = Reusable mission briefing template
-Briefing     = Interactive campaign planning chat with GENERAL
+Briefing     = Interactive campaign planning chat with STRATEGIST
 Overseer     = Mission review specialist (debrief verdicts + escalation)
 Quartermaster= Merge and integration specialist (worktree merging, conflict resolution)
 Debrief      = Post-mission report to Commander

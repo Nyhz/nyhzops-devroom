@@ -84,6 +84,17 @@ export async function commanderOverride(missionId: string): Promise<void> {
   }
 
   emitStatusChange('mission', missionId, 'accomplished');
+
+  const { escalate } = await import('@/lib/overseer/escalation');
+  await escalate({
+    level: 'info',
+    title: `Mission Accomplished — ${mission.title}`,
+    detail: `Commander override — mission marked accomplished.`,
+    entityType: 'mission',
+    entityId: missionId,
+    battlefieldId: mission.battlefieldId,
+  });
+
   revalidatePath(`/battlefields/${mission.battlefieldId}`);
 }
 

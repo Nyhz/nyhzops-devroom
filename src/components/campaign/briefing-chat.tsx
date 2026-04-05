@@ -56,7 +56,7 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <span className="text-dr-green text-xs">●</span>
           <span className="text-dr-amber font-tactical text-xs md:text-sm tracking-wider truncate">
-            GENERAL — BRIEFING SESSION
+            STRATEGIST — BRIEFING SESSION
           </span>
         </div>
         <TacButton
@@ -74,19 +74,19 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4">
         {messages.length === 0 && !isLoading && (
           <div className="text-dr-muted font-tactical text-sm text-center py-8">
-            Begin your briefing with GENERAL. Describe your objective and GENERAL will help you plan the campaign.
+            Begin your briefing with the STRATEGIST. Describe your objective and the STRATEGIST will help you plan the campaign.
           </div>
         )}
 
         {messages.map((msg) => (
-          <ChatMessage key={msg.id} role={msg.role} content={msg.content} />
+          <ChatMessage key={msg.id} role={msg.role} content={msg.content} displayName="STRATEGIST" />
         ))}
 
         {streaming && (
-          <ChatMessage role="general" content={streaming} isStreaming />
+          <ChatMessage role="general" content={streaming} isStreaming displayName="STRATEGIST" />
         )}
 
-        {isLoading && !streaming && <ChatThinking />}
+        {isLoading && !streaming && <ChatThinking displayName="STRATEGIST" />}
 
         {error && (
           <div className="bg-dr-red/10 border border-dr-red/30 p-3 text-dr-red font-data text-xs">
@@ -102,7 +102,7 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Brief the GENERAL..."
+            placeholder="Brief the STRATEGIST..."
             rows={1}
             disabled={isLoading}
             className={cn(

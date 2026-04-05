@@ -110,6 +110,15 @@ export async function triggerQuartermaster(missionId: string): Promise<void> {
     emitStatusChange('mission', missionId, 'accomplished');
     cleanupMissionHome(missionId);
 
+    await escalate({
+      level: 'info',
+      title: `Mission Accomplished — ${mission.title}`,
+      detail: `Mission completed (no worktree merge required).`,
+      entityType: 'mission',
+      entityId: missionId,
+      battlefieldId: mission.battlefieldId,
+    });
+
     // Extract follow-up suggestions
     if (mission.debrief) {
       try {
@@ -217,6 +226,15 @@ export async function triggerQuartermaster(missionId: string): Promise<void> {
       .run();
 
     emitStatusChange('mission', missionId, 'accomplished');
+
+    await escalate({
+      level: 'info',
+      title: `Mission Accomplished — ${mission.title}`,
+      detail: `Branch \`${sourceBranch}\` merged into \`${targetBranch}\`.`,
+      entityType: 'mission',
+      entityId: missionId,
+      battlefieldId: mission.battlefieldId,
+    });
 
     // Extract follow-up suggestions
     if (mission.debrief) {

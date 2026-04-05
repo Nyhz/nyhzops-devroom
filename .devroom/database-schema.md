@@ -92,7 +92,7 @@
 
 ### BriefingSession
 
-Interactive campaign planning sessions with GENERAL asset.
+Interactive campaign planning sessions with STRATEGIST asset.
 
 ```
 - id              TEXT PRIMARY KEY (ULID)
@@ -128,7 +128,7 @@ Interactive campaign planning sessions with GENERAL asset.
 - mcpServers      TEXT                     -- JSON array of MCP server configurations
 - maxTurns        INTEGER                  -- max turns for Claude Code invocation
 - effort          TEXT                     -- 'low' | 'medium' | 'high' | 'max'
-- isSystem        INTEGER DEFAULT 0        -- boolean; system assets (GENERAL, OVERSEER, QUARTERMASTER) cannot be deleted
+- isSystem        INTEGER DEFAULT 0        -- boolean; system assets (STRATEGIST, OVERSEER, QUARTERMASTER) cannot be deleted
 - createdAt       INTEGER NOT NULL
 ```
 

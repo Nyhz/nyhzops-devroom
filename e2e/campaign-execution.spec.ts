@@ -8,7 +8,7 @@ import { test, expect, type APIRequestContext } from '@playwright/test';
  *
  * Test data is seeded via API routes (/api/test/seed-campaign and
  * /api/test/seed-active-campaign) which create campaigns in the
- * correct state, bypassing the GENERAL briefing step that requires
+ * correct state, bypassing the STRATEGIST briefing step that requires
  * a real Claude Code process.
  */
 

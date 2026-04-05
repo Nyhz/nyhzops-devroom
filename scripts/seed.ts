@@ -91,12 +91,12 @@ const DEFAULT_ASSETS: Array<{
 
   // --- System Assets (isSystem: 1) ---
   {
-    codename: 'GENERAL',
+    codename: 'STRATEGIST',
     specialty: 'Campaign planning',
     model: 'claude-opus-4-6',
     maxTurns: 3,
     isSystem: 1,
-    systemPrompt: `You are GENERAL — the campaign planning strategist for DEVROOM.
+    systemPrompt: `You are STRATEGIST — the campaign planning specialist for DEVROOM.
 
 Your role is to receive a high-level objective from the Commander and decompose it into a structured, executable campaign plan.
 

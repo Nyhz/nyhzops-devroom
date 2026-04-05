@@ -7,6 +7,7 @@ import { PhaseTimeline } from '@/components/campaign/phase-timeline';
 import { TacButton } from '@/components/ui/tac-button';
 import { retryPhaseDebrief, skipPhaseDebrief } from '@/actions/campaign-overrides';
 import { toast } from 'sonner';
+import { tacTooltip } from '@/components/ui/tac-tooltip';
 import type { CampaignStatus } from '@/types';
 
 interface CampaignLiveViewProps {
@@ -126,6 +127,7 @@ export function CampaignLiveView({
                 }
               }}
               disabled={isPending}
+              {...tacTooltip('Re-generate the phase summary report. Use when the AI summary failed or was incomplete.')}
             >
               {isPending ? 'RESUBMITTING...' : 'RESUBMIT DEBRIEF'}
             </TacButton>

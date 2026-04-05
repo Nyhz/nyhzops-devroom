@@ -113,16 +113,16 @@ export async function sendBriefingMessage(
   // 4. Load all active assets
   const allAssets = db.select().from(assets).all();
 
-  // 5. Load GENERAL asset for full config (model, system prompt, skills, MCPs)
-  const generalAsset = getSystemAsset('GENERAL');
+  // 5. Load STRATEGIST asset for full config (model, system prompt, skills, MCPs)
+  const strategistAsset = getSystemAsset('STRATEGIST');
 
   // Build asset CLI args, filtering --max-turns (we set our own).
-  // --append-system-prompt carries the GENERAL's identity and is kept.
-  const assetArgs = buildAssetCliArgs(generalAsset);
+  // --append-system-prompt carries the STRATEGIST's identity and is kept.
+  const assetArgs = buildAssetCliArgs(strategistAsset);
   const filteredAssetArgs = filterFlags(assetArgs, ['--max-turns']);
 
   // 6. Detect GENERATE PLAN — uses a completely fresh process (no --resume)
-  // so the GENERAL gets up-to-date format instructions instead of relying on
+  // so the STRATEGIST gets up-to-date format instructions instead of relying on
   // the old session's system prompt which may lack strict JSON requirements.
   const isFirstMessage = !session.sessionId;
   const isGeneratePlan = message.trim().toUpperCase().includes('GENERATE PLAN');
@@ -139,7 +139,7 @@ export async function sendBriefingMessage(
 
   // Resume the existing session for normal conversation messages only.
   // GENERATE PLAN always starts fresh — the old session's system prompt doesn't
-  // include strict JSON format rules, so the GENERAL ignores them.
+  // include strict JSON format rules, so the STRATEGIST ignores them.
   if (!isFirstMessage && session.sessionId && !isGeneratePlan) {
     cliArgs.push('--resume', session.sessionId);
   }
@@ -156,17 +156,17 @@ export async function sendBriefingMessage(
       .all();
 
     const conversationLines = history.map((m) =>
-      m.role === 'commander' ? `Commander: ${m.content}` : `GENERAL: ${m.content.slice(0, 2000)}`,
+      m.role === 'commander' ? `Commander: ${m.content}` : `STRATEGIST: ${m.content.slice(0, 2000)}`,
     );
 
-    stdinContent = `You are GENERAL, a campaign planning specialist for NYHZ OPS DEVROOM.
+    stdinContent = `You are STRATEGIST, a campaign planning specialist for NYHZ OPS DEVROOM.
 Campaign: "${campaign.name}" | Battlefield: ${battlefield.codename}
 
 CAMPAIGN OBJECTIVE:
 ${campaign.objective}
 
 AVAILABLE ASSETS:
-${allAssets.filter(a => a.status === 'active' && a.codename !== 'GENERAL').map(a => `- ${a.codename}: ${a.specialty}`).join('\n')}
+${allAssets.filter(a => a.status === 'active' && a.codename !== 'STRATEGIST').map(a => `- ${a.codename}: ${a.specialty}`).join('\n')}
 
 BRIEFING CONVERSATION SUMMARY:
 ${conversationLines.join('\n\n')}
@@ -296,7 +296,7 @@ Rules: phases execute sequentially, missions within a phase run in parallel unle
       }
 
       if (code !== 0 && code !== null) {
-        const errorMsg = `GENERAL process exited with code ${code}: ${stderrOutput.slice(0, 500)}`;
+        const errorMsg = `STRATEGIST process exited with code ${code}: ${stderrOutput.slice(0, 500)}`;
         io.to(room).emit('briefing:error', { campaignId, error: errorMsg });
         reject(new Error(errorMsg));
         return;
@@ -339,7 +339,7 @@ Rules: phases execute sequentially, missions within a phase run in parallel unle
             console.error(`[BRIEFING] extractPlanJSON returned null for campaign ${campaignId}`);
             io.to(room).emit('briefing:error', {
               campaignId,
-              error: 'Could not extract a valid JSON plan from GENERAL\'s response. Ask GENERAL to output the plan as a single JSON object with a "summary" key.',
+              error: 'Could not extract a valid JSON plan from STRATEGIST\'s response. Ask the STRATEGIST to output the plan as a single JSON object with a "summary" key.',
             });
           }
         } catch (err) {
@@ -352,7 +352,7 @@ Rules: phases execute sequentially, missions within a phase run in parallel unle
         }
       }
 
-      // Store GENERAL's response (formatted summary if plan succeeded, raw otherwise)
+      // Store STRATEGIST's response (formatted summary if plan succeeded, raw otherwise)
       const msgId = generateId();
       db.insert(briefingMessages)
         .values({
@@ -381,7 +381,7 @@ Rules: phases execute sequentially, missions within a phase run in parallel unle
 }
 
 // ---------------------------------------------------------------------------
-// abortBriefing — cancel an in-progress GENERAL response
+// abortBriefing — cancel an in-progress STRATEGIST response
 // ---------------------------------------------------------------------------
 
 export function abortBriefing(campaignId: string): boolean {
@@ -457,7 +457,7 @@ function formatPlanSummary(plan: PlanJSON): string {
 }
 
 // ---------------------------------------------------------------------------
-// extractPlanJSON — find and parse the JSON plan from GENERAL's response
+// extractPlanJSON — find and parse the JSON plan from STRATEGIST's response
 // ---------------------------------------------------------------------------
 
 function extractPlanJSON(response: string): PlanJSON | null {
@@ -472,7 +472,7 @@ function extractPlanJSON(response: string): PlanJSON | null {
 
   // Find all candidate start positions for the plan JSON object.
   // We search from last to first — the final plan in the response is
-  // typically the most complete when GENERAL outputs drafts before the final.
+  // typically the most complete when STRATEGIST outputs drafts before the final.
   const candidates: number[] = [];
   let searchFrom = 0;
   while (true) {
