@@ -66,7 +66,7 @@ function planWithPhases(): PlanJSON {
             title: 'Scout East',
             briefing: 'Check east flank',
             assetCodename: 'PHANTOM',
-            priority: 'normal',
+            priority: 'routine',
             dependsOn: [],
           },
         ],

@@ -65,7 +65,7 @@ describe('Mission Server Actions', () => {
       expect(result.battlefieldId).toBe(bf.id);
       expect(result.briefing).toBe('Test briefing for the mission');
       expect(result.title).toBe('Test briefing for the mission');
-      expect(result.priority).toBe('normal');
+      expect(result.priority).toBe('routine');
     });
 
     it('extracts title from first line of briefing', async () => {

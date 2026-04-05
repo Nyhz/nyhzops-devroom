@@ -71,14 +71,14 @@ describe('plan-editor-utils', () => {
 
   describe('PRIORITIES', () => {
     it('contains all four priority levels in order', () => {
-      expect(PRIORITIES).toEqual(['low', 'normal', 'high', 'critical']);
+      expect(PRIORITIES).toEqual(['low', 'routine', 'high', 'critical']);
     });
   });
 
   describe('priorityDotColor', () => {
     it('maps every priority to a color class', () => {
       expect(priorityDotColor['low']).toBe('bg-dr-dim');
-      expect(priorityDotColor['normal']).toBe('bg-dr-muted');
+      expect(priorityDotColor['routine']).toBe('bg-dr-muted');
       expect(priorityDotColor['high']).toBe('bg-dr-amber');
       expect(priorityDotColor['critical']).toBe('bg-dr-red');
     });

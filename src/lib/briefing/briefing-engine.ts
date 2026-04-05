@@ -178,7 +178,7 @@ The Commander has issued GENERATE PLAN. Output ONLY a single raw JSON object. Yo
 Mission briefing values must be PLAIN TEXT — do NOT use markdown code fences (\`\`\`) inside briefing strings. Describe code changes in prose, reference file paths and type names directly.
 
 JSON schema:
-{"summary":"...","phases":[{"name":"...","objective":"...","missions":[{"title":"...","briefing":"plain text only","assetCodename":"OPERATIVE","priority":"normal","dependsOn":["same-phase mission title"]}]}]}
+{"summary":"...","phases":[{"name":"...","objective":"...","missions":[{"title":"...","briefing":"plain text only","assetCodename":"OPERATIVE","priority":"routine","dependsOn":["same-phase mission title"]}]}]}
 
 Rules: phases execute sequentially, missions within a phase run in parallel unless linked by dependsOn (same-phase only). Each briefing must be self-contained — the asset has NO other context.`;
   } else if (isFirstMessage) {
@@ -447,7 +447,7 @@ function formatPlanSummary(plan: PlanJSON): string {
       const deps = m.dependsOn && m.dependsOn.length > 0
         ? ` ← ${m.dependsOn.join(', ')}`
         : '';
-      lines.push(`- ${m.title} — \`${m.assetCodename}\` [${m.priority || 'normal'}]${deps}`);
+      lines.push(`- ${m.title} — \`${m.assetCodename}\` [${m.priority || 'routine'}]${deps}`);
     }
     lines.push('');
   }

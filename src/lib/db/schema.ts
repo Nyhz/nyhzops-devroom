@@ -35,7 +35,7 @@ export const missions = sqliteTable('missions', {
   title: text('title').notNull(),
   briefing: text('briefing').notNull(),
   status: text('status').default('standby'),
-  priority: text('priority').default('normal'),
+  priority: text('priority').default('routine'),
   assetId: text('asset_id').references(() => assets.id),
   useWorktree: integer('use_worktree').default(0),
   worktreeBranch: text('worktree_branch'),

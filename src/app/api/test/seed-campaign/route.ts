@@ -104,7 +104,7 @@ export async function POST() {
     title: 'Identify targets',
     briefing: 'Identify key targets for the operation.',
     status: 'standby',
-    priority: 'normal',
+    priority: 'routine',
     assetId: asset.id,
     createdAt: now,
     updatedAt: now,

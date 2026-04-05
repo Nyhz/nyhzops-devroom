@@ -159,7 +159,7 @@ function createPlanJSON(overrides?: Partial<PlanJSON>): PlanJSON {
             title: 'Mission 1',
             briefing: 'Do the thing',
             assetCodename: 'TESTER',
-            priority: 'normal',
+            priority: 'routine',
           },
         ],
       },
@@ -394,7 +394,7 @@ describe('updateBattlePlan', () => {
           name: 'Phase A',
           objective: 'First',
           missions: [
-            { title: 'M1', briefing: 'B1', assetCodename: 'NONE', priority: 'normal' },
+            { title: 'M1', briefing: 'B1', assetCodename: 'NONE', priority: 'routine' },
           ],
         },
         {

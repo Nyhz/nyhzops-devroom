@@ -168,7 +168,7 @@ export function insertPlanFromJSON(
         title: planMission.title,
         briefing: planMission.briefing,
         status: 'standby',
-        priority: planMission.priority || 'normal',
+        priority: planMission.priority || 'routine',
         assetId: asset?.id ?? null,
         dependsOn: planMission.dependsOn && planMission.dependsOn.length > 0
           ? JSON.stringify(planMission.dependsOn)

@@ -55,7 +55,7 @@ export function createTestMission(
       title: `Test Mission ${id.slice(-4)}`,
       briefing: 'Test mission briefing content',
       status: 'standby',
-      priority: 'normal',
+      priority: 'routine',
       createdAt: now,
       updatedAt: now,
       ...overrides,

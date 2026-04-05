@@ -31,7 +31,7 @@ const makeMission = (overrides: {
   id: overrides.id ?? 'mission-1',
   title: 'title' in overrides ? overrides.title! : 'Test Mission',
   status: 'status' in overrides ? overrides.status! : 'standby',
-  priority: overrides.priority ?? 'normal',
+  priority: overrides.priority ?? 'routine',
   iterations: 'iterations' in overrides ? overrides.iterations! : 1,
   assetCodename: 'assetCodename' in overrides ? overrides.assetCodename! : 'ALPHA',
   createdAt: overrides.createdAt ?? now,

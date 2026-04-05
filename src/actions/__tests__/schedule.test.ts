@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS missions (
   title TEXT NOT NULL,
   briefing TEXT NOT NULL,
   status TEXT DEFAULT 'standby',
-  priority TEXT DEFAULT 'normal',
+  priority TEXT DEFAULT 'routine',
   asset_id TEXT,
   use_worktree INTEGER DEFAULT 0,
   worktree_branch TEXT,
@@ -279,7 +279,7 @@ describe('createScheduledTask', () => {
     });
 
     const template = JSON.parse(task.missionTemplate!);
-    expect(template.priority).toBe('normal');
+    expect(template.priority).toBe('routine');
     expect(template.briefing).toBe('');
     expect(template.assetId).toBeNull();
   });
@@ -317,7 +317,7 @@ describe('updateScheduledTask', () => {
       type: 'mission',
       cron: '0 * * * *',
       briefing: 'Original briefing',
-      priority: 'normal',
+      priority: 'routine',
     });
     taskId = task.id;
     vi.clearAllMocks();

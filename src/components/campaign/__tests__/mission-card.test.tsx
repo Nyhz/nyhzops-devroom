@@ -63,11 +63,11 @@ describe('CampaignMissionCard', () => {
     expect(dot).toHaveClass('bg-dr-amber');
   });
 
-  it('defaults to normal priority when null', () => {
+  it('defaults to routine priority when null', () => {
     const { container } = renderWithProviders(
       <CampaignMissionCard {...baseProps} />,
     );
-    const dot = container.querySelector('[title="Priority: normal"]');
+    const dot = container.querySelector('[title="Priority: routine"]');
     expect(dot).toBeInTheDocument();
     expect(dot).toHaveClass('bg-dr-muted');
   });

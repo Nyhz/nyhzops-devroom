@@ -124,7 +124,7 @@ function buildCampaignMissionPrompt(
     '## Mission Briefing',
     '',
     `**Mission**: ${mission.title}`,
-    `**Priority**: ${mission.priority || 'normal'}`,
+    `**Priority**: ${mission.priority || 'routine'}`,
     '',
     mission.briefing,
   ].join('\n'));
@@ -218,7 +218,7 @@ export function buildPrompt(
     '',
     `**Mission**: ${mission.title}`,
     `**Battlefield**: ${battlefield.codename}`,
-    `**Priority**: ${mission.priority || 'normal'}`,
+    `**Priority**: ${mission.priority || 'routine'}`,
     '',
     mission.briefing,
   ].join('\n');

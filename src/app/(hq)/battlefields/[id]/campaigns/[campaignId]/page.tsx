@@ -69,7 +69,7 @@ export default async function CampaignDetailPage({
           title: m.title || '',
           briefing: m.briefing || '',
           assetCodename: m.assetCodename || '',
-          priority: (m.priority || 'normal') as MissionPriority,
+          priority: (m.priority || 'routine') as MissionPriority,
           dependsOn: [],
         })),
       })),

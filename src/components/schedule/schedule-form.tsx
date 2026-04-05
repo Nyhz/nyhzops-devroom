@@ -63,7 +63,7 @@ export function ScheduleForm({
   const [cron, setCron] = useState(editTask?.cron ?? '0 3 * * *');
   const [briefing, setBriefing] = useState(existingTemplate.briefing ?? '');
   const [assetId, setAssetId] = useState(existingTemplate.assetId ?? '');
-  const [priority, setPriority] = useState(existingTemplate.priority ?? 'normal');
+  const [priority, setPriority] = useState(existingTemplate.priority ?? 'routine');
   const [campaignId, setCampaignId] = useState(editTask?.campaignId ?? '');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
@@ -102,7 +102,7 @@ export function ScheduleForm({
             briefing: type === 'mission' ? briefing : undefined,
             assetId: type === 'mission' && assetId ? assetId : undefined,
             priority: type === 'mission'
-              ? (priority as 'low' | 'normal' | 'high' | 'critical')
+              ? (priority as 'low' | 'routine' | 'high' | 'critical')
               : undefined,
             campaignId: type === 'campaign' ? campaignId : undefined,
           });
@@ -115,7 +115,7 @@ export function ScheduleForm({
             briefing: type === 'mission' ? briefing : undefined,
             assetId: type === 'mission' && assetId ? assetId : undefined,
             priority: type === 'mission'
-              ? (priority as 'low' | 'normal' | 'high' | 'critical')
+              ? (priority as 'low' | 'routine' | 'high' | 'critical')
               : undefined,
             campaignId: type === 'campaign' ? campaignId : undefined,
           });
@@ -244,13 +244,13 @@ export function ScheduleForm({
               <label className="block text-dr-muted font-tactical text-xs uppercase tracking-wider mb-1">
                 Priority
               </label>
-              <TacSelect value={priority} onValueChange={(v) => setPriority(v ?? 'normal')}>
+              <TacSelect value={priority} onValueChange={(v) => setPriority(v ?? 'routine')}>
                 <TacSelectTrigger>
                   <TacSelectValue />
                 </TacSelectTrigger>
                 <TacSelectContent>
                   <TacSelectItem value="low">Low</TacSelectItem>
-                  <TacSelectItem value="normal">Normal</TacSelectItem>
+                  <TacSelectItem value="routine">Routine</TacSelectItem>
                   <TacSelectItem value="high">High</TacSelectItem>
                   <TacSelectItem value="critical">Critical</TacSelectItem>
                 </TacSelectContent>

@@ -20,7 +20,7 @@ interface CreateScheduledTaskInput {
   // Mission fields
   briefing?: string;
   assetId?: string;
-  priority?: 'low' | 'normal' | 'high' | 'critical';
+  priority?: 'low' | 'routine' | 'high' | 'critical';
   // Campaign fields
   campaignId?: string;
 }
@@ -42,7 +42,7 @@ export async function createScheduledTask(
     missionTemplate = JSON.stringify({
       briefing: data.briefing || '',
       assetId: data.assetId || null,
-      priority: data.priority || 'normal',
+      priority: data.priority || 'routine',
     });
   }
 
@@ -79,7 +79,7 @@ interface UpdateScheduledTaskInput {
   type?: 'mission' | 'campaign' | 'maintenance';
   briefing?: string;
   assetId?: string;
-  priority?: 'low' | 'normal' | 'high' | 'critical';
+  priority?: 'low' | 'routine' | 'high' | 'critical';
   campaignId?: string;
 }
 
@@ -112,7 +112,7 @@ export async function updateScheduledTask(
     missionTemplate = JSON.stringify({
       briefing: data.briefing ?? currentTemplate.briefing ?? '',
       assetId: data.assetId ?? currentTemplate.assetId ?? null,
-      priority: data.priority ?? currentTemplate.priority ?? 'normal',
+      priority: data.priority ?? currentTemplate.priority ?? 'routine',
     });
   }
 

@@ -135,7 +135,7 @@ export async function POST() {
     title: 'Final sweep',
     briefing: 'Complete the final sweep of the area.',
     status: 'standby',
-    priority: 'normal',
+    priority: 'routine',
     assetId: asset.id,
     createdAt: now,
     updatedAt: now,

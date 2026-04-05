@@ -222,7 +222,7 @@ export class Orchestrator {
     const queued = db.select().from(missions)
       .where(eq(missions.status, 'queued'))
       .orderBy(
-        sql`CASE ${missions.priority} WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 WHEN 'low' THEN 3 END`,
+        sql`CASE ${missions.priority} WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'routine' THEN 2 WHEN 'low' THEN 3 END`,
         missions.createdAt,
       )
       .limit(slots)

@@ -72,7 +72,7 @@ JSON schema:
           "title": "Mission title",
           "briefing": "Detailed mission briefing in plain text — the asset has NO context beyond what you write here. Describe code changes in prose, reference file paths and types by name, never use code fences.",
           "assetCodename": "OPERATIVE",
-          "priority": "normal",
+          "priority": "routine",
           "dependsOn": ["Other mission title in same phase"]
         }
       ]

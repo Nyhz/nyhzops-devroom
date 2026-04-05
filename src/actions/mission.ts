@@ -49,7 +49,7 @@ async function _createMission(
         title,
         briefing: data.briefing,
         status,
-        priority: data.priority ?? 'normal',
+        priority: data.priority ?? 'routine',
         assetId: data.assetId ?? null,
         createdAt: now,
         updatedAt: now,
@@ -340,7 +340,7 @@ export async function continueMission(
     title,
     briefing,
     status: 'queued',
-    priority: original.priority || 'normal',
+    priority: original.priority || 'routine',
     assetId: original.assetId,
     sessionId: original.sessionId, // KEY: reuse session for context
     // If original was compromised and has a preserved branch, reuse it

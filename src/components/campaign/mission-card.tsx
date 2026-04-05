@@ -32,7 +32,7 @@ interface CampaignMissionCardProps {
 
 const priorityDotColor: Record<string, string> = {
   low: 'bg-dr-dim',
-  normal: 'bg-dr-muted',
+  routine: 'bg-dr-muted',
   high: 'bg-dr-amber',
   critical: 'bg-dr-red',
 };
@@ -69,7 +69,7 @@ export function CampaignMissionCard({
   discoveredMcps,
 }: CampaignMissionCardProps) {
   const router = useRouter();
-  const normalizedPriority = (priority ?? 'normal').toLowerCase();
+  const normalizedPriority = (priority ?? 'routine').toLowerCase();
   const dotColor = priorityDotColor[normalizedPriority] ?? 'bg-dr-muted';
   const hasMetrics = durationMs != null || (costInput != null && costOutput != null);
   const normalizedStatus = status?.toLowerCase().replace(/\s+/g, '_') ?? null;

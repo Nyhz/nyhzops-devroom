@@ -154,7 +154,7 @@ export function PlanEditor({
             title: '',
             briefing: '',
             assetCodename: '',
-            priority: 'normal' as MissionPriority,
+            priority: 'routine' as MissionPriority,
             dependsOn: [],
           },
         ];

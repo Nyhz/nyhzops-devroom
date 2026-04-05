@@ -112,7 +112,7 @@ export class Scheduler {
         title: `[Scheduled] ${template.title || task.name}`,
         briefing: template.briefing || task.name,
         assetId: template.assetId,
-        priority: (template.priority as 'low' | 'normal' | 'high' | 'critical') || 'normal',
+        priority: (template.priority as 'low' | 'routine' | 'high' | 'critical') || 'routine',
       }).catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[Scheduler] Failed to create mission for task ${task.name}: ${message}`);

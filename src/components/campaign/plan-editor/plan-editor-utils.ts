@@ -28,11 +28,11 @@ export function parsePhaseId(id: string): number | null {
 // Priority config
 // ---------------------------------------------------------------------------
 
-export const PRIORITIES: MissionPriority[] = ['low', 'normal', 'high', 'critical'];
+export const PRIORITIES: MissionPriority[] = ['low', 'routine', 'high', 'critical'];
 
 export const priorityDotColor: Record<string, string> = {
   low: 'bg-dr-dim',
-  normal: 'bg-dr-muted',
+  routine: 'bg-dr-muted',
   high: 'bg-dr-amber',
   critical: 'bg-dr-red',
 };
