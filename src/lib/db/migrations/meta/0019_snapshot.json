@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "584216fa-eb05-4de0-beb2-5f1749d0c860",
-  "prevId": "1d2ff8f6-da10-488d-8e8a-ff45ca6d2b7e",
+  "id": "045aade4-38e7-4efd-80c6-e35c3b6df83f",
+  "prevId": "ac6cd2c5-6734-412a-9e74-7e934959f442",
   "tables": {
     "assets": {
       "name": "assets",
@@ -94,6 +94,13 @@
           "notNull": false,
           "autoincrement": false,
           "default": 0
+        },
+        "memory": {
+          "name": "memory",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "created_at": {
           "name": "created_at",
@@ -982,7 +989,7 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false,
-          "default": "'backlog'"
+          "default": "'tasked'"
         },
         "position": {
           "name": "position",
@@ -1163,7 +1170,7 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false,
-          "default": "'standard'"
+          "default": "'direct_action'"
         },
         "title": {
           "name": "title",
@@ -1193,7 +1200,7 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false,
-          "default": "'normal'"
+          "default": "'routine'"
         },
         "asset_id": {
           "name": "asset_id",

@@ -183,6 +183,7 @@ export async function updateAsset(
     systemPrompt?: string;
     model?: string;
     status?: AssetStatus;
+    memory?: string | null;
     maxTurns?: number | null;
     effort?: string | null;
     skills?: string | null;
@@ -239,6 +240,10 @@ export async function updateAsset(
 
   if (data.status !== undefined) {
     updates.status = data.status;
+  }
+
+  if (data.memory !== undefined) {
+    updates.memory = data.memory;
   }
 
   if (data.maxTurns !== undefined) {
@@ -315,4 +320,87 @@ export async function deleteAsset(id: string) {
   }
 
   revalidatePath('/');
+}
+
+// ---------------------------------------------------------------------------
+// getAssetMemory — parse the JSON memory blob into a string array
+// ---------------------------------------------------------------------------
+const MAX_MEMORY_ENTRIES = 15;
+
+export async function getAssetMemory(assetId: string): Promise<string[]> {
+  const db = getDatabase();
+  const asset = getOrThrow(assets, assetId, 'getAssetMemory');
+  if (!asset.memory) return [];
+  try {
+    const parsed = JSON.parse(asset.memory);
+    return Array.isArray(parsed) ? parsed.filter((e): e is string => typeof e === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// updateAssetMemory — apply add/remove/replace operations to the memory array
+// ---------------------------------------------------------------------------
+export async function updateAssetMemory(
+  assetId: string,
+  ops: {
+    add?: string[];
+    remove?: number[];
+    replace?: { index: number; value: string }[];
+  },
+): Promise<{ entries: string[]; error?: string }> {
+  const db = getDatabase();
+  const asset = getOrThrow(assets, assetId, 'updateAssetMemory');
+
+  let entries: string[] = [];
+  if (asset.memory) {
+    try {
+      const parsed = JSON.parse(asset.memory);
+      if (Array.isArray(parsed)) {
+        entries = parsed.filter((e): e is string => typeof e === 'string');
+      }
+    } catch {
+      // start fresh
+    }
+  }
+
+  // Remove (descending order to preserve indices)
+  if (ops.remove?.length) {
+    const indices = [...ops.remove].sort((a, b) => b - a);
+    for (const idx of indices) {
+      if (idx >= 0 && idx < entries.length) {
+        entries.splice(idx, 1);
+      }
+    }
+  }
+
+  // Replace
+  if (ops.replace?.length) {
+    for (const { index, value } of ops.replace) {
+      if (index >= 0 && index < entries.length) {
+        entries[index] = value;
+      }
+    }
+  }
+
+  // Add
+  if (ops.add?.length) {
+    const remaining = MAX_MEMORY_ENTRIES - entries.length;
+    if (remaining <= 0) {
+      return { entries, error: 'Memory is at capacity (15 entries)' };
+    }
+    entries.push(...ops.add.slice(0, remaining));
+  }
+
+  // Filter out empty strings
+  entries = entries.filter((e) => e.trim().length > 0);
+
+  db.update(assets)
+    .set({ memory: JSON.stringify(entries) })
+    .where(eq(assets.id, assetId))
+    .run();
+
+  revalidatePath('/');
+  return { entries };
 }
