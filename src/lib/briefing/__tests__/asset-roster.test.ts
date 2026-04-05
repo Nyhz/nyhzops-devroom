@@ -52,7 +52,7 @@ describe('extractAssetIdentityLine', () => {
   it('truncates to 200 chars', () => {
     const long = 'a'.repeat(500);
     const result = extractAssetIdentityLine(long);
-    expect(result.length).toBeLessThanOrEqual(200);
+    expect(result.length).toBe(200);
   });
 });
 

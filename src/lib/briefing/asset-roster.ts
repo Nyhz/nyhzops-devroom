@@ -37,7 +37,6 @@ export function extractAssetIdentityLine(systemPrompt: string | null): string {
 export function formatAssetRoster(allAssets: Asset[]): string {
   const mission = allAssets
     .filter((a) => a.status === 'active' && a.isSystem === 0)
-    .slice()
     .sort((a, b) => a.codename.localeCompare(b.codename));
 
   if (mission.length === 0) return '(no active mission assets)';
