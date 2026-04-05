@@ -62,6 +62,8 @@ export interface OverseerReview {
   verdict: 'approve' | 'retry' | 'escalate';
   concerns: string[];
   reasoning: string;
+  /** When true, this verdict is a fallback from a parser failure, not a real OVERSEER decision. */
+  parseFailure?: boolean;
 }
 
 export interface DossierVariable {

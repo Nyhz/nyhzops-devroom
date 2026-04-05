@@ -139,6 +139,7 @@ const ESCALATE_FALLBACK: OverseerReview = {
   verdict: 'escalate',
   concerns: ['Overseer review spawn failed — escalating to Commander'],
   reasoning: 'Review process failure — Commander should decide',
+  parseFailure: true,
 };
 
 export async function reviewDebrief(params: {
@@ -181,5 +182,5 @@ export async function reviewDebrief(params: {
     `[Overseer] Debrief review parse failed for mission ${params.missionId}. ` +
     `Diagnostic: ${result.diagnostic}. Output (${stdout.length} chars): ${stdout.slice(0, 500)}`,
   );
-  return result.fallback;
+  return { ...result.fallback, parseFailure: true };
 }

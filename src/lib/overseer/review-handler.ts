@@ -365,21 +365,36 @@ export async function runOverseerReview(missionId: string): Promise<void> {
     if (isReviewing) {
       db.update(missions).set({
         status: 'compromised',
-        compromiseReason: 'escalated',
+        compromiseReason: review.parseFailure ? 'parse-failure' : 'escalated',
         updatedAt: Date.now(),
       }).where(eq(missions.id, missionId)).run();
     }
 
     emitStatusChange('mission', missionId, isReviewing ? 'compromised' : mission.status!);
 
-    await escalate({
-      level: 'warning',
-      title: `Overseer Escalation: ${mission.title}`,
-      detail: `Concerns: ${review.concerns.join('. ')}. Reasoning: ${review.reasoning}`,
-      entityType: 'mission',
-      entityId: mission.id,
-      battlefieldId: mission.battlefieldId,
-    });
+    if (review.parseFailure) {
+      emitMissionLog(
+        missionId,
+        `[Overseer] PARSE FAILURE — the Overseer produced output the review parser could not decode. Defaulting to escalation. Commander intervention required.`,
+      );
+      await escalate({
+        level: 'critical',
+        title: `Overseer Parse Failure: ${mission.title}`,
+        detail: `The Overseer review output could not be parsed. This is an infrastructure problem, not a content judgment. Concerns: ${review.concerns.join('. ')}. Reasoning: ${review.reasoning}`,
+        entityType: 'mission',
+        entityId: mission.id,
+        battlefieldId: mission.battlefieldId,
+      });
+    } else {
+      await escalate({
+        level: 'warning',
+        title: `Overseer Escalation: ${mission.title}`,
+        detail: `Concerns: ${review.concerns.join('. ')}. Reasoning: ${review.reasoning}`,
+        entityType: 'mission',
+        entityId: mission.id,
+        battlefieldId: mission.battlefieldId,
+      });
+    }
 
     // Notify campaign executor
     if (mission.campaignId) {
