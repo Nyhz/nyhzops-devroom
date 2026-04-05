@@ -79,13 +79,32 @@ vi.mock('fs', () => ({
 // Import after mocks
 // ---------------------------------------------------------------------------
 
-import { runOverseerReview } from '../review-handler';
+import { runOverseerReview, capGitDiffStat } from '../review-handler';
 import { escalate } from '../escalation';
 import { emitStatusChange } from '@/lib/socket/emit';
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+describe('capGitDiffStat', () => {
+  it('returns the input unchanged when under the cap', () => {
+    const short = 'src/foo.ts | 10 +++---\n 1 file changed';
+    expect(capGitDiffStat(short)).toBe(short);
+  });
+
+  it('truncates with a marker when over the cap', () => {
+    const long = 'x'.repeat(2000);
+    const capped = capGitDiffStat(long);
+    expect(capped).not.toBeNull();
+    expect(capped!.length).toBeLessThanOrEqual(1500 + '\n\n[...truncated]'.length);
+    expect(capped!.endsWith('[...truncated]')).toBe(true);
+  });
+
+  it('returns null when input is null', () => {
+    expect(capGitDiffStat(null)).toBeNull();
+  });
+});
 
 describe('runOverseerReview — mission type × commit count enforcement', () => {
   beforeEach(() => {

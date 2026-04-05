@@ -10,6 +10,14 @@ import { emitStatusChange } from '@/lib/socket/emit';
 import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
 import type { Mission, OverseerReview } from '@/types';
 
+const GIT_DIFF_STAT_CAP = 1500;
+
+export function capGitDiffStat(stat: string | null): string | null {
+  if (stat === null) return null;
+  if (stat.length <= GIT_DIFF_STAT_CAP) return stat;
+  return stat.slice(0, GIT_DIFF_STAT_CAP) + '\n\n[...truncated]';
+}
+
 function emitMissionLog(missionId: string, content: string) {
   const db = getDatabase();
   const now = Date.now();
@@ -94,7 +102,7 @@ export async function runOverseerReview(missionId: string): Promise<void> {
     try {
       const git = simpleGit(battlefield.repoPath);
       const target = battlefield.defaultBranch || 'main';
-      gitDiffStat = await git.diff(['--stat', `${target}...${mission.worktreeBranch}`]);
+      gitDiffStat = capGitDiffStat(await git.diff(['--stat', `${target}...${mission.worktreeBranch}`]));
       gitDiff = await git.diff([`${target}...${mission.worktreeBranch}`]);
       // Count commits on the mission branch ahead of the default branch.
       // This is the authoritative signal of whether the asset actually changed anything.
