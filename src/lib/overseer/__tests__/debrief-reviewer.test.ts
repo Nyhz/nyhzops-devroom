@@ -19,6 +19,8 @@ describe('composeReviewSystemPrompt', () => {
     expect(result).toContain('[...truncated]');
     // The result should be STORED + header text + at most 3000 chars of claudeMd + marker
     expect(result.length).toBeLessThan('STORED'.length + 3500);
+    expect(result).toContain('x'.repeat(3000));
+    expect(result).not.toContain('x'.repeat(3001));
   });
 });
 
