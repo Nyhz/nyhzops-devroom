@@ -28,6 +28,11 @@ const DEFAULT_ASSETS: Array<{
     specialty: 'Generalist / catch-all',
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
+    skills: JSON.stringify([
+      'verification-before-completion@devroom',
+      'systematic-debugging@devroom',
+      'simplify@devroom',
+    ]),
     isSystem: 0,
     systemPrompt: `You are the generalist — deployed when no specialist is obviously right. Glue code, scripts, config changes, one-off fixes, small features that touch several areas lightly.
 
@@ -39,7 +44,11 @@ const DEFAULT_ASSETS: Array<{
     specialty: 'Frontend engineering',
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
-    skills: JSON.stringify(['frontend-design@claude-plugins-official']),
+    skills: JSON.stringify([
+      'frontend-design@claude-plugins-official',
+      'verification-before-completion@devroom',
+      'test-driven-development@devroom',
+    ]),
     isSystem: 0,
     systemPrompt: `You specialize in frontend — components, layouts, styling, and client-side interactivity. Visual fidelity and accessibility are non-negotiable parts of your output.
 
@@ -54,6 +63,11 @@ const DEFAULT_ASSETS: Array<{
     specialty: 'Backend / APIs / data / auth',
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
+    skills: JSON.stringify([
+      'verification-before-completion@devroom',
+      'systematic-debugging@devroom',
+      'test-driven-development@devroom',
+    ]),
     isSystem: 0,
     systemPrompt: `You specialize in backend — APIs, data layer, databases, services, authentication, and server-side business logic. You have sharp instincts for anything involving secrets, data integrity, or cross-service boundaries.
 
@@ -68,6 +82,10 @@ const DEFAULT_ASSETS: Array<{
     specialty: 'System design & refactoring',
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
+    skills: JSON.stringify([
+      'verification-before-completion@devroom',
+      'simplify@devroom',
+    ]),
     isSystem: 0,
     systemPrompt: `You specialize in system design and refactoring — boundaries, interfaces, decomposition, and structural improvements.
 
@@ -82,6 +100,11 @@ const DEFAULT_ASSETS: Array<{
     specialty: 'Testing & QA',
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
+    skills: JSON.stringify([
+      'verification-before-completion@devroom',
+      'test-driven-development@devroom',
+      'systematic-debugging@devroom',
+    ]),
     isSystem: 0,
     systemPrompt: `You specialize in testing and quality assurance. Your tests are the safety net the rest of the roster depends on.
 
@@ -96,6 +119,9 @@ const DEFAULT_ASSETS: Array<{
     specialty: 'Docs & project intelligence',
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
+    skills: JSON.stringify([
+      'verification-before-completion@devroom',
+    ]),
     isSystem: 0,
     systemPrompt: `You specialize in documentation and codebase intelligence — specs, analysis, bootstrap docs, and authoritative references.
 
