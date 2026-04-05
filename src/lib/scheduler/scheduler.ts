@@ -145,7 +145,7 @@ export class Scheduler {
         .select({ id: missions.id })
         .from(missions)
         .where(
-          inArray(missions.status, ['standby', 'queued', 'deploying', 'in_combat']),
+          inArray(missions.status, ['standby', 'queued', 'deploying', 'in_combat', 'reviewing', 'approved', 'merging']),
         )
         .all();
       const activeIds = activeMissions.map((m) => m.id);
