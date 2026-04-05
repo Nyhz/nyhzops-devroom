@@ -56,4 +56,10 @@ describe('settings actions — rules of engagement', () => {
   it('updateRulesOfEngagementAction rejects empty strings', async () => {
     await expect(updateRulesOfEngagementAction('')).rejects.toThrow(/empty/i);
   });
+
+  it('updateRulesOfEngagementAction trims leading/trailing whitespace', async () => {
+    await updateRulesOfEngagementAction('  trimmed rules  ');
+    const result = await getRulesOfEngagementAction();
+    expect(result.value).toBe('trimmed rules');
+  });
 });

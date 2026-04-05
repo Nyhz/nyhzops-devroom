@@ -27,6 +27,6 @@ export async function updateRulesOfEngagementAction(value: string): Promise<void
   if (trimmed.length === 0) {
     throw new Error('Update rules of engagement: value must not be empty');
   }
-  updateRulesOfEngagement(value);
+  updateRulesOfEngagement(trimmed);
   revalidatePath('/assets');
 }
