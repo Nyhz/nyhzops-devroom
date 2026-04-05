@@ -91,7 +91,7 @@ export function ScaffoldOutput({ battlefieldId }: ScaffoldOutputProps) {
   // Convert logs to Terminal format
   const terminalLogs = logs.map(l => ({
     timestamp: l.timestamp,
-    type: 'log' as const,
+    type: 'comms' as const,
     content: l.content,
   }));
 

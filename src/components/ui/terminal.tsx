@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 
 interface LogEntry {
   timestamp: number;
-  type: 'log' | 'status' | 'error';
+  type: 'comms' | 'sitrep' | 'alert';
   content: string;
 }
 
@@ -16,15 +16,15 @@ interface TerminalProps {
 
 interface DisplayEntry {
   timestamp: number;
-  type: 'log' | 'status' | 'error';
+  type: 'comms' | 'sitrep' | 'alert';
   content: string;
   count: number;
 }
 
 const typeStyles = {
-  log: 'text-dr-text',
-  status: 'text-dr-green',
-  error: 'text-dr-red',
+  comms: 'text-dr-text',
+  sitrep: 'text-dr-green',
+  alert: 'text-dr-red',
 } as const;
 
 const TOOL_PATTERN = /^Tool: \w+/;
@@ -56,9 +56,9 @@ function groupLogs(logs: LogEntry[]): DisplayEntry[] {
       prev.timestamp = entry.timestamp;
     } else if (
       !isToolCall &&
-      entry.type === 'log' &&
+      entry.type === 'comms' &&
       prev &&
-      prev.type === 'log' &&
+      prev.type === 'comms' &&
       !TOOL_PATTERN.test(prev.content.trim())
     ) {
       // Coalesce consecutive text lines into one entry

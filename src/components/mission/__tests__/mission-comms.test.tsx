@@ -37,8 +37,8 @@ vi.mock('react-tooltip', () => ({
 }));
 
 const baseLogs: MissionLog[] = [
-  { id: 'log-1', missionId: 'm-1', timestamp: 1000, type: 'log', content: 'Starting analysis...' },
-  { id: 'log-2', missionId: 'm-1', timestamp: 2000, type: 'status', content: 'Connected to agent' },
+  { id: 'log-1', missionId: 'm-1', timestamp: 1000, type: 'comms', content: 'Starting analysis...' },
+  { id: 'log-2', missionId: 'm-1', timestamp: 2000, type: 'sitrep', content: 'Connected to agent' },
 ];
 
 const baseProps = {
@@ -220,8 +220,8 @@ describe('MissionComms', () => {
   it('filters debrief content from terminal logs when matching', () => {
     const debriefText = 'This is the full debrief content that should be filtered from logs.';
     const logsWithDebrief: MissionLog[] = [
-      { id: 'log-1', missionId: 'm-1', timestamp: 1000, type: 'status', content: 'Starting...' },
-      { id: 'log-2', missionId: 'm-1', timestamp: 2000, type: 'log', content: debriefText },
+      { id: 'log-1', missionId: 'm-1', timestamp: 1000, type: 'sitrep', content: 'Starting...' },
+      { id: 'log-2', missionId: 'm-1', timestamp: 2000, type: 'comms', content: debriefText },
     ];
     setupHookReturn({
       logs: logsWithDebrief,

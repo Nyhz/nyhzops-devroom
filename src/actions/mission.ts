@@ -457,13 +457,13 @@ export async function retryMerge(missionId: string): Promise<void> {
       id: generateId(),
       missionId,
       timestamp: Date.now(),
-      type: 'status',
+      type: 'sitrep',
       content,
     }).run();
     globalThis.io?.to(`mission:${missionId}`).emit('mission:log', {
       missionId,
       timestamp: Date.now(),
-      type: 'status',
+      type: 'sitrep',
       content: content + '\n',
     });
   };

@@ -26,10 +26,10 @@ export function BootstrapComms({ missionId, codename }: BootstrapCommsProps) {
     }
   }, [status, router]);
 
-  // Terminal expects type: 'log' | 'status' | 'error'; MissionLog.type is string
+  // Terminal expects type: 'comms' | 'sitrep' | 'alert'; MissionLog.type is string
   const terminalLogs = logs.map(entry => ({
     timestamp: entry.timestamp,
-    type: entry.type as 'log' | 'status' | 'error',
+    type: entry.type as 'comms' | 'sitrep' | 'alert',
     content: entry.content,
   }));
 

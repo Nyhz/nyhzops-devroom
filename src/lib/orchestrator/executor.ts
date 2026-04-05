@@ -117,7 +117,7 @@ export async function executeMission(
     const authResult = await checkCliAuth();
     if (!authResult.ok) {
       updateStatus('queued');
-      storeLog('status', `Auth check failed: ${authResult.error}. Mission re-queued.`);
+      storeLog('sitrep', `Auth check failed: ${authResult.error}. Mission re-queued.`);
       emitActivity('mission:auth_failed', `Auth check failed for mission: ${mission.title}. Re-queued.`);
 
       const orch = globalThis.orchestrator as Orchestrator | undefined;
@@ -162,7 +162,7 @@ export async function executeMission(
         if (fs.existsSync(existingPath)) {
           worktreePath = existingPath;
           workingDirectory = existingPath;
-          storeLog('status', `Reusing existing worktree: ${worktreeBranch}`);
+          storeLog('sitrep', `Reusing existing worktree: ${worktreeBranch}`);
         } else {
           // Worktree was cleaned up — create a fresh one
           worktreeBranch = null;
@@ -179,7 +179,7 @@ export async function executeMission(
           worktreeBranch = updated?.worktreeBranch || null;
         } catch (wtErr) {
           console.warn(`[Executor] Worktree creation failed for mission ${mission.id}, falling back to repo root:`, wtErr);
-          storeLog('status', `Worktree creation failed: ${wtErr}. Running on repo root.`);
+          storeLog('sitrep', `Worktree creation failed: ${wtErr}. Running on repo root.`);
           workingDirectory = battlefield.repoPath;
         }
       }
@@ -304,7 +304,7 @@ export async function executeMission(
       io.to(room).emit('mission:log', {
         missionId: mission.id,
         timestamp: Date.now(),
-        type: 'log',
+        type: 'comms',
         content: text,
       });
     });
@@ -313,7 +313,7 @@ export async function executeMission(
       lastActivityTime = Date.now();
       lastAssistantContent = content;
       lastMessageHadToolUse = false;
-      storeLog('log', content);
+      storeLog('comms', content);
 
       // Track debrief candidates — assistant messages containing debrief markers
       const debriefPattern = /\*?\*?DEBRIEF\*?\*?|## What Was Done|## Summary|## Changes Made|## Files (Modified|Changed)/i;
@@ -326,11 +326,11 @@ export async function executeMission(
       lastActivityTime = Date.now();
       lastMessageHadToolUse = true;
       const msg = `Tool: ${tool}`;
-      storeLog('log', msg);
+      storeLog('comms', msg);
       io.to(room).emit('mission:log', {
         missionId: mission.id,
         timestamp: Date.now(),
-        type: 'log',
+        type: 'comms',
         content: msg + '\n',
       });
     });
@@ -338,17 +338,17 @@ export async function executeMission(
     parser.onToolResult((_toolId, result, isError) => {
       lastActivityTime = Date.now();
       if (isError) {
-        storeLog('error', result);
+        storeLog('alert', result);
       }
     });
 
     parser.onError((error) => {
       lastActivityTime = Date.now();
-      storeLog('error', error);
+      storeLog('alert', error);
       io.to(room).emit('mission:log', {
         missionId: mission.id,
         timestamp: Date.now(),
-        type: 'error',
+        type: 'alert',
         content: error,
       });
     });
@@ -431,10 +431,10 @@ export async function executeMission(
           io.to(room).emit('mission:log', {
             missionId: mission.id,
             timestamp: Date.now(),
-            type: 'status',
+            type: 'sitrep',
             content: overseerMsg + '\n',
           });
-          storeLog('status', overseerMsg);
+          storeLog('sitrep', overseerMsg);
 
           // Write to agent's stdin
           proc.stdin?.write(decision.answer + '\n');
@@ -501,7 +501,7 @@ export async function executeMission(
     // Check for rate limit
     if (rateLimitDetected) {
       updateStatus('queued'); // Reset to queued for retry
-      storeLog('status', `Rate limited (${rateLimitInfo.rateLimitType}). Awaiting retry.`);
+      storeLog('sitrep', `Rate limited (${rateLimitInfo.rateLimitType}). Awaiting retry.`);
       throw new RateLimitError(
         `Rate limited: ${rateLimitInfo.rateLimitType}`,
         rateLimitInfo.resetsAt,
@@ -630,7 +630,7 @@ export async function executeMission(
     const isUserAbort = isAbort && !timedOut;
 
     if (!isUserAbort) {
-      storeLog('error', timedOut ? `Mission timed out after 30 minutes.` : errorMsg);
+      storeLog('alert', timedOut ? `Mission timed out after 30 minutes.` : errorMsg);
     }
 
     // Worktree + config cleanup for user-abandoned missions

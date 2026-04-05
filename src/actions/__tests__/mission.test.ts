@@ -258,7 +258,7 @@ describe('Mission Server Actions', () => {
             id: ulid(),
             missionId: mission.id,
             timestamp: Date.now(),
-            type: 'log',
+            type: 'comms',
             content: `Log entry ${i}`,
           })
           .run();
@@ -705,7 +705,7 @@ describe('Mission Server Actions', () => {
           id: ulid(),
           missionId: mission.id,
           timestamp: Date.now(),
-          type: 'log',
+          type: 'comms',
           content: 'Test log',
         })
         .run();

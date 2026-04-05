@@ -56,8 +56,8 @@ describe('BootstrapComms', () => {
 
   it('renders logs in terminal', () => {
     mockMissionComms.logs = [
-      { id: '1', missionId: 'm-1', timestamp: 100, type: 'log', content: 'Scanning repo...' },
-      { id: '2', missionId: 'm-1', timestamp: 200, type: 'log', content: 'Generating docs...' },
+      { id: '1', missionId: 'm-1', timestamp: 100, type: 'comms', content: 'Scanning repo...' },
+      { id: '2', missionId: 'm-1', timestamp: 200, type: 'comms', content: 'Generating docs...' },
     ];
 
     renderWithProviders(

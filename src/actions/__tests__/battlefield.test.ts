@@ -409,7 +409,7 @@ describe('battlefield actions', () => {
           id: ulid(),
           missionId: mission.id,
           timestamp: Date.now(),
-          type: 'log',
+          type: 'comms',
           content: 'test log',
         })
         .run();

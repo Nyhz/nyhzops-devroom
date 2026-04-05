@@ -272,7 +272,7 @@ export class Orchestrator {
     this.io.to(`mission:${missionId}`).emit('mission:log', {
       missionId,
       timestamp: Date.now(),
-      type: 'status',
+      type: 'sitrep',
       content: `Rate limited. Retry ${retries}/5 in ${delaySec}s...\n`,
     });
 

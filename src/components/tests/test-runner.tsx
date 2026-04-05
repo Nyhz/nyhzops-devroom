@@ -124,7 +124,7 @@ export function TestRunner({ battlefieldId, framework, latestRun }: TestRunnerPr
   const hasFailures = summary ? summary.failed > 0 : false;
 
   const terminalLogs = useMemo(
-    () => logs.map((l) => ({ content: l.content, timestamp: l.timestamp, type: 'log' as const })),
+    () => logs.map((l) => ({ content: l.content, timestamp: l.timestamp, type: 'comms' as const })),
     [logs],
   );
 

@@ -84,7 +84,7 @@ export function MissionComms({
     ? [
         {
           timestamp: 0,
-          type: 'status' as const,
+          type: 'sitrep' as const,
           content:
             'Awaiting deployment. Comms will appear here when the mission is in combat.',
         },
@@ -95,21 +95,21 @@ export function MissionComms({
             // Hide the raw debrief text from comms — it's shown formatted below
             // Only filter when mission is terminal (not while still running)
             const isTerminal = TERMINAL_STATUSES.includes(liveStatus);
-            if (isTerminal && liveDebrief && log.type === 'log' && liveDebrief.startsWith(log.content.slice(0, 100))) {
+            if (isTerminal && liveDebrief && log.type === 'comms' && liveDebrief.startsWith(log.content.slice(0, 100))) {
               return false;
             }
             return true;
           })
           .map((log) => ({
             timestamp: log.timestamp,
-            type: (log.type as 'log' | 'status' | 'error') ?? 'log',
+            type: (log.type as 'comms' | 'sitrep' | 'alert') ?? 'comms',
             content: log.content,
           })),
         ...(TERMINAL_STATUSES.includes(liveStatus) && liveDebrief
           ? [
               {
                 timestamp: 0,
-                type: 'status' as const,
+                type: 'sitrep' as const,
                 content: 'Debrief submitted. See report below.',
               },
             ]
@@ -118,7 +118,7 @@ export function MissionComms({
           ? [
               {
                 timestamp: 0,
-                type: 'status' as const,
+                type: 'sitrep' as const,
                 content: 'Agent work complete. Overseer reviewing debrief...',
               },
             ]

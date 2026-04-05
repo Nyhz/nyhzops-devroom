@@ -14,7 +14,7 @@ export function DepsOutput({ battlefieldId, className }: DepsOutputProps) {
   const { logs, exitCode, isRunning, verifyStatus, verifyPhase } = useDepsOutput(battlefieldId);
 
   const terminalLogs = useMemo(
-    () => logs.map(l => ({ content: l.content, timestamp: l.timestamp, type: 'log' as const })),
+    () => logs.map(l => ({ content: l.content, timestamp: l.timestamp, type: 'comms' as const })),
     [logs],
   );
 

@@ -31,7 +31,7 @@ export type AssetEffort = 'low' | 'medium' | 'high' | 'max';
 export type MissionType = 'direct_action' | 'bootstrap' | 'conflict_resolution' | 'phase_debrief';
 export type MissionPriority = 'low' | 'routine' | 'high' | 'critical';
 export type WorktreeMode = 'none' | 'phase' | 'mission';
-export type LogType = 'log' | 'status' | 'error';
+export type LogType = 'comms' | 'sitrep' | 'alert';
 export type ScheduleType = 'mission' | 'campaign';
 
 // ---------------------------------------------------------------------------

@@ -17,13 +17,13 @@ function emitMissionLog(missionId: string, content: string) {
     id: generateId(),
     missionId,
     timestamp: now,
-    type: 'status',
+    type: 'sitrep',
     content,
   }).run();
   globalThis.io?.to(`mission:${missionId}`).emit('mission:log', {
     missionId,
     timestamp: now,
-    type: 'status',
+    type: 'sitrep',
     content: content + '\n',
   });
 }

@@ -16,7 +16,7 @@ export function TestOutput({ battlefieldId, collapsed, className }: TestOutputPr
   const [manualExpand, setManualExpand] = useState(false);
 
   const terminalLogs = useMemo(
-    () => logs.map(l => ({ content: l.content, timestamp: l.timestamp, type: 'log' as const })),
+    () => logs.map(l => ({ content: l.content, timestamp: l.timestamp, type: 'comms' as const })),
     [logs],
   );
 

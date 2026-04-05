@@ -18,7 +18,7 @@ const CUSTOM_COMMANDS: CustomCommand[] = [
     description: 'Deep-dive a specific mission',
     usage: '/diagnose <missionId>',
     expand: (args: string) =>
-      `Investigate mission ${args.trim()}. Query the DEVROOM database at /data/devroom.db. Read the mission record, its comms/logs from the missionLogs table (type column has 'log', 'status', 'error'), any Overseer log entries from overseerLogs, and the debrief if available. Tell me: what was the objective, what happened, where it went wrong (if it did), and what you recommend.`,
+      `Investigate mission ${args.trim()}. Query the DEVROOM database at /data/devroom.db. Read the mission record, its comms/logs from the missionLogs table (type column has 'comms', 'sitrep', 'alert'), any Overseer log entries from overseerLogs, and the debrief if available. Tell me: what was the objective, what happened, where it went wrong (if it did), and what you recommend.`,
   },
 ];
 
