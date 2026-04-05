@@ -277,115 +277,129 @@ ${GENERATE_PLAN_CONTRACT}`;
 
   // Wait for process to complete
   return new Promise<void>((resolve, reject) => {
-    proc.on('close', async (code) => {
-      activeProcesses.delete(campaignId);
-
-      // Process any remaining buffered line
-      if (lineBuffer.trim()) {
+    proc.on('close', (code) => {
+      void (async () => {
         try {
-          const event = JSON.parse(lineBuffer);
-          if (event.session_id && !extractedSessionId) {
-            extractedSessionId = event.session_id;
+          activeProcesses.delete(campaignId);
+
+          // Process any remaining buffered line
+          if (lineBuffer.trim()) {
+            try {
+              const event = JSON.parse(lineBuffer);
+              if (event.session_id && !extractedSessionId) {
+                extractedSessionId = event.session_id;
+              }
+              if (event.type === 'result') {
+                if (event.session_id) extractedSessionId = event.session_id;
+                if (!fullResponse && event.result && typeof event.result === 'string') {
+                  fullResponse = event.result;
+                }
+              }
+            } catch { /* ignore */ }
           }
-          if (event.type === 'result') {
-            if (event.session_id) extractedSessionId = event.session_id;
-            if (!fullResponse && event.result && typeof event.result === 'string') {
-              fullResponse = event.result;
+
+          // Update session with Claude session ID
+          if (extractedSessionId) {
+            db.update(briefingSessions)
+              .set({
+                sessionId: extractedSessionId,
+                updatedAt: Date.now(),
+              })
+              .where(eq(briefingSessions.id, session!.id))
+              .run();
+          }
+
+          if (code !== 0 && code !== null) {
+            const errorMsg = `STRATEGIST process exited with code ${code}: ${stderrOutput.slice(0, 500)}`;
+            io.to(room).emit('briefing:error', { campaignId, error: errorMsg });
+            reject(new Error(errorMsg));
+            return;
+          }
+
+          const responseText = fullResponse.trim();
+
+          // For GENERATE PLAN: extract the plan first, then store a formatted
+          // summary in the chat instead of the raw JSON blob. If extraction
+          // fails, attempt one silent retry with a stricter re-prompt before
+          // giving up with a distinct failure notification.
+          let storedContent = responseText;
+          if (isGeneratePlan) {
+            let planText = responseText;
+            let plan = tryExtractAndValidatePlan(planText);
+
+            if (!plan) {
+              console.warn(
+                `[BRIEFING] Plan parse failed for campaign ${campaignId}; retrying once with stricter re-prompt`,
+              );
+              try {
+                const retryStdin = `Your previous response was not valid JSON. Output ONLY the JSON object now — no prose, no code fences, no backticks, no preamble.\n\n${stdinContent}`;
+                const retry = await spawnStrategistPlan({
+                  battlefieldRepoPath: battlefield.repoPath,
+                  persistentHome,
+                  cliArgs,
+                  stdinContent: retryStdin,
+                });
+                planText = retry.text;
+                plan = tryExtractAndValidatePlan(planText);
+              } catch (retryErr) {
+                console.error(`[BRIEFING] Retry spawn failed:`, retryErr);
+              }
+            }
+
+            if (plan) {
+              const totalMissions = plan.phases.reduce((s, p) => s + p.missions.length, 0);
+              console.log(
+                `[BRIEFING] Plan generated for campaign ${campaignId}: ${plan.phases.length} phases, ${totalMissions} missions`,
+              );
+              insertPlanFromJSON(campaignId, campaign.battlefieldId, plan);
+
+              db.update(campaigns)
+                .set({ status: 'planning', updatedAt: Date.now() })
+                .where(eq(campaigns.id, campaignId))
+                .run();
+
+              storedContent = formatPlanSummary(plan);
+
+              io.to(room).emit('briefing:plan-ready', { campaignId, plan });
+            } else {
+              console.error(
+                `[BRIEFING] Plan extraction failed after retry for campaign ${campaignId}`,
+              );
+              const parseFailureMessage =
+                "STRATEGIST's plan could not be parsed as JSON after one retry. Ask the STRATEGIST to output the plan as a single JSON object with a \"summary\" key.";
+              io.to(room).emit('briefing:plan-parse-failed', {
+                campaignId,
+                error: parseFailureMessage,
+              });
+              // Also emit the generic error event so the existing UI loading-state
+              // handler unblocks. The distinct event above is for future UI specificity.
+              io.to(room).emit('briefing:error', {
+                campaignId,
+                error: parseFailureMessage,
+              });
             }
           }
-        } catch { /* ignore */ }
-      }
 
-      // Update session with Claude session ID
-      if (extractedSessionId) {
-        db.update(briefingSessions)
-          .set({
-            sessionId: extractedSessionId,
-            updatedAt: Date.now(),
-          })
-          .where(eq(briefingSessions.id, session!.id))
-          .run();
-      }
-
-      if (code !== 0 && code !== null) {
-        const errorMsg = `STRATEGIST process exited with code ${code}: ${stderrOutput.slice(0, 500)}`;
-        io.to(room).emit('briefing:error', { campaignId, error: errorMsg });
-        reject(new Error(errorMsg));
-        return;
-      }
-
-      const responseText = fullResponse.trim();
-
-      // For GENERATE PLAN: extract the plan first, then store a formatted
-      // summary in the chat instead of the raw JSON blob. If extraction
-      // fails, attempt one silent retry with a stricter re-prompt before
-      // giving up with a distinct failure notification.
-      let storedContent = responseText;
-      if (isGeneratePlan) {
-        let planText = responseText;
-        let plan = tryExtractAndValidatePlan(planText);
-
-        if (!plan) {
-          console.warn(
-            `[BRIEFING] Plan parse failed for campaign ${campaignId}; retrying once with stricter re-prompt`,
-          );
-          try {
-            const retryStdin = `Your previous response was not valid JSON. Output ONLY the JSON object now — no prose, no code fences, no backticks, no preamble.\n\n${stdinContent}`;
-            const retry = await spawnStrategistPlan({
-              battlefieldRepoPath: battlefield.repoPath,
-              persistentHome,
-              cliArgs,
-              stdinContent: retryStdin,
-            });
-            planText = retry.text;
-            plan = tryExtractAndValidatePlan(planText);
-          } catch (retryErr) {
-            console.error(`[BRIEFING] Retry spawn failed:`, retryErr);
-          }
-        }
-
-        if (plan) {
-          const totalMissions = plan.phases.reduce((s, p) => s + p.missions.length, 0);
-          console.log(
-            `[BRIEFING] Plan generated for campaign ${campaignId}: ${plan.phases.length} phases, ${totalMissions} missions`,
-          );
-          insertPlanFromJSON(campaignId, campaign.battlefieldId, plan);
-
-          db.update(campaigns)
-            .set({ status: 'planning', updatedAt: Date.now() })
-            .where(eq(campaigns.id, campaignId))
+          // Store STRATEGIST's response (formatted summary if plan succeeded, raw otherwise)
+          const msgId = generateId();
+          db.insert(briefingMessages)
+            .values({
+              id: msgId,
+              briefingId: session!.id,
+              role: 'general',
+              content: storedContent,
+              timestamp: Date.now(),
+            })
             .run();
 
-          storedContent = formatPlanSummary(plan);
+          io.to(room).emit('briefing:complete', { campaignId, messageId: msgId, content: storedContent });
 
-          io.to(room).emit('briefing:plan-ready', { campaignId, plan });
-        } else {
-          console.error(
-            `[BRIEFING] Plan extraction failed after retry for campaign ${campaignId}`,
-          );
-          io.to(room).emit('briefing:plan-parse-failed', {
-            campaignId,
-            error:
-              "STRATEGIST's plan could not be parsed as JSON after one retry. Ask the STRATEGIST to output the plan as a single JSON object with a \"summary\" key.",
-          });
+          resolve();
+        } catch (err) {
+          activeProcesses.delete(campaignId);
+          reject(err instanceof Error ? err : new Error(String(err)));
         }
-      }
-
-      // Store STRATEGIST's response (formatted summary if plan succeeded, raw otherwise)
-      const msgId = generateId();
-      db.insert(briefingMessages)
-        .values({
-          id: msgId,
-          briefingId: session!.id,
-          role: 'general',
-          content: storedContent,
-          timestamp: Date.now(),
-        })
-        .run();
-
-      io.to(room).emit('briefing:complete', { campaignId, messageId: msgId, content: storedContent });
-
-      resolve();
+      })();
     });
 
     proc.on('error', (err) => {
