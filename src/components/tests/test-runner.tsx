@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition, useMemo } from 'react';
 import { useTestOutput } from '@/hooks/use-test-output';
-import { runTests, abortTestRun, getTestRun } from '@/actions/tests';
+import { runTests, abortTestRun, getTestRun, deployFixMission } from '@/actions/tests';
 import { TacInput } from '@/components/ui/tac-input';
 import { TacButton } from '@/components/ui/tac-button';
 import { Terminal } from '@/components/ui/terminal';
@@ -33,6 +33,7 @@ export function TestRunner({ battlefieldId, framework, latestRun }: TestRunnerPr
   const [summary, setSummary] = useState<Summary | null>(null);
   const [outputCollapsed, setOutputCollapsed] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [isDeploying, setIsDeploying] = useState(false);
 
   const {
     logs,
@@ -121,6 +122,21 @@ export function TestRunner({ battlefieldId, framework, latestRun }: TestRunnerPr
     }
   };
 
+  const handleDeployFix = () => {
+    if (!results) return;
+    const failingSuites = results.filter((s) => s.tests.some((t) => t.status === 'failed'));
+    if (failingSuites.length === 0) return;
+
+    setIsDeploying(true);
+    startTransition(async () => {
+      try {
+        await deployFixMission(battlefieldId, failingSuites);
+      } finally {
+        setIsDeploying(false);
+      }
+    });
+  };
+
   const hasFailures = summary ? summary.failed > 0 : false;
 
   const terminalLogs = useMemo(
@@ -172,6 +188,16 @@ export function TestRunner({ battlefieldId, framework, latestRun }: TestRunnerPr
               disabled={isPending}
             >
               RE-RUN FAILED
+            </TacButton>
+          )}
+          {hasFailures && !isRunning && (
+            <TacButton
+              size="sm"
+              variant="danger"
+              onClick={handleDeployFix}
+              disabled={isPending || isDeploying}
+            >
+              DEPLOY FIX
             </TacButton>
           )}
           {isRunning && (
