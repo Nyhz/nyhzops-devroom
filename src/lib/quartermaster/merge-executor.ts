@@ -22,6 +22,8 @@ async function attemptMerge(
   try {
     await git.checkout(targetBranch);
 
+    const headBefore = await git.revparse(['HEAD']);
+
     try {
       await git.merge([sourceBranch, '--no-ff']);
     } finally {
@@ -32,6 +34,16 @@ async function attemptMerge(
           console.warn(`[MergeExecutor] Stash pop failed after merging ${sourceBranch}. Changes saved in git stash.`);
         }
       }
+    }
+
+    // Verify the merge actually created a new commit
+    const headAfter = await git.revparse(['HEAD']);
+    if (headBefore === headAfter) {
+      return {
+        success: false,
+        conflictResolved: false,
+        error: `Merge produced no new commit. HEAD unchanged at ${headBefore.slice(0, 8)}. Branch may already be merged or empty.`,
+      };
     }
 
     return { success: true, conflictResolved: false };

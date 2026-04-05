@@ -2,7 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
-import { missions, battlefields } from '@/lib/db/schema';
+import { missions, battlefields, missionLogs } from '@/lib/db/schema';
+import { generateId } from '@/lib/utils';
 import { emitStatusChange } from '@/lib/socket/emit';
 import { removeWorktree } from '@/lib/orchestrator/worktree';
 import { extractAndSaveSuggestions } from '@/actions/follow-up';
@@ -13,6 +14,24 @@ import type { Mission, MergeResultType } from '@/types';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function emitMissionLog(missionId: string, content: string) {
+  const db = getDatabase();
+  const now = Date.now();
+  db.insert(missionLogs).values({
+    id: generateId(),
+    missionId,
+    timestamp: now,
+    type: 'sitrep',
+    content,
+  }).run();
+  globalThis.io?.to(`mission:${missionId}`).emit('mission:log', {
+    missionId,
+    timestamp: now,
+    type: 'sitrep',
+    content: content + '\n',
+  });
+}
 
 function cleanupMissionHome(missionId: string) {
   try {
@@ -160,6 +179,11 @@ export async function triggerQuartermaster(missionId: string): Promise<void> {
     .run();
 
   if (result.success) {
+    const mergeMsg = result.conflictResolved
+      ? `[Quartermaster] Merge complete (conflicts resolved). Branch \`${sourceBranch}\` merged into \`${targetBranch}\`.`
+      : `[Quartermaster] Merge complete — clean. Branch \`${sourceBranch}\` merged into \`${targetBranch}\`.`;
+    emitMissionLog(missionId, mergeMsg);
+
     // Clean up worktree
     try {
       await removeWorktree(battlefield.repoPath, worktreeDir, sourceBranch);
@@ -194,6 +218,7 @@ export async function triggerQuartermaster(missionId: string): Promise<void> {
     await notifyCampaignIfNeeded(mission);
   } else {
     // Merge failed — preserve branch for manual review
+    emitMissionLog(missionId, `[Quartermaster] Merge FAILED. Branch \`${sourceBranch}\` preserved for manual review. ${result.error ?? ''}`);
     cleanupMissionHome(missionId);
 
     const failedNow = Date.now();
