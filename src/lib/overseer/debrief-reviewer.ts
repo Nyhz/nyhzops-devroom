@@ -24,10 +24,31 @@ const REVIEW_JSON_SCHEMA = JSON.stringify({
   additionalProperties: false,
 });
 
-function buildReviewPrompt(params: {
+const CLAUDE_MD_CAP = 3000;
+const GIT_DIFF_CAP = 3000;
+
+/**
+ * Composes the system prompt for the review call: the stored OVERSEER prompt
+ * plus the battlefield's CLAUDE.md content (if any). Placed in the system
+ * prompt — not the user message — so Claude's prompt cache can hit on
+ * consecutive reviews for the same battlefield.
+ */
+export function composeReviewSystemPrompt(storedPrompt: string, claudeMd: string | null): string {
+  if (!claudeMd) return storedPrompt;
+  const trimmed = claudeMd.length > CLAUDE_MD_CAP
+    ? claudeMd.slice(0, CLAUDE_MD_CAP) + '\n\n[...truncated]'
+    : claudeMd;
+  return `${storedPrompt}\n\n---\n\nPROJECT CONVENTIONS (from CLAUDE.md):\n\n${trimmed}`;
+}
+
+/**
+ * Builds the dynamic user message for the review. Contains only mission-specific
+ * content that changes per call: briefing, debrief, mission type, git diff.
+ * CLAUDE.md lives in the system prompt now — see composeReviewSystemPrompt.
+ */
+export function buildReviewUserPrompt(params: {
   missionBriefing: string;
   missionDebrief: string;
-  claudeMd: string | null;
   gitDiffStat: string | null;
   gitDiff: string | null;
   missionType: 'direct_action' | 'verification';
@@ -40,7 +61,7 @@ function buildReviewPrompt(params: {
     ? 'Commit count on worktree branch: n/a (no worktree)'
     : `Commit count on worktree branch: ${params.commitCount}`;
 
-  sections.push(`You are the Overseer, reviewing a mission debrief for quality and completeness.
+  sections.push(`You are reviewing a mission debrief for quality and completeness.
 
 MISSION TYPE: ${typeLabel}
 ${commitLine}
@@ -51,20 +72,13 @@ ${params.missionBriefing}
 MISSION DEBRIEF (what was done):
 ${params.missionDebrief}`);
 
-  if (params.claudeMd) {
-    const trimmed = params.claudeMd.length > 3000
-      ? params.claudeMd.slice(0, 3000) + '\n\n[...truncated]'
-      : params.claudeMd;
-    sections.push(`PROJECT CONVENTIONS:\n${trimmed}`);
-  }
-
   if (params.gitDiffStat) {
     sections.push(`FILES CHANGED:\n${params.gitDiffStat}`);
   }
 
   if (params.gitDiff) {
-    const trimmed = params.gitDiff.length > 3000
-      ? params.gitDiff.slice(0, 3000) + '\n\n[...truncated]'
+    const trimmed = params.gitDiff.length > GIT_DIFF_CAP
+      ? params.gitDiff.slice(0, GIT_DIFF_CAP) + '\n\n[...truncated]'
       : params.gitDiff;
     sections.push(`CODE CHANGES:\n${trimmed}`);
   }
@@ -81,27 +95,43 @@ MISSION TYPE RULES:
 - VERIFICATION missions are strictly read-only. They MUST produce zero commits. If the commit count is >0, the asset violated its scope — respond with verdict "retry" and concern "verification mission modified code".
 - VERIFICATION missions with zero commits and a quality debrief are the expected happy path — approve them normally.
 
-General rules:
-- Most debriefs are satisfactory. Only flag genuine issues.
-- Minor style differences are not concerns.
-- "retry" only if the agent clearly failed to complete the task OR violated mission type rules.
-- "escalate" only if there's a significant risk the Commander should know about.
+Output must be a JSON object matching the provided schema:
+{ "verdict": "approve"|"retry"|"escalate", "concerns": ["..."], "reasoning": "..." }
 
-IMPORTANT: Do NOT use any tools. Do NOT read files. Do NOT run commands. You have all the information you need above. Analyze the text and respond with your assessment only.`);
+Do NOT use any tools. Do NOT read files. You have all the information you need above.`);
 
   return sections.join('\n\n---\n\n');
 }
 
-function spawnReview(prompt: string): Promise<string> {
+/**
+ * Replaces the --append-system-prompt value in the given CLI args with a new
+ * value that combines the stored OVERSEER prompt and CLAUDE.md. If the flag is
+ * not present in the args, appends it.
+ */
+function injectSystemPromptOverride(args: string[], newSystemPrompt: string): string[] {
+  const result = [...args];
+  const idx = result.indexOf('--append-system-prompt');
+  if (idx >= 0 && idx + 1 < result.length) {
+    result[idx + 1] = newSystemPrompt;
+    return result;
+  }
+  result.push('--append-system-prompt', newSystemPrompt);
+  return result;
+}
+
+function spawnReview(userPrompt: string, claudeMd: string | null): Promise<string> {
   const overseer = getSystemAsset('OVERSEER');
   const assetArgs = buildAssetCliArgs(overseer);
   const filtered = filterFlag(assetArgs, '--max-turns');
 
-  return runClaudePrint(prompt, {
+  const composed = composeReviewSystemPrompt(overseer.systemPrompt ?? '', claudeMd);
+  const argsWithSystemPrompt = injectSystemPromptOverride(filtered, composed);
+
+  return runClaudePrint(userPrompt, {
     maxTurns: 2,
     outputFormat: 'json',
     jsonSchema: REVIEW_JSON_SCHEMA,
-    extraArgs: filtered,
+    extraArgs: argsWithSystemPrompt,
   });
 }
 
@@ -122,10 +152,9 @@ export async function reviewDebrief(params: {
   missionType: 'direct_action' | 'verification';
   commitCount: number | null;
 }): Promise<OverseerReview> {
-  const prompt = buildReviewPrompt({
+  const userPrompt = buildReviewUserPrompt({
     missionBriefing: params.missionBriefing,
     missionDebrief: params.missionDebrief,
-    claudeMd: params.claudeMd,
     gitDiffStat: params.gitDiffStat,
     gitDiff: params.gitDiff,
     missionType: params.missionType,
@@ -134,7 +163,7 @@ export async function reviewDebrief(params: {
 
   let stdout: string;
   try {
-    stdout = await spawnReview(prompt);
+    stdout = await spawnReview(userPrompt, params.claudeMd);
   } catch (err) {
     console.error(
       `[Overseer] Debrief review spawn failed for mission ${params.missionId}:`,
