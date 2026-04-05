@@ -298,7 +298,7 @@ export const intelNotes = sqliteTable('intel_notes', {
   battlefieldId: text('battlefield_id').notNull().references(() => battlefields.id),
   title: text('title').notNull(),
   description: text('description'),              // markdown, may contain base64 images
-  column: text('column').default('backlog'),      // 'backlog' | 'planned'
+  column: text('column').default('tasked'),      // 'tasked' | 'ops_ready'
   position: integer('position').default(0),
   missionId: text('mission_id').references(() => missions.id),
   campaignId: text('campaign_id').references(() => campaigns.id),

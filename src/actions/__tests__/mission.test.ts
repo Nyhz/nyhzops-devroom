@@ -137,7 +137,7 @@ describe('Mission Server Actions', () => {
         .all();
 
       expect(notes).toHaveLength(1);
-      expect(notes[0].column).toBe('backlog');
+      expect(notes[0].column).toBe('tasked');
       expect(notes[0].battlefieldId).toBe(bf.id);
     });
 

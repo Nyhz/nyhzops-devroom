@@ -167,7 +167,7 @@ export function createTestIntelNote(
       id,
       battlefieldId,
       title: 'Test Note',
-      column: 'backlog',
+      column: 'tasked',
       position: 0,
       createdAt: now,
       updatedAt: now,

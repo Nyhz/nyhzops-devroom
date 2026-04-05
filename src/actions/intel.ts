@@ -71,7 +71,7 @@ export async function createNote(
     .where(
       and(
         eq(intelNotes.battlefieldId, battlefieldId),
-        eq(intelNotes.column, 'backlog'),
+        eq(intelNotes.column, 'tasked'),
         isNull(intelNotes.missionId),
       ),
     )
@@ -84,7 +84,7 @@ export async function createNote(
       battlefieldId,
       title: title.trim(),
       description: description ?? null,
-      column: 'backlog',
+      column: 'tasked',
       position: 0,
       missionId: null,
       campaignId: null,
@@ -296,7 +296,7 @@ export async function backfillIntelNotes(battlefieldId: string): Promise<number>
         description: null,
         missionId: m.id,
         campaignId: m.campaignId,
-        column: 'backlog',
+        column: 'tasked',
         position: 0,
         createdAt: now,
         updatedAt: now,

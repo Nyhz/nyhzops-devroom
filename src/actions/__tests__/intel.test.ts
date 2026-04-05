@@ -59,7 +59,7 @@ describe('intel actions', () => {
     it('creates a note in the backlog at position 0', async () => {
       const note = await createNote(battlefield.id, 'New Intel');
       expect(note.title).toBe('New Intel');
-      expect(note.column).toBe('backlog');
+      expect(note.column).toBe('tasked');
       expect(note.position).toBe(0);
       expect(note.battlefieldId).toBe(battlefield.id);
       expect(note.missionId).toBeNull();
@@ -106,7 +106,7 @@ describe('intel actions', () => {
       createTestIntelNote(db, {
         battlefieldId: battlefield.id,
         missionId: mission.id,
-        column: 'backlog',
+        column: 'tasked',
         position: 0,
       });
 
@@ -211,20 +211,20 @@ describe('intel actions', () => {
   // -------------------------------------------------------------------------
   describe('moveNote', () => {
     it('moves a note to a different column', async () => {
-      const note = createTestIntelNote(db, { battlefieldId: battlefield.id, column: 'backlog' });
-      const moved = await moveNote(note.id, 'planned', 5);
-      expect(moved.column).toBe('planned');
+      const note = createTestIntelNote(db, { battlefieldId: battlefield.id, column: 'tasked' });
+      const moved = await moveNote(note.id, 'ops_ready', 5);
+      expect(moved.column).toBe('ops_ready');
       expect(moved.position).toBe(5);
     });
 
     it('updates position within the same column', async () => {
       const note = createTestIntelNote(db, {
         battlefieldId: battlefield.id,
-        column: 'backlog',
+        column: 'tasked',
         position: 0,
       });
-      const moved = await moveNote(note.id, 'backlog', 3);
-      expect(moved.column).toBe('backlog');
+      const moved = await moveNote(note.id, 'tasked', 3);
+      expect(moved.column).toBe('tasked');
       expect(moved.position).toBe(3);
     });
 
@@ -235,13 +235,13 @@ describe('intel actions', () => {
         missionId: mission.id,
       });
 
-      await expect(moveNote(note.id, 'planned', 0)).rejects.toThrow(
+      await expect(moveNote(note.id, 'ops_ready', 0)).rejects.toThrow(
         'linked to a mission and cannot be moved',
       );
     });
 
     it('throws on non-existent note', async () => {
-      await expect(moveNote('missing', 'planned', 0)).rejects.toThrow('not found');
+      await expect(moveNote('missing', 'ops_ready', 0)).rejects.toThrow('not found');
     });
   });
 

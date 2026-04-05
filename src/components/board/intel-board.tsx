@@ -82,7 +82,7 @@ export function IntelBoard({ battlefieldId, initialNotes }: IntelBoardProps) {
       const targetColumn = destination.droppableId as IntelNoteColumn;
 
       // Only accept drops on valid droppable columns
-      const validColumns: string[] = ['backlog', 'planned'];
+      const validColumns: string[] = ['tasked', 'ops_ready'];
       if (!validColumns.includes(targetColumn)) return;
 
       const targetPosition = destination.index;

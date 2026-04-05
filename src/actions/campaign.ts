@@ -287,7 +287,7 @@ export async function launchCampaign(
         battlefieldId: campaign.battlefieldId,
         title: m.title,
         description: m.briefing,
-        column: 'planned',
+        column: 'ops_ready',
         missionId: m.id,
         campaignId,
         position: 0,

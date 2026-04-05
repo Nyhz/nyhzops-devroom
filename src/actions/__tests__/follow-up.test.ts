@@ -171,7 +171,7 @@ Everything went fine. No follow-ups needed.`;
         .all();
       expect(notes).toHaveLength(1);
       expect(notes[0].title).toBe('Deploy monitoring');
-      expect(notes[0].column).toBe('backlog');
+      expect(notes[0].column).toBe('tasked');
     });
 
     it('throws on non-existent suggestion', async () => {

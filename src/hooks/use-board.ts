@@ -6,8 +6,8 @@ import type { IntelNoteWithMission, MissionStatus } from '@/types';
 
 // Column definitions matching the spec
 export const BOARD_COLUMNS = [
-  { key: 'backlog', label: 'BACKLOG', color: 'dr-muted', acceptsDrop: true },
-  { key: 'planned', label: 'PLANNED', color: 'dr-muted', acceptsDrop: true },
+  { key: 'tasked', label: 'TASKED', color: 'dr-muted', acceptsDrop: true },
+  { key: 'ops_ready', label: 'OPS READY', color: 'dr-muted', acceptsDrop: true },
   { key: 'deploying', label: 'DEPLOYING', color: 'dr-amber', acceptsDrop: false },
   { key: 'in_combat', label: 'IN COMBAT', color: 'dr-amber', acceptsDrop: false },
   { key: 'reviewing', label: 'REVIEWING', color: 'dr-blue', acceptsDrop: false },
@@ -19,12 +19,12 @@ export const BOARD_COLUMNS = [
 function getColumnForNote(note: IntelNoteWithMission): string {
   if (note.missionId && note.missionStatus) {
     const status = note.missionStatus;
-    if (status === 'standby' || status === 'queued') return 'planned';
+    if (status === 'standby' || status === 'queued') return 'ops_ready';
     if (status === 'abandoned') return 'abandoned';
     return status;
   }
-  if (note.campaignId && !note.missionId) return 'planned';
-  return note.column ?? 'backlog';
+  if (note.campaignId && !note.missionId) return 'ops_ready';
+  return note.column ?? 'tasked';
 }
 
 export interface UseBoardReturn {

@@ -376,7 +376,7 @@ describe('updateBattlePlan', () => {
     const notes = testDb.select().from(intelNotes).where(eq(intelNotes.campaignId, campaign.id)).all();
     expect(notes).toHaveLength(1);
     expect(notes[0].title).toBe('Mission 1');
-    expect(notes[0].column).toBe('backlog');
+    expect(notes[0].column).toBe('tasked');
   });
 
   it('rejects if campaign is not in planning status', async () => {

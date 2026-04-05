@@ -10,7 +10,7 @@ function makeNote(overrides: Partial<IntelNoteWithMission> = {}): IntelNoteWithM
     battlefieldId: 'bf-1',
     title: 'Test Note',
     description: null,
-    column: 'backlog',
+    column: 'tasked',
     position: 0,
     missionId: null,
     campaignId: null,
@@ -39,13 +39,13 @@ describe('useBoard', () => {
 
     it('places unlinked notes by their column field', () => {
       const notes = [
-        makeNote({ id: 'n1', column: 'backlog', position: 0 }),
-        makeNote({ id: 'n2', column: 'planned', position: 0 }),
+        makeNote({ id: 'n1', column: 'tasked', position: 0 }),
+        makeNote({ id: 'n2', column: 'ops_ready', position: 0 }),
       ];
       const { result } = renderHook(() => useBoard('bf-1', notes));
 
-      expect(result.current.columns.get('backlog')!.map((n) => n.id)).toEqual(['n1']);
-      expect(result.current.columns.get('planned')!.map((n) => n.id)).toEqual(['n2']);
+      expect(result.current.columns.get('tasked')!.map((n) => n.id)).toEqual(['n1']);
+      expect(result.current.columns.get('ops_ready')!.map((n) => n.id)).toEqual(['n2']);
     });
 
     it('places linked notes by mission status', () => {
@@ -68,7 +68,7 @@ describe('useBoard', () => {
       ];
       const { result } = renderHook(() => useBoard('bf-1', notes));
 
-      const planned = result.current.columns.get('planned')!;
+      const planned = result.current.columns.get('ops_ready')!;
       expect(planned.map((n) => n.id)).toContain('n1');
       expect(planned.map((n) => n.id)).toContain('n2');
     });
@@ -90,20 +90,20 @@ describe('useBoard', () => {
         makeNote({ id: 'n1', campaignId: 'camp-1', missionId: null }),
       ];
       const { result } = renderHook(() => useBoard('bf-1', notes));
-      expect(result.current.columns.get('planned')!.map((n) => n.id)).toEqual(['n1']);
+      expect(result.current.columns.get('ops_ready')!.map((n) => n.id)).toEqual(['n1']);
     });
   });
 
   describe('sorting', () => {
     it('sorts unlinked notes by position ascending', () => {
       const notes = [
-        makeNote({ id: 'n2', column: 'backlog', position: 2 }),
-        makeNote({ id: 'n1', column: 'backlog', position: 0 }),
-        makeNote({ id: 'n3', column: 'backlog', position: 1 }),
+        makeNote({ id: 'n2', column: 'tasked', position: 2 }),
+        makeNote({ id: 'n1', column: 'tasked', position: 0 }),
+        makeNote({ id: 'n3', column: 'tasked', position: 1 }),
       ];
       const { result } = renderHook(() => useBoard('bf-1', notes));
 
-      const backlog = result.current.columns.get('backlog')!;
+      const backlog = result.current.columns.get('tasked')!;
       expect(backlog.map((n) => n.id)).toEqual(['n1', 'n3', 'n2']);
     });
 
@@ -122,11 +122,11 @@ describe('useBoard', () => {
     it('places unlinked notes before linked notes in same column', () => {
       const notes = [
         makeNote({ id: 'linked', missionId: 'm1', missionStatus: 'standby', missionCreatedAt: 1000 }),
-        makeNote({ id: 'unlinked', column: 'planned', position: 0 }),
+        makeNote({ id: 'unlinked', column: 'ops_ready', position: 0 }),
       ];
       const { result } = renderHook(() => useBoard('bf-1', notes));
 
-      const planned = result.current.columns.get('planned')!;
+      const planned = result.current.columns.get('ops_ready')!;
       expect(planned[0].id).toBe('unlinked');
       expect(planned[1].id).toBe('linked');
     });
@@ -179,27 +179,27 @@ describe('useBoard', () => {
         result.current.updateNoteLocally('n1', { title: 'Updated' });
       });
 
-      const backlog = result.current.columns.get('backlog')!;
+      const backlog = result.current.columns.get('tasked')!;
       expect(backlog[0].title).toBe('Updated');
     });
 
     it('addNoteLocally prepends a note', () => {
-      const notes = [makeNote({ id: 'n1', column: 'backlog', position: 0 })];
+      const notes = [makeNote({ id: 'n1', column: 'tasked', position: 0 })];
       const { result } = renderHook(() => useBoard('bf-1', notes));
 
       act(() => {
-        result.current.addNoteLocally(makeNote({ id: 'n2', column: 'backlog', position: -1 }));
+        result.current.addNoteLocally(makeNote({ id: 'n2', column: 'tasked', position: -1 }));
       });
 
-      const backlog = result.current.columns.get('backlog')!;
+      const backlog = result.current.columns.get('tasked')!;
       expect(backlog.map((n) => n.id)).toContain('n2');
       expect(backlog.map((n) => n.id)).toContain('n1');
     });
 
     it('removeNoteLocally removes a note', () => {
       const notes = [
-        makeNote({ id: 'n1', column: 'backlog' }),
-        makeNote({ id: 'n2', column: 'backlog' }),
+        makeNote({ id: 'n1', column: 'tasked' }),
+        makeNote({ id: 'n2', column: 'tasked' }),
       ];
       const { result } = renderHook(() => useBoard('bf-1', notes));
 
@@ -207,7 +207,7 @@ describe('useBoard', () => {
         result.current.removeNoteLocally('n1');
       });
 
-      const backlog = result.current.columns.get('backlog')!;
+      const backlog = result.current.columns.get('tasked')!;
       expect(backlog.map((n) => n.id)).toEqual(['n2']);
     });
 
@@ -219,27 +219,27 @@ describe('useBoard', () => {
         result.current.removeNoteLocally('nonexistent');
       });
 
-      const backlog = result.current.columns.get('backlog')!;
+      const backlog = result.current.columns.get('tasked')!;
       expect(backlog).toHaveLength(1);
     });
 
     it('updateNoteLocally can change column placement', () => {
-      const notes = [makeNote({ id: 'n1', column: 'backlog' })];
+      const notes = [makeNote({ id: 'n1', column: 'tasked' })];
       const { result } = renderHook(() => useBoard('bf-1', notes));
 
       act(() => {
-        result.current.updateNoteLocally('n1', { column: 'planned' });
+        result.current.updateNoteLocally('n1', { column: 'ops_ready' });
       });
 
-      expect(result.current.columns.get('backlog')!).toHaveLength(0);
-      expect(result.current.columns.get('planned')!.map((n) => n.id)).toEqual(['n1']);
+      expect(result.current.columns.get('tasked')!).toHaveLength(0);
+      expect(result.current.columns.get('ops_ready')!.map((n) => n.id)).toEqual(['n1']);
     });
   });
 
   describe('BOARD_COLUMNS', () => {
     it('only backlog and planned accept drops', () => {
       const droppable = BOARD_COLUMNS.filter((c) => c.acceptsDrop);
-      expect(droppable.map((c) => c.key)).toEqual(['backlog', 'planned']);
+      expect(droppable.map((c) => c.key)).toEqual(['tasked', 'ops_ready']);
     });
 
     it('has 7 columns total', () => {
