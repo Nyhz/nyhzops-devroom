@@ -205,7 +205,7 @@ Assets are Claude Code agent profiles — a specialty, system prompt, model, and
 |------------------|--------------|-------------|
 | `codename`       | string       | Unique identifier (e.g. `OPERATIVE`). |
 | `specialty`      | string       | Short description of the asset's focus area. |
-| `systemPrompt`   | string       | Full system prompt including Rules of Engagement (for mission assets). |
+| `systemPrompt`   | string       | Asset-specific system prompt. For mission assets the shared Rules of Engagement (from `settings.rules_of_engagement`) is prepended at runtime by `buildAssetCliArgs()`. |
 | `model`          | string       | Claude model ID (e.g. `claude-sonnet-4-6`). |
 | `status`         | string       | `active` or `offline`. |
 | `skills`         | JSON string  | Array of Claude Code plugin skill identifiers (e.g. `["frontend-design@claude-plugins-official"]`). Resolved to `--plugin-dir` flags via `asset-cli.ts`. |

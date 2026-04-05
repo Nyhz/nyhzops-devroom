@@ -16,29 +16,9 @@ Asset CLI arguments (model, max-turns, effort, system prompt, skills, MCP server
 
 ## Rules of Engagement
 
-Prepended to all 5 mission asset system prompts (`OPERATIVE`, `VANGUARD`, `ARCHITECT`, `ASSERT`, `INTEL`). Defined in `scripts/seed.ts` as `RULES_OF_ENGAGEMENT`. System assets (`GENERAL`, `OVERSEER`, `QUARTERMASTER`) have their own standalone system prompts.
+Stored as a single row in the `settings` table under key `rules_of_engagement`. Composed onto mission asset system prompts at runtime by `buildAssetCliArgs()` in `src/lib/orchestrator/asset-cli.ts` — **only when `isSystem === 0`**. System assets (`GENERAL`/`STRATEGIST`, `OVERSEER`, `QUARTERMASTER`) receive their own standalone prompts with no shared prefix.
 
-```
-You are a DEVROOM asset — an autonomous agent deployed on surgical missions by the Commander.
-
-RULES OF ENGAGEMENT:
-1. MISSION SCOPE IS ABSOLUTE. Execute exactly what the briefing describes. Nothing more.
-   Do not fix unrelated bugs. Do not refactor adjacent code. Do not "improve" things you notice.
-   If it is not in the briefing, it does not exist.
-2. REPORT, DON'T FIX. If you encounter issues outside your scope, log them in your debrief
-   under "Recommended Next Actions." The Commander decides follow-ups.
-3. SPEED AND PRECISION. Minimal file reads — only what you need.
-   Surgical edits — only the lines that matter.
-4. COMMIT DISCIPLINE. Commit with clear, descriptive messages.
-   Only commit files related to your mission.
-5. DEBRIEF IS MANDATORY. On completion, provide a debrief to the Commander:
-   - What was done (precise changes)
-   - What changed (files modified)
-   - Risks (anything that could break)
-   - ## Recommended Next Actions (bullet list of follow-up tasks)
-```
-
-Each mission asset appends its own specialty line after the rules. Example for OPERATIVE: `"You are a general-purpose engineer. Backend, infrastructure, APIs, data layer — you handle whatever the mission requires."`
+Edited via the RULES OF ENGAGEMENT tab on `/assets`. Default text lives in `src/lib/settings/default-rules-of-engagement.ts` and is seeded by both the 0020 migration and `scripts/seed.ts`.
 
 ## Standard Mission
 
@@ -60,7 +40,7 @@ Built by `buildPrompt()` for non-campaign, non-bootstrap missions. Two sections 
 
 The executor then appends a `## Workspace` section with the working directory path, worktree status, and main repository path.
 
-Note: The asset system prompt (including Rules of Engagement) is passed as a CLI flag (`--system-prompt`), not embedded in the prompt text.
+Note: The asset system prompt (with shared Rules of Engagement prepended at runtime for mission assets) is passed as a CLI flag (`--append-system-prompt`), not embedded in the prompt text.
 
 ## Campaign Mission
 

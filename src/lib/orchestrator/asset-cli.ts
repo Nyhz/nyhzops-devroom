@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import type { Asset, SkillOverrides } from '@/types';
+import { getRulesOfEngagement } from '@/lib/settings/rules-of-engagement';
 
 /**
  * Resolves a skill ID (format: "name@publisher") to its plugin directory on disk.
@@ -62,9 +63,11 @@ export function buildAssetCliArgs(
     args.push('--effort', asset.effort);
   }
 
-  // --append-system-prompt
+  // --append-system-prompt (prepend shared ROE for mission assets)
   if (asset.systemPrompt) {
-    args.push('--append-system-prompt', asset.systemPrompt);
+    const roe = asset.isSystem === 0 ? getRulesOfEngagement() : '';
+    const composed = roe ? `${roe}\n\n${asset.systemPrompt}` : asset.systemPrompt;
+    args.push('--append-system-prompt', composed);
   }
 
   // Skill resolution with overrides

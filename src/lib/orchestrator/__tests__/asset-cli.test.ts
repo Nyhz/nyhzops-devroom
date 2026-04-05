@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import os from 'os';
 import path from 'path';
 import type { Asset } from '@/types';
+import { __setRulesOfEngagementOverride } from '@/lib/settings/rules-of-engagement';
 
 // Mock fs before importing the module under test
 vi.mock('fs');
@@ -31,6 +32,11 @@ function makeAsset(overrides = {}): Asset {
 describe('buildAssetCliArgs', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    __setRulesOfEngagementOverride('');
+  });
+
+  afterEach(() => {
+    __setRulesOfEngagementOverride(undefined);
   });
 
   it('returns --model when set', () => {
@@ -148,5 +154,41 @@ describe('buildAssetCliArgs', () => {
     const args = buildAssetCliArgs(makeAsset({ skills: JSON.stringify([skillId]) }));
     expect(args).toContain('--plugin-dir');
     expect(args[args.indexOf('--plugin-dir') + 1]).toBe(latestPath);
+  });
+});
+
+describe('buildAssetCliArgs — rules of engagement composition', () => {
+  beforeEach(() => {
+    __setRulesOfEngagementOverride('ROE-TEXT');
+  });
+
+  afterEach(() => {
+    __setRulesOfEngagementOverride(undefined);
+  });
+
+  it('prepends ROE to mission asset system prompt', () => {
+    const args = buildAssetCliArgs(
+      makeAsset({ isSystem: 0, systemPrompt: 'You are OPERATIVE.' }),
+    );
+    const idx = args.indexOf('--append-system-prompt');
+    expect(idx).toBeGreaterThan(-1);
+    expect(args[idx + 1]).toBe('ROE-TEXT\n\nYou are OPERATIVE.');
+  });
+
+  it('does NOT prepend ROE to system asset system prompt', () => {
+    const args = buildAssetCliArgs(
+      makeAsset({ isSystem: 1, systemPrompt: 'You are OVERSEER.' }),
+    );
+    const idx = args.indexOf('--append-system-prompt');
+    expect(args[idx + 1]).toBe('You are OVERSEER.');
+  });
+
+  it('does not prepend when ROE is empty', () => {
+    __setRulesOfEngagementOverride('');
+    const args = buildAssetCliArgs(
+      makeAsset({ isSystem: 0, systemPrompt: 'You are OPERATIVE.' }),
+    );
+    const idx = args.indexOf('--append-system-prompt');
+    expect(args[idx + 1]).toBe('You are OPERATIVE.');
   });
 });

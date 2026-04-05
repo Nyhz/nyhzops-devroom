@@ -3,26 +3,11 @@ import { ulid } from 'ulid';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getDatabase, closeDatabase } from '../src/lib/db/index';
-import { assets, battlefields, dossiers } from '../src/lib/db/schema';
+import { assets, battlefields, dossiers, settings } from '../src/lib/db/schema';
+import { DEFAULT_RULES_OF_ENGAGEMENT } from '../src/lib/settings/default-rules-of-engagement';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// ---------------------------------------------------------------------------
-// Shared rules of engagement — prepended to all mission asset prompts
-// ---------------------------------------------------------------------------
-const RULES_OF_ENGAGEMENT = `You are a DEVROOM asset — an autonomous agent deployed on surgical missions by the Commander.
-
-RULES OF ENGAGEMENT:
-1. MISSION SCOPE IS ABSOLUTE. Execute exactly what the briefing describes. Nothing more. Do not fix unrelated bugs. Do not refactor adjacent code. Do not "improve" things you notice. If it is not in the briefing, it does not exist.
-2. REPORT, DON'T FIX. If you encounter issues outside your scope, log them in your debrief under "Recommended Next Actions." The Commander decides follow-ups.
-3. SPEED AND PRECISION. Minimal file reads — only what you need. Surgical edits — only the lines that matter.
-4. COMMIT DISCIPLINE. Commit with clear, descriptive messages. Only commit files related to your mission.
-5. DEBRIEF IS MANDATORY. On completion, provide a debrief to the Commander:
-   - What was done (precise changes)
-   - What changed (files modified)
-   - Risks (anything that could break)
-   - ## Recommended Next Actions (bullet list of follow-up tasks)`;
 
 // ---------------------------------------------------------------------------
 // Default assets — 8 total (5 mission assets + 3 system assets)
@@ -43,9 +28,7 @@ const DEFAULT_ASSETS: Array<{
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
     isSystem: 0,
-    systemPrompt:
-      RULES_OF_ENGAGEMENT +
-      '\n\nYou are a general-purpose engineer. Backend, infrastructure, APIs, data layer — you handle whatever the mission requires.',
+    systemPrompt: 'You are a general-purpose engineer. Backend, infrastructure, APIs, data layer — you handle whatever the mission requires.',
   },
   {
     codename: 'VANGUARD',
@@ -54,9 +37,7 @@ const DEFAULT_ASSETS: Array<{
     maxTurns: 100,
     skills: JSON.stringify(['frontend-design@claude-plugins-official']),
     isSystem: 0,
-    systemPrompt:
-      RULES_OF_ENGAGEMENT +
-      '\n\nYou specialize in frontend engineering — components, layouts, styling, client-side interactivity. Prioritize visual fidelity, accessibility, and responsive behavior.',
+    systemPrompt: 'You specialize in frontend engineering — components, layouts, styling, client-side interactivity. Prioritize visual fidelity, accessibility, and responsive behavior.',
   },
   {
     codename: 'ARCHITECT',
@@ -64,9 +45,7 @@ const DEFAULT_ASSETS: Array<{
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
     isSystem: 0,
-    systemPrompt:
-      RULES_OF_ENGAGEMENT +
-      '\n\nYou specialize in system design and structural improvements. Focus on clean boundaries, clear interfaces, and sustainable patterns. When refactoring, preserve all existing behavior.',
+    systemPrompt: 'You specialize in system design and structural improvements. Focus on clean boundaries, clear interfaces, and sustainable patterns. When refactoring, preserve all existing behavior.',
   },
   {
     codename: 'ASSERT',
@@ -74,9 +53,7 @@ const DEFAULT_ASSETS: Array<{
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
     isSystem: 0,
-    systemPrompt:
-      RULES_OF_ENGAGEMENT +
-      '\n\nYou specialize in testing and quality assurance. Write tests that verify behavior, not implementation details. Cover edge cases. If the codebase has test conventions, follow them.',
+    systemPrompt: 'You specialize in testing and quality assurance. Write tests that verify behavior, not implementation details. Cover edge cases. If the codebase has test conventions, follow them.',
   },
   {
     codename: 'INTEL',
@@ -84,9 +61,7 @@ const DEFAULT_ASSETS: Array<{
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
     isSystem: 0,
-    systemPrompt:
-      RULES_OF_ENGAGEMENT +
-      '\n\nYou specialize in project intelligence — documentation, specifications, and codebase analysis. Produce documents that are thorough, precise, and specific to the actual codebase. Your output is the authoritative reference for all other agents.',
+    systemPrompt: 'You specialize in project intelligence — documentation, specifications, and codebase analysis. Produce documents that are thorough, precise, and specific to the actual codebase. Your output is the authoritative reference for all other agents.',
   },
 
   // --- System Assets (isSystem: 1) ---
@@ -313,6 +288,17 @@ const DEFAULT_DOSSIERS = [
 export function seedIfEmpty(): void {
   const db = getDatabase();
   const now = Date.now();
+
+  // Seed the default Rules of Engagement if not already present
+  const existingRoe = db.select().from(settings).where(eq(settings.key, 'rules_of_engagement')).get();
+  if (!existingRoe) {
+    db.insert(settings).values({
+      key: 'rules_of_engagement',
+      value: DEFAULT_RULES_OF_ENGAGEMENT,
+      updatedAt: Date.now(),
+    }).run();
+    console.log('✓ Seeded default rules_of_engagement');
+  }
 
   // Seed assets by codename — add missing ones, never overwrite existing
   let assetsInserted = 0;
