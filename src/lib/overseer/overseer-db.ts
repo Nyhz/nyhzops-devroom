@@ -2,7 +2,7 @@ import { eq, desc, and } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { overseerLogs } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
-import type { OverseerLog, OverseerConfidence } from '@/types';
+import type { OverseerLog, OverseerConfidence, OverseerDecisionType } from '@/types';
 
 interface StoreOverseerLogInput {
   missionId: string;
@@ -13,6 +13,7 @@ interface StoreOverseerLogInput {
   reasoning: string;
   confidence: OverseerConfidence;
   escalated: number;
+  decisionType?: OverseerDecisionType | null;
 }
 
 export function storeOverseerLog(data: StoreOverseerLogInput): OverseerLog {
@@ -27,6 +28,7 @@ export function storeOverseerLog(data: StoreOverseerLogInput): OverseerLog {
     reasoning: data.reasoning,
     confidence: data.confidence,
     escalated: data.escalated,
+    decisionType: data.decisionType ?? null,
     timestamp: Date.now(),
   };
 

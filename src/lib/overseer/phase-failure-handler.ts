@@ -1,4 +1,4 @@
-import { eq, and, like } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { runClaudePrint } from '@/lib/process/claude-print';
 import { getSystemAsset } from '@/lib/orchestrator/system-asset';
@@ -80,16 +80,12 @@ function getPhaseRetryCount(campaignId: string): number {
     .where(
       and(
         eq(overseerLogs.campaignId, campaignId),
-        like(overseerLogs.question, `[PHASE_FAILURE] Phase%`),
+        eq(overseerLogs.decisionType, 'phase-retry'),
       ),
     )
     .all();
 
-  // Count logs where the answer indicates a retry decision for this phase
-  // The answer field stores "Decision: retry. ..." so we check for that
-  return logs.filter(
-    (l) => l.answer.startsWith('Decision: retry'),
-  ).length;
+  return logs.length;
 }
 
 export async function handlePhaseFailure(params: {

@@ -1,0 +1,1 @@
+ALTER TABLE `overseer_logs` ADD `decision_type` text;

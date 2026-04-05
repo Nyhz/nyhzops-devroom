@@ -12,7 +12,7 @@ import { storeOverseerLog } from '@/lib/overseer/overseer-db';
 import { extractAndSaveSuggestions } from '@/actions/follow-up';
 import { emitStatusChange } from '@/lib/socket/emit';
 import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
-import type { Mission } from '@/types';
+import type { Mission, OverseerDecisionType } from '@/types';
 
 // Terminal statuses — a mission in one of these won't change further
 const TERMINAL_STATUSES = ['accomplished', 'compromised', 'abandoned'] as const;
@@ -450,6 +450,7 @@ export class CampaignExecutor {
         reasoning: decision.reasoning,
         confidence: decision.decision === 'escalate' ? 'low' : 'medium',
         escalated: decision.decision === 'escalate' ? 1 : 0,
+        decisionType: `phase-${decision.decision}` as OverseerDecisionType,
       });
 
       if (decision.decision === 'retry') {

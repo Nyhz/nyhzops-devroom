@@ -10,6 +10,14 @@ import { emitStatusChange } from '@/lib/socket/emit';
 import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
 import type { Mission, OverseerReview } from '@/types';
 
+const GIT_DIFF_STAT_CAP = 1500;
+
+export function capGitDiffStat(stat: string | null): string | null {
+  if (stat === null) return null;
+  if (stat.length <= GIT_DIFF_STAT_CAP) return stat;
+  return stat.slice(0, GIT_DIFF_STAT_CAP) + '\n\n[...truncated]';
+}
+
 function emitMissionLog(missionId: string, content: string) {
   const db = getDatabase();
   const now = Date.now();
@@ -94,7 +102,7 @@ export async function runOverseerReview(missionId: string): Promise<void> {
     try {
       const git = simpleGit(battlefield.repoPath);
       const target = battlefield.defaultBranch || 'main';
-      gitDiffStat = await git.diff(['--stat', `${target}...${mission.worktreeBranch}`]);
+      gitDiffStat = capGitDiffStat(await git.diff(['--stat', `${target}...${mission.worktreeBranch}`]));
       gitDiff = await git.diff([`${target}...${mission.worktreeBranch}`]);
       // Count commits on the mission branch ahead of the default branch.
       // This is the authoritative signal of whether the asset actually changed anything.
@@ -149,6 +157,7 @@ export async function runOverseerReview(missionId: string): Promise<void> {
     reasoning: review.reasoning,
     confidence: review.verdict === 'approve' ? 'high' : 'medium',
     escalated: review.verdict === 'escalate' ? 1 : 0,
+    decisionType: `review-${review.verdict}` as const,
   });
 
   const isReviewing = mission.status === 'reviewing';
@@ -357,21 +366,36 @@ export async function runOverseerReview(missionId: string): Promise<void> {
     if (isReviewing) {
       db.update(missions).set({
         status: 'compromised',
-        compromiseReason: 'escalated',
+        compromiseReason: review.parseFailure ? 'parse-failure' : 'escalated',
         updatedAt: Date.now(),
       }).where(eq(missions.id, missionId)).run();
     }
 
     emitStatusChange('mission', missionId, isReviewing ? 'compromised' : mission.status!);
 
-    await escalate({
-      level: 'warning',
-      title: `Overseer Escalation: ${mission.title}`,
-      detail: `Concerns: ${review.concerns.join('. ')}. Reasoning: ${review.reasoning}`,
-      entityType: 'mission',
-      entityId: mission.id,
-      battlefieldId: mission.battlefieldId,
-    });
+    if (review.parseFailure) {
+      emitMissionLog(
+        missionId,
+        `[Overseer] PARSE FAILURE — the Overseer produced output the review parser could not decode. Defaulting to escalation. Commander intervention required.`,
+      );
+      await escalate({
+        level: 'critical',
+        title: `Overseer Parse Failure: ${mission.title}`,
+        detail: `The Overseer review output could not be parsed. This is an infrastructure problem, not a content judgment. Concerns: ${review.concerns.join('. ')}. Reasoning: ${review.reasoning}`,
+        entityType: 'mission',
+        entityId: mission.id,
+        battlefieldId: mission.battlefieldId,
+      });
+    } else {
+      await escalate({
+        level: 'warning',
+        title: `Overseer Escalation: ${mission.title}`,
+        detail: `Concerns: ${review.concerns.join('. ')}. Reasoning: ${review.reasoning}`,
+        entityType: 'mission',
+        entityId: mission.id,
+        battlefieldId: mission.battlefieldId,
+      });
+    }
 
     // Notify campaign executor
     if (mission.campaignId) {
@@ -415,6 +439,7 @@ async function requeueMissionWithFeedback(
     reasoning: review.reasoning,
     confidence: 'medium',
     escalated: 0,
+    decisionType: 'review-retry',
   });
 
   // Notify orchestrator

@@ -57,11 +57,21 @@ export interface BoardColumn {
 export type NotificationLevel = 'info' | 'warning' | 'critical';
 export type NotificationEntityType = 'mission' | 'campaign' | 'phase';
 export type OverseerConfidence = 'high' | 'medium' | 'low';
+export type OverseerDecisionType =
+  | 'review-approve'
+  | 'review-retry'
+  | 'review-escalate'
+  | 'phase-retry'
+  | 'phase-skip'
+  | 'phase-escalate'
+  | 'stall-advice';
 
 export interface OverseerReview {
   verdict: 'approve' | 'retry' | 'escalate';
   concerns: string[];
   reasoning: string;
+  /** When true, this verdict is a fallback from a parser failure, not a real OVERSEER decision. */
+  parseFailure?: boolean;
 }
 
 export interface DossierVariable {

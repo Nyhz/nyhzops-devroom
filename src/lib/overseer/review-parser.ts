@@ -8,6 +8,7 @@ const ESCALATE_FALLBACK: OverseerReview = {
   verdict: 'escalate',
   concerns: ['Overseer review output could not be parsed — escalating to Commander'],
   reasoning: 'Review parse failure — Commander should decide',
+  parseFailure: true,
 };
 
 function escalateFallback(diagnostic: string): ParseResult {
