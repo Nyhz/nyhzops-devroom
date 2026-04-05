@@ -8,6 +8,12 @@
                     N Y H Z   O P S
 ```
 
+![claude code](https://img.shields.io/badge/claude_code-required-blue?style=flat-square)
+![node](https://img.shields.io/badge/node-20%2B-green?style=flat-square)
+![next.js](https://img.shields.io/badge/next.js-16.2-white?style=flat-square)
+![sqlite](https://img.shields.io/badge/sqlite-WAL-yellow?style=flat-square)
+![license](https://img.shields.io/badge/license-private-gray?style=flat-square)
+
 **Autonomous Agent Orchestrator — Tactical Operations Center**
 
 > *"War is ninety percent information."* — Napoleon Bonaparte
