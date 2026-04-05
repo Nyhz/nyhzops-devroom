@@ -25,7 +25,12 @@ export function AssetDeployment({ initialData }: AssetDeploymentProps) {
   const socket = useSocket();
   const reconnectKey = useReconnectKey();
   const [data, setData] = useState(initialData);
-  const [peaceMsg] = useState(() => getPeaceMessage());
+  // Pick a random peace message only after mount to avoid SSR/client hydration
+  // mismatch (Math.random() produces different values on server vs client).
+  const [peaceMsg, setPeaceMsg] = useState(PEACE_MESSAGES[0]);
+  useEffect(() => {
+    setPeaceMsg(getPeaceMessage());
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
