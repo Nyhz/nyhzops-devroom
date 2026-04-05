@@ -157,6 +157,7 @@ export async function runOverseerReview(missionId: string): Promise<void> {
     reasoning: review.reasoning,
     confidence: review.verdict === 'approve' ? 'high' : 'medium',
     escalated: review.verdict === 'escalate' ? 1 : 0,
+    decisionType: `review-${review.verdict}` as const,
   });
 
   const isReviewing = mission.status === 'reviewing';
@@ -438,6 +439,7 @@ async function requeueMissionWithFeedback(
     reasoning: review.reasoning,
     confidence: 'medium',
     escalated: 0,
+    decisionType: 'review-retry',
   });
 
   // Notify orchestrator

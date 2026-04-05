@@ -57,6 +57,14 @@ export interface BoardColumn {
 export type NotificationLevel = 'info' | 'warning' | 'critical';
 export type NotificationEntityType = 'mission' | 'campaign' | 'phase';
 export type OverseerConfidence = 'high' | 'medium' | 'low';
+export type OverseerDecisionType =
+  | 'review-approve'
+  | 'review-retry'
+  | 'review-escalate'
+  | 'phase-retry'
+  | 'phase-skip'
+  | 'phase-escalate'
+  | 'stall-advice';
 
 export interface OverseerReview {
   verdict: 'approve' | 'retry' | 'escalate';
