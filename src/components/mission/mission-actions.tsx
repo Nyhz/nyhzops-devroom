@@ -233,13 +233,13 @@ export function MissionActions({
               }}
               disabled={isPending}
             >
-              {isPending ? 'REVIEWING...' : 'RETRY REVIEW'}
+              {isPending ? 'REVIEWING...' : 'RESUBMIT REVIEW'}
             </TacButton>
           )}
           {canRetryMerge && (
             <TacButton
               variant="primary"
-              {...tacTooltip('Retry merging the worktree branch into the target branch.')}
+              {...tacTooltip('Reintegrate the worktree branch into the target branch.')}
               onClick={async () => {
                 setIsPending(true);
                 try {
@@ -254,7 +254,7 @@ export function MissionActions({
               }}
               disabled={isPending}
             >
-              {isPending ? 'MERGING...' : 'RETRY MERGE'}
+              {isPending ? 'REINTEGRATING...' : 'REINTEGRATE'}
             </TacButton>
           )}
           {canSkipMission && (

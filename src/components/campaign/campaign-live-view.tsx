@@ -117,17 +117,17 @@ export function CampaignLiveView({
                 setIsPending(true);
                 try {
                   await retryPhaseDebrief(campaignId);
-                  toast.success('Retrying debrief generation...');
+                  toast.success('Resubmitting debrief generation...');
                   router.refresh();
                 } catch (err) {
-                  toast.error(err instanceof Error ? err.message : 'Retry failed');
+                  toast.error(err instanceof Error ? err.message : 'Resubmit failed');
                 } finally {
                   setIsPending(false);
                 }
               }}
               disabled={isPending}
             >
-              {isPending ? 'RETRYING...' : 'RETRY DEBRIEF'}
+              {isPending ? 'RESUBMITTING...' : 'RESUBMIT DEBRIEF'}
             </TacButton>
             <TacButton
               variant="ghost"

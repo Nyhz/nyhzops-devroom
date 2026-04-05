@@ -82,7 +82,7 @@ export function NewCampaignForm({ battlefieldId, initialObjective, noteIds }: Ne
           disabled={submitting || !name.trim() || !objective.trim()}
           variant="primary"
         >
-          {submitting ? 'CREATING...' : 'CREATE CAMPAIGN'}
+          {submitting ? 'PLANNING...' : 'PLAN CAMPAIGN'}
         </TacButton>
         <TacButton
           type="button"

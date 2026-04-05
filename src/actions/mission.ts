@@ -468,7 +468,7 @@ export async function retryMerge(missionId: string): Promise<void> {
     });
   };
 
-  emitLog(`[RETRY MERGE] Spawning agent to merge \`${mission.worktreeBranch}\` into \`${targetBranch}\`...`);
+  emitLog(`[REINTEGRATE] Spawning agent to merge \`${mission.worktreeBranch}\` into \`${targetBranch}\`...`);
 
   // Read CLAUDE.md for context
   let claudeMdContext = '';
@@ -543,7 +543,7 @@ export async function retryMerge(missionId: string): Promise<void> {
       }).where(eq(missions.id, missionId)).run();
       emitStatusChange('mission', missionId, 'accomplished');
 
-      emitLog(`[RETRY MERGE] Agent successfully merged \`${mission.worktreeBranch}\` into \`${targetBranch}\`. Worktree cleaned up.`);
+      emitLog(`[REINTEGRATE] Agent successfully merged \`${mission.worktreeBranch}\` into \`${targetBranch}\`. Worktree cleaned up.`);
 
       // Notify campaign executor if applicable
       if (mission.campaignId) {
@@ -560,18 +560,18 @@ export async function retryMerge(missionId: string): Promise<void> {
       }).where(eq(missions.id, missionId)).run();
       emitStatusChange('mission', missionId, 'compromised');
 
-      emitLog(`[RETRY MERGE] Agent finished but branch was not merged. Branch preserved.`);
+      emitLog(`[REINTEGRATE] Agent finished but branch was not merged. Branch preserved.`);
     }
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     db.update(missions).set({
       status: 'compromised',
-      debrief: (mission.debrief || '') + `\n\n---\n\nRETRY MERGE AGENT FAILED: ${errorMsg}\nBranch \`${mission.worktreeBranch}\` preserved.`,
+      debrief: (mission.debrief || '') + `\n\n---\n\nREINTEGRATE AGENT FAILED: ${errorMsg}\nBranch \`${mission.worktreeBranch}\` preserved.`,
       updatedAt: Date.now(),
     }).where(eq(missions.id, missionId)).run();
     emitStatusChange('mission', missionId, 'compromised');
 
-    emitLog(`[RETRY MERGE] Agent failed: ${errorMsg}`);
+    emitLog(`[REINTEGRATE] Agent failed: ${errorMsg}`);
   }
 
   revalidatePath(`/battlefields/${mission.battlefieldId}/missions/${missionId}`);

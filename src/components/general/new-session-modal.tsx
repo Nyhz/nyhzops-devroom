@@ -84,7 +84,7 @@ export function NewSessionModal({ open, onClose, onCreate, battlefields }: NewSe
             CANCEL
           </TacButton>
           <TacButton variant="success" size="sm" onClick={handleCreate} disabled={!name.trim()}>
-            CREATE
+            OPEN CHANNEL
           </TacButton>
         </div>
       </div>
