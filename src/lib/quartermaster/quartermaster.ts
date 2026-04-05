@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import simpleGit from 'simple-git';
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { missions, battlefields, missionLogs } from '@/lib/db/schema';
@@ -145,6 +146,22 @@ export async function triggerQuartermaster(missionId: string): Promise<void> {
     '.worktrees',
     sourceBranch.replace(/\//g, '-'),
   );
+
+  // Safety net: commit any uncommitted changes the agent left behind
+  if (fs.existsSync(worktreeDir)) {
+    try {
+      const wtGit = simpleGit(worktreeDir);
+      const status = await wtGit.status();
+      const hasChanges = status.modified.length > 0 || status.not_added.length > 0 || status.staged.length > 0;
+      if (hasChanges) {
+        await wtGit.add('-A');
+        await wtGit.commit(`chore: auto-commit uncommitted changes from mission ${mission.title}`);
+        emitMissionLog(missionId, `[Quartermaster] Agent left uncommitted changes — auto-committed before merge.`);
+      }
+    } catch (err) {
+      console.warn(`[Quartermaster] Auto-commit failed for ${missionId}:`, err);
+    }
+  }
 
   const result = await executeMerge({
     missionId,
