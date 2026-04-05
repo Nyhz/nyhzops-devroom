@@ -5,7 +5,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { eq, and, desc, inArray, sql, gte, like } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
-import { missions, battlefields, scheduledTasks, overseerLogs, notifications, assets } from '@/lib/db/schema';
+import { missions, battlefields, scheduledTasks, overseerLogs, notifications, assets, missionLogs } from '@/lib/db/schema';
 import { getRepoPath } from '@/actions/_helpers';
 import { config } from '@/lib/config';
 import type {
@@ -13,6 +13,8 @@ import type {
   ResourceMetrics,
   ServiceHealthStatus,
   MissionStatus,
+  ExitEntry,
+  FailureType,
 } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -174,6 +176,70 @@ export async function getResourceUsage(battlefieldId: string): Promise<ResourceM
 // ---------------------------------------------------------------------------
 // Recent Exits
 // ---------------------------------------------------------------------------
+
+const TERMINAL_STATUSES: MissionStatus[] = ['accomplished', 'compromised', 'abandoned'];
+
+export async function getRecentExits(battlefieldId: string): Promise<ExitEntry[]> {
+  const db = getDatabase();
+
+  const rows = db
+    .select({
+      id: missions.id,
+      title: missions.title,
+      status: missions.status,
+      compromiseReason: missions.compromiseReason,
+      startedAt: missions.startedAt,
+      completedAt: missions.completedAt,
+      durationMs: missions.durationMs,
+    })
+    .from(missions)
+    .where(
+      and(
+        eq(missions.battlefieldId, battlefieldId),
+        inArray(missions.status, TERMINAL_STATUSES),
+      ),
+    )
+    .all();
+
+  return rows.map((row) => {
+    const exitCode = row.status === 'accomplished' ? 0 : row.status === 'compromised' ? 1 : null;
+
+    let failureType: FailureType | null = null;
+    if (row.status === 'abandoned') {
+      failureType = 'killed';
+    } else if (row.status === 'compromised' && row.compromiseReason) {
+      const r = row.compromiseReason as string;
+      if (r === 'timeout' || r === 'auth_failure' || r === 'cli_error' || r === 'stall_killed') {
+        failureType = r as FailureType;
+      } else {
+        failureType = 'unknown';
+      }
+    }
+
+    return {
+      missionId: row.id,
+      missionCodename: row.title,
+      exitCode,
+      duration: row.durationMs ?? 0,
+      failureType,
+      timestamp: row.completedAt ?? row.startedAt ?? 0,
+    };
+  });
+}
+
+export async function getExitContext(missionId: string): Promise<string[]> {
+  const db = getDatabase();
+
+  const rows = db
+    .select({ content: missionLogs.content })
+    .from(missionLogs)
+    .where(eq(missionLogs.missionId, missionId))
+    .orderBy(desc(missionLogs.timestamp))
+    .all();
+
+  // Reverse from newest-first to chronological order
+  return rows.map((r) => r.content).reverse();
+}
 
 // ---------------------------------------------------------------------------
 // Service Health
