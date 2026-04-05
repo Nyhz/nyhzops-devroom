@@ -15,57 +15,31 @@ interface AskOverseerParams {
   campaignContext?: string;
 }
 
-const OVERSEER_SYSTEM_PROMPT = `You are the OVERSEER of DEVROOM operations, serving under the Commander.
-Your role is to make tactical decisions for AI agents executing missions.
-
-RULES:
-- Be decisive. Never hedge or ask for more information.
-- Align decisions with the project's conventions (CLAUDE.md provided).
-- Align with the mission briefing objectives.
-- Choose the simplest approach that satisfies the requirements.
-- If the question involves a MAJOR architectural change that contradicts
-  CLAUDE.md or the mission briefing, set escalate=true.
-- If you're genuinely uncertain between two valid approaches, set
-  confidence='low' and escalate=true.
-- Keep answers concise — the agent is waiting.
-- Log your reasoning clearly — the Commander reviews your decisions.
-
-Respond ONLY with a JSON object:
-{
-  "answer": "Your decisive response to the agent",
-  "reasoning": "Why you chose this approach (1-2 sentences)",
-  "escalate": false,
-  "confidence": "high"
-}`;
-
 function buildOverseerPrompt(params: AskOverseerParams): string {
   const sections: string[] = [];
 
-  // 1. System prompt
-  sections.push(OVERSEER_SYSTEM_PROMPT);
-
-  // 2. CLAUDE.md content
+  // 1. CLAUDE.md content
   if (params.claudeMd) {
     sections.push(`## Project Conventions (CLAUDE.md)\n\n${params.claudeMd}`);
   }
 
-  // 3. Mission briefing
+  // 2. Mission briefing
   sections.push(`## Mission Briefing\n\n${params.missionBriefing}`);
 
-  // 4. Campaign context
+  // 3. Campaign context
   if (params.campaignContext) {
     sections.push(`## Campaign Context\n\n${params.campaignContext}`);
   }
 
-  // 5. Recent agent output
+  // 4. Recent agent output
   if (params.recentOutput) {
     sections.push(`## Recent Agent Output (last ~2000 chars)\n\n${params.recentOutput}`);
   }
 
-  // 6. The question
+  // 5. The question
   sections.push(`## Agent's Question\n\nThe agent has paused and is asking:\n\n${params.question}`);
 
-  // 7. Overseer history
+  // 6. Overseer history
   if (params.overseerHistory.length > 0) {
     const historyText = params.overseerHistory
       .map((h) => `Q: ${h.question}\nA: ${h.answer} (confidence: ${h.confidence})`)
