@@ -12,7 +12,7 @@ let sqlite: Database.Database;
 vi.mock('@/lib/db/index', () => createMockDbModule(() => db));
 
 // Import actions after mocking
-const { getAssetDeployment, createAsset, updateAsset, toggleAssetStatus, deleteAsset } =
+const { getAssetDeployment, createAsset, updateAsset, toggleAssetStatus, deleteAsset, getAssetByCodename } =
   await import('@/actions/asset');
 
 describe('asset actions', () => {
@@ -244,6 +244,28 @@ describe('asset actions', () => {
     it('throws when attempting to delete a system asset', async () => {
       const asset = createTestAsset(db, { codename: 'SYSTEM_ASSET', isSystem: 1 });
       await expect(deleteAsset(asset.id)).rejects.toThrow('Cannot delete system assets');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // getAssetByCodename
+  // ---------------------------------------------------------------------------
+  describe('getAssetByCodename', () => {
+    it('returns asset id when codename exists', async () => {
+      const asset = createTestAsset(db, { codename: 'STRIKER' });
+      const id = await getAssetByCodename('STRIKER');
+      expect(id).toBe(asset.id);
+    });
+
+    it('returns null when codename does not exist', async () => {
+      const id = await getAssetByCodename('NONEXISTENT');
+      expect(id).toBeNull();
+    });
+
+    it('matches case-insensitively', async () => {
+      const asset = createTestAsset(db, { codename: 'RECON' });
+      const id = await getAssetByCodename('recon');
+      expect(id).toBe(asset.id);
     });
   });
 

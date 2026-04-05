@@ -93,6 +93,20 @@ export async function getAssetDeployment(): Promise<AssetDeploymentData> {
   return { active, idle };
 }
 
+// ---------------------------------------------------------------------------
+// getAssetByCodename — look up asset ID by codename
+// ---------------------------------------------------------------------------
+export async function getAssetByCodename(codename: string): Promise<string | null> {
+  const db = getDatabase();
+  const upperCodename = codename.toUpperCase().trim();
+  const row = db
+    .select({ id: assets.id })
+    .from(assets)
+    .where(eq(assets.codename, upperCodename))
+    .get();
+  return row?.id ?? null;
+}
+
 const VALID_MODELS = [
   'claude-opus-4-6',
   'claude-sonnet-4-6',
