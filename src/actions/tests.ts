@@ -8,6 +8,8 @@ import { runCommand } from '@/lib/process/command-runner';
 import { getDatabase } from '@/lib/db/index';
 import { testRuns } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
+import { createAndDeployMission } from '@/actions/mission';
+import { getAssetByCodename } from '@/actions/asset';
 import type {
   TestFramework,
   TestRunRow,
@@ -342,6 +344,57 @@ function parseVitestJestResults(json: unknown): TestSuiteResult[] {
       };
     }),
   }));
+}
+
+// ---------------------------------------------------------------------------
+// deployFixMission — 1-click deploy a mission to fix failing tests
+// ---------------------------------------------------------------------------
+export async function deployFixMission(
+  battlefieldId: string,
+  suites: TestSuiteResult[],
+): Promise<string> {
+  const assetId = await getAssetByCodename('ASSERT');
+  if (!assetId) {
+    throw new Error('ASSERT asset not found — create an asset with codename ASSERT to use this feature');
+  }
+
+  const briefing = buildFixBriefing(suites);
+
+  const mission = await createAndDeployMission({
+    battlefieldId,
+    briefing,
+    assetId,
+  });
+
+  return mission.id;
+}
+
+function buildFixBriefing(suites: TestSuiteResult[]): string {
+  const lines: string[] = [
+    '# Fix Failing Tests',
+    '',
+    'The following tests are failing. Investigate the test files and the source code they exercise, identify the root cause of each failure, and fix them.',
+    '',
+  ];
+
+  for (const suite of suites) {
+    const failedTests = suite.tests.filter((t) => t.status === 'failed');
+    if (failedTests.length === 0) continue;
+
+    const fileName = suite.file.split('/').pop() ?? suite.name;
+    lines.push(`## ${fileName} (${failedTests.length} ${failedTests.length === 1 ? 'failure' : 'failures'})`);
+
+    for (const test of failedTests) {
+      const errorMsg = test.error?.message
+        ? ` — ${test.error.message.split('\n')[0].slice(0, 200)}`
+        : '';
+      lines.push(`- ${test.name}${errorMsg}`);
+    }
+
+    lines.push('');
+  }
+
+  return lines.join('\n').trimEnd();
 }
 
 // ---------------------------------------------------------------------------
