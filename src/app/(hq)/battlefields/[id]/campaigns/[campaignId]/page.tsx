@@ -70,6 +70,7 @@ export default async function CampaignDetailPage({
           briefing: m.briefing || '',
           assetCodename: m.assetCodename || '',
           priority: (m.priority || 'routine') as MissionPriority,
+          type: (m.type === 'verification' ? 'verification' : 'direct_action') as 'direct_action' | 'verification',
           dependsOn: [],
         })),
       })),

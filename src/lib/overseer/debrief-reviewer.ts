@@ -30,10 +30,20 @@ function buildReviewPrompt(params: {
   claudeMd: string | null;
   gitDiffStat: string | null;
   gitDiff: string | null;
+  missionType: 'direct_action' | 'verification';
+  commitCount: number | null;
 }): string {
   const sections: string[] = [];
 
+  const typeLabel = params.missionType === 'verification' ? 'VERIFICATION' : 'DIRECT_ACTION';
+  const commitLine = params.commitCount === null
+    ? 'Commit count on worktree branch: n/a (no worktree)'
+    : `Commit count on worktree branch: ${params.commitCount}`;
+
   sections.push(`You are the Overseer, reviewing a mission debrief for quality and completeness.
+
+MISSION TYPE: ${typeLabel}
+${commitLine}
 
 MISSION BRIEFING (what was requested):
 ${params.missionBriefing}
@@ -66,10 +76,15 @@ ${params.missionDebrief}`);
 4. Did the agent make unexpected decisions that deviate from conventions?
 5. Do the code changes match what the debrief claims?
 
-Rules:
+MISSION TYPE RULES:
+- DIRECT_ACTION missions MUST produce at least one commit on their worktree branch. If the commit count is 0, the asset did nothing — respond with verdict "retry" and concern "no commits produced".
+- VERIFICATION missions are strictly read-only. They MUST produce zero commits. If the commit count is >0, the asset violated its scope — respond with verdict "retry" and concern "verification mission modified code".
+- VERIFICATION missions with zero commits and a quality debrief are the expected happy path — approve them normally.
+
+General rules:
 - Most debriefs are satisfactory. Only flag genuine issues.
 - Minor style differences are not concerns.
-- "retry" only if the agent clearly failed to complete the task.
+- "retry" only if the agent clearly failed to complete the task OR violated mission type rules.
 - "escalate" only if there's a significant risk the Commander should know about.
 
 IMPORTANT: Do NOT use any tools. Do NOT read files. Do NOT run commands. You have all the information you need above. Analyze the text and respond with your assessment only.`);
@@ -104,6 +119,8 @@ export async function reviewDebrief(params: {
   gitDiff: string | null;
   missionId: string;
   battlefieldId: string;
+  missionType: 'direct_action' | 'verification';
+  commitCount: number | null;
 }): Promise<OverseerReview> {
   const prompt = buildReviewPrompt({
     missionBriefing: params.missionBriefing,
@@ -111,6 +128,8 @@ export async function reviewDebrief(params: {
     claudeMd: params.claudeMd,
     gitDiffStat: params.gitDiffStat,
     gitDiff: params.gitDiff,
+    missionType: params.missionType,
+    commitCount: params.commitCount,
   });
 
   let stdout: string;

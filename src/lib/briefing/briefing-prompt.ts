@@ -73,6 +73,7 @@ JSON schema:
           "briefing": "Detailed mission briefing in plain text — the asset has NO context beyond what you write here. Describe code changes in prose, reference file paths and types by name, never use code fences.",
           "assetCodename": "OPERATIVE",
           "priority": "routine",
+          "type": "direct_action",
           "dependsOn": ["Other mission title in same phase"]
         }
       ]
@@ -85,7 +86,13 @@ Rules:
 - Missions within a phase can execute IN PARALLEL if no dependencies
 - dependsOn references mission titles within the SAME phase only
 - Each mission briefing must be self-contained and detailed (plain text, no code fences)
-- Assign assets by specialty: OPERATIVE for backend code, VANGUARD for frontend, ARCHITECT for system design/refactoring, ASSERT for testing, INTEL for docs/project intelligence`);
+- Assign assets by specialty: OPERATIVE for backend code, VANGUARD for frontend, ARCHITECT for system design/refactoring, ASSERT for testing, INTEL for docs/project intelligence
+
+MISSION TYPES (the "type" field):
+- "direct_action" (default — use when in doubt): the mission modifies code, files, or configuration. It MUST produce at least one commit. On success the Quartermaster merges its branch back into the default branch.
+- "verification": the mission is strictly read-only — runs tests, type-checks, audits, spot-checks, sanity reviews, and reports results. It MUST NOT modify code. No merge is performed. Verification missions with zero commits and a passing Overseer review are the expected happy path.
+- Use "verification" whenever the briefing verbs are "run", "check", "verify", "confirm", "audit", "report", "spot-check". Use "direct_action" whenever the briefing asks the asset to write, edit, refactor, fix, or implement anything.
+- Pair mutating phases with a following "verification" phase when end-to-end correctness matters.`);
 
   return sections.join('\n\n---\n\n');
 }

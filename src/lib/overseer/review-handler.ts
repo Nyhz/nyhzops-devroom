@@ -88,6 +88,7 @@ export async function runOverseerReview(missionId: string): Promise<void> {
   // Get git diffs for code review context
   let gitDiffStat: string | null = null;
   let gitDiff: string | null = null;
+  let commitCount: number | null = null;
 
   if (mission.worktreeBranch && battlefield?.repoPath) {
     try {
@@ -95,10 +96,18 @@ export async function runOverseerReview(missionId: string): Promise<void> {
       const target = battlefield.defaultBranch || 'main';
       gitDiffStat = await git.diff(['--stat', `${target}...${mission.worktreeBranch}`]);
       gitDiff = await git.diff([`${target}...${mission.worktreeBranch}`]);
+      // Count commits on the mission branch ahead of the default branch.
+      // This is the authoritative signal of whether the asset actually changed anything.
+      const countRaw = await git.raw(['rev-list', '--count', `${target}..${mission.worktreeBranch}`]);
+      const parsed = parseInt(countRaw.trim(), 10);
+      commitCount = Number.isFinite(parsed) ? parsed : null;
     } catch (err) {
       console.warn(`[Overseer] Could not get git diff for mission ${missionId}:`, err);
     }
   }
+
+  const missionType: 'direct_action' | 'verification' =
+    mission.type === 'verification' ? 'verification' : 'direct_action';
 
   // Run the overseer review
   let review: OverseerReview;
@@ -111,6 +120,8 @@ export async function runOverseerReview(missionId: string): Promise<void> {
       gitDiff,
       missionId: mission.id,
       battlefieldId: mission.battlefieldId,
+      missionType,
+      commitCount,
     });
   } catch (err) {
     console.error(`[Overseer] Review failed for mission ${missionId}:`, err);
@@ -146,7 +157,166 @@ export async function runOverseerReview(missionId: string): Promise<void> {
 
   // Handle the overseer's verdict
   if (review.verdict === 'approve') {
-    // Overseer approves — set approved status and hand off to Quartermaster
+    // Hard enforcement gate: mission type × commit count invariants.
+    // Overseer's verdict is input, not final word, for these invariants — this
+    // protects against LLM drift and ensures verification missions can complete
+    // cleanly without going through the Quartermaster merge path.
+    const hasWorktree = !!mission.worktreeBranch;
+    const effectiveCommitCount = hasWorktree ? (commitCount ?? 0) : 0;
+
+    if (missionType === 'verification' && hasWorktree && effectiveCommitCount > 0) {
+      // Violation: verification mission modified code.
+      db.update(missions).set({
+        status: 'compromised',
+        compromiseReason: 'verification-mutated-code',
+        completedAt: Date.now(),
+        updatedAt: Date.now(),
+      }).where(eq(missions.id, missionId)).run();
+
+      emitStatusChange('mission', missionId, 'compromised');
+      emitMissionLog(
+        missionId,
+        `[Overseer] Approval overridden — verification mission produced ${effectiveCommitCount} commit(s). Verification missions must not modify code. Marked compromised.`,
+      );
+
+      await escalate({
+        level: 'warning',
+        title: `Verification mission modified code: ${mission.title}`,
+        detail: `Verification mission produced ${effectiveCommitCount} commit(s) on branch ${mission.worktreeBranch}. Branch preserved for review.`,
+        entityType: 'mission',
+        entityId: mission.id,
+        battlefieldId: mission.battlefieldId,
+      });
+
+      if (mission.campaignId) {
+        const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
+        if (executor) {
+          executor.onCampaignMissionComplete(missionId).catch(err => {
+            console.error(`[Overseer] Campaign notification failed:`, err);
+          });
+        }
+      }
+      return;
+    }
+
+    if (missionType === 'direct_action' && hasWorktree && effectiveCommitCount === 0) {
+      // Violation: direct_action mission committed nothing.
+      db.update(missions).set({
+        status: 'compromised',
+        compromiseReason: 'no-commits-produced',
+        completedAt: Date.now(),
+        updatedAt: Date.now(),
+      }).where(eq(missions.id, missionId)).run();
+
+      emitStatusChange('mission', missionId, 'compromised');
+      emitMissionLog(
+        missionId,
+        `[Overseer] Approval overridden — direct_action mission produced no commits. The asset did not make any changes. Marked compromised.`,
+      );
+
+      await escalate({
+        level: 'warning',
+        title: `Direct-action mission committed nothing: ${mission.title}`,
+        detail: `Direct-action mission ${mission.title} finished with zero commits on branch ${mission.worktreeBranch}. The asset did not make any changes.`,
+        entityType: 'mission',
+        entityId: mission.id,
+        battlefieldId: mission.battlefieldId,
+      });
+
+      if (mission.campaignId) {
+        const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
+        if (executor) {
+          executor.onCampaignMissionComplete(missionId).catch(err => {
+            console.error(`[Overseer] Campaign notification failed:`, err);
+          });
+        }
+      }
+      return;
+    }
+
+    if (missionType === 'verification' && hasWorktree) {
+      // Happy path for verification: approved + zero commits → accomplished, skip Quartermaster.
+      // Clean up the worktree and branch without attempting a merge.
+      const completedAt = Date.now();
+      db.update(missions).set({
+        status: 'accomplished',
+        completedAt,
+        updatedAt: completedAt,
+      }).where(eq(missions.id, missionId)).run();
+
+      emitStatusChange('mission', missionId, 'accomplished');
+      emitMissionLog(
+        missionId,
+        `[Overseer] Verification mission approved with zero commits. No merge performed. Cleaning worktree.`,
+      );
+
+      // Clean up worktree (best effort — don't block completion on cleanup failure)
+      try {
+        const path = await import('path');
+        const { removeWorktree } = await import('@/lib/orchestrator/worktree');
+        const worktreeDir = path.join(
+          battlefield.repoPath,
+          '.worktrees',
+          mission.worktreeBranch!.replace(/\//g, '-'),
+        );
+        await removeWorktree(battlefield.repoPath, worktreeDir, mission.worktreeBranch!);
+      } catch (err) {
+        console.warn(`[Overseer] Verification worktree cleanup failed for ${missionId}:`, err);
+      }
+
+      // Clean up mission home (same as Quartermaster does)
+      try {
+        const fs = await import('fs');
+        fs.rmSync(`/tmp/claude-config/${missionId}`, { recursive: true, force: true });
+      } catch { /* best effort */ }
+
+      if (review.concerns.length > 0) {
+        await escalate({
+          level: 'info',
+          title: `Verification Note: ${mission.title}`,
+          detail: review.concerns.join('. '),
+          entityType: 'mission',
+          entityId: mission.id,
+          battlefieldId: mission.battlefieldId,
+        });
+      }
+
+      await escalate({
+        level: 'info',
+        title: `Mission Accomplished — ${mission.title}`,
+        detail: `Verification complete. No code changes, no merge performed.`,
+        entityType: 'mission',
+        entityId: mission.id,
+        battlefieldId: mission.battlefieldId,
+      });
+
+      // Extract follow-up suggestions from the debrief, same as Quartermaster
+      if (mission.debrief) {
+        try {
+          const { extractAndSaveSuggestions } = await import('@/actions/follow-up');
+          await extractAndSaveSuggestions({
+            battlefieldId: mission.battlefieldId,
+            missionId: mission.id,
+            campaignId: mission.campaignId ?? undefined,
+            debrief: mission.debrief,
+          });
+        } catch (err) {
+          console.error(`[Overseer] Follow-up extraction failed:`, err);
+        }
+      }
+
+      if (mission.campaignId) {
+        const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
+        if (executor) {
+          executor.onCampaignMissionComplete(missionId).catch(err => {
+            console.error(`[Overseer] Campaign notification failed:`, err);
+          });
+        }
+      }
+      return;
+    }
+
+    // Standard direct_action path: Overseer approves → set approved, hand off to Quartermaster.
     db.update(missions).set({
       status: 'approved',
       updatedAt: Date.now(),

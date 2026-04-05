@@ -6,6 +6,7 @@ import { getSuggestions } from '@/actions/follow-up';
 import { getDatabase } from '@/lib/db/index';
 import { missionLogs } from '@/lib/db/schema';
 import { LiveStatusBadge } from '@/components/mission/live-status-badge';
+import { MissionTypeBadge } from '@/components/mission/mission-type-badge';
 import { MissionComms } from '@/components/mission/mission-comms';
 import { FollowUpCardsLive } from '@/components/follow-up/follow-up-cards-live';
 import { PageWrapper } from '@/components/layout/page-wrapper';
@@ -38,6 +39,7 @@ export default async function MissionDetailPage({
 
   const status = mission.status ?? 'standby';
   const isTerminal = status === 'accomplished' || status === 'compromised';
+  const missionType = mission.type === 'verification' ? 'verification' : 'direct_action';
 
   return (
     <PageWrapper
@@ -47,6 +49,7 @@ export default async function MissionDetailPage({
       {/* Status bar */}
       <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs font-tactical">
         <LiveStatusBadge missionId={missionId} initialStatus={status} />
+        <MissionTypeBadge type={missionType} />
         <span className="text-dr-muted">
           Asset:{' '}
           <span className="text-dr-text">
@@ -58,6 +61,21 @@ export default async function MissionDetailPage({
           <span className="text-dr-text uppercase">{mission.priority}</span>
         </span>
       </div>
+
+      {/* Verification banner — no-merge notice */}
+      {missionType === 'verification' && (
+        <div className="border-l-2 border-dr-teal bg-dr-teal/5 px-3 py-2 flex items-start gap-2">
+          <span aria-hidden="true" className="text-dr-teal text-sm mt-0.5">◈</span>
+          <div className="flex-1">
+            <div className="font-tactical text-xs text-dr-teal uppercase tracking-wider">
+              VERIFICATION MISSION
+            </div>
+            <div className="font-data text-xs text-dr-muted mt-0.5">
+              Read-only reconnaissance. This mission must not modify code — no merge will be performed on completion.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Briefing */}
       <div className="space-y-3">

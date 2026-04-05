@@ -29,9 +29,10 @@ async function main() {
   const claudeMdPath = bf.claudeMdPath || path.join(bf.repoPath, 'CLAUDE.md');
   const claudeMd = fs.existsSync(claudeMdPath) ? fs.readFileSync(claudeMdPath, 'utf-8') : null;
 
-  // Get git diffs for code review context
+  // Get git diffs + commit count for code review context
   let gitDiffStat: string | null = null;
   let gitDiff: string | null = null;
+  let commitCount: number | null = null;
 
   if (mission.worktreeBranch && bf.repoPath) {
     try {
@@ -39,12 +40,20 @@ async function main() {
       const target = bf.defaultBranch || 'main';
       gitDiffStat = await git.diff(['--stat', `${target}...${mission.worktreeBranch}`]);
       gitDiff = await git.diff([`${target}...${mission.worktreeBranch}`]);
+      const countRaw = await git.raw(['rev-list', '--count', `${target}..${mission.worktreeBranch}`]);
+      const parsed = parseInt(countRaw.trim(), 10);
+      commitCount = Number.isFinite(parsed) ? parsed : null;
     } catch (err) {
       console.warn('Could not get git diff:', err);
     }
   }
 
+  const missionType: 'direct_action' | 'verification' =
+    mission.type === 'verification' ? 'verification' : 'direct_action';
+
   console.log(`Reviewing mission: ${mission.title}`);
+  console.log(`Mission type: ${missionType}`);
+  console.log(`Commit count: ${commitCount ?? 'n/a'}`);
   console.log(`Debrief length: ${mission.debrief.length} chars`);
   console.log(`CLAUDE.md: ${claudeMd ? `${claudeMd.length} chars` : 'not found'}`);
   console.log(`Git diff: ${gitDiff ? `${gitDiff.length} chars` : 'not available'}`);
@@ -58,6 +67,8 @@ async function main() {
     gitDiff,
     missionId: mission.id,
     battlefieldId: mission.battlefieldId,
+    missionType,
+    commitCount,
   });
 
   console.log('Review result:', JSON.stringify(review, null, 2));

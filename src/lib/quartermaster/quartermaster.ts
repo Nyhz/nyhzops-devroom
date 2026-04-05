@@ -156,6 +156,73 @@ export async function triggerQuartermaster(missionId: string): Promise<void> {
     sourceBranch.replace(/\//g, '-'),
   );
 
+  // Safety net: if the branch has no commits ahead of the target, there is
+  // nothing to merge. Treat this as a clean no-op success rather than a
+  // merge failure. The review-handler should normally catch zero-commit
+  // direct_action missions before they reach Quartermaster; this guards
+  // against any path that slips through (e.g. restart mid-flow, legacy
+  // data, race conditions).
+  try {
+    const rootGit = simpleGit(battlefield.repoPath);
+    const countRaw = await rootGit.raw(['rev-list', '--count', `${targetBranch}..${sourceBranch}`]);
+    const commitsAhead = parseInt(countRaw.trim(), 10);
+    if (Number.isFinite(commitsAhead) && commitsAhead === 0) {
+      emitMissionLog(
+        missionId,
+        `[Quartermaster] Branch \`${sourceBranch}\` has no commits ahead of \`${targetBranch}\`. No-op merge — completing mission.`,
+      );
+
+      // Clean up worktree + branch
+      try {
+        await removeWorktree(battlefield.repoPath, worktreeDir, sourceBranch);
+      } catch (err) {
+        console.warn(`[Quartermaster] No-op worktree cleanup failed for ${missionId}:`, err);
+      }
+      cleanupMissionHome(missionId);
+
+      const completedNow = Date.now();
+      db.update(missions)
+        .set({
+          status: 'accomplished',
+          mergeResult: 'clean',
+          mergeTimestamp: completedNow,
+          completedAt: completedNow,
+          updatedAt: completedNow,
+        })
+        .where(eq(missions.id, missionId))
+        .run();
+
+      emitStatusChange('mission', missionId, 'accomplished');
+
+      await escalate({
+        level: 'info',
+        title: `Mission Accomplished — ${mission.title}`,
+        detail: `Branch \`${sourceBranch}\` had no commits to merge. Mission completed as no-op.`,
+        entityType: 'mission',
+        entityId: missionId,
+        battlefieldId: mission.battlefieldId,
+      });
+
+      if (mission.debrief) {
+        try {
+          await extractAndSaveSuggestions({
+            battlefieldId: mission.battlefieldId,
+            missionId: mission.id,
+            campaignId: mission.campaignId ?? undefined,
+            debrief: mission.debrief,
+          });
+        } catch (err) {
+          console.error(`[Quartermaster] Follow-up extraction failed:`, err);
+        }
+      }
+
+      await notifyCampaignIfNeeded(mission);
+      return;
+    }
+  } catch (err) {
+    console.warn(`[Quartermaster] Commit count check failed for ${missionId}, proceeding with merge:`, err);
+  }
+
   // Safety net: commit any uncommitted changes the agent left behind
   if (fs.existsSync(worktreeDir)) {
     try {

@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils';
 import { TacTextarea } from '@/components/ui/tac-input';
 import { InlineEdit } from './inline-edit';
 import { PRIORITIES, priorityDotColor } from './plan-editor-utils';
-import type { PlanMission, MissionPriority } from '@/types';
+import { MissionTypeBadge } from '@/components/mission/mission-type-badge';
+import type { PlanMission, MissionPriority, MissionType } from '@/types';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -59,6 +60,7 @@ export function SortableMissionItem({
     .map((m) => m.title)
     .filter(Boolean);
   const currentDeps = mission.dependsOn ?? [];
+  const currentType: MissionType = mission.type === 'verification' ? 'verification' : 'direct_action';
 
   return (
     <div
@@ -97,6 +99,36 @@ export function SortableMissionItem({
           title="Delete mission"
         >
           ✕
+        </button>
+      </div>
+
+      {/* Mission type toggle — segmented control (DIRECT ACTION / VERIFICATION) */}
+      <div className="flex items-stretch border border-dr-border">
+        <button
+          type="button"
+          onClick={() => onUpdate('type', 'direct_action')}
+          className={cn(
+            'flex-1 px-2 py-1 font-tactical text-[10px] uppercase tracking-wider transition-colors',
+            currentType === 'direct_action'
+              ? 'bg-dr-amber/15 text-dr-amber border-r border-dr-amber/50'
+              : 'text-dr-dim hover:text-dr-amber border-r border-dr-border',
+          )}
+          title="Mutates code, must commit, will be merged"
+        >
+          <span aria-hidden="true">▣</span> DIRECT ACTION
+        </button>
+        <button
+          type="button"
+          onClick={() => onUpdate('type', 'verification')}
+          className={cn(
+            'flex-1 px-2 py-1 font-tactical text-[10px] uppercase tracking-wider transition-colors',
+            currentType === 'verification'
+              ? 'bg-dr-teal/15 text-dr-teal'
+              : 'text-dr-dim hover:text-dr-teal',
+          )}
+          title="Read-only verification, no merge performed"
+        >
+          <span aria-hidden="true">◈</span> VERIFICATION
         </button>
       </div>
 
@@ -231,11 +263,14 @@ export function MissionOverlay({ mission }: { mission: PlanMission }) {
         </span>
         <span className={cn('h-3 w-3 shrink-0 rounded-full', dotColor)} />
       </div>
-      {mission.assetCodename && (
-        <span className="text-xs text-dr-muted font-tactical pl-5">
-          {mission.assetCodename}
-        </span>
-      )}
+      <div className="flex items-center gap-2 pl-5 mt-1">
+        <MissionTypeBadge type={mission.type} />
+        {mission.assetCodename && (
+          <span className="text-xs text-dr-muted font-tactical">
+            {mission.assetCodename}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

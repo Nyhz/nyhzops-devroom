@@ -120,6 +120,20 @@
       "when": 1775520000000,
       "tag": "0016_rename_general_to_strategist",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1775606400000,
+      "tag": "0017_restore_general_asset",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1775606500000,
+      "tag": "0018_strategist_verification_prompt",
+      "breakpoints": true
     }
   ]
 }

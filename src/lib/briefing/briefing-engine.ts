@@ -178,9 +178,11 @@ The Commander has issued GENERATE PLAN. Output ONLY a single raw JSON object. Yo
 Mission briefing values must be PLAIN TEXT — do NOT use markdown code fences (\`\`\`) inside briefing strings. Describe code changes in prose, reference file paths and type names directly.
 
 JSON schema:
-{"summary":"...","phases":[{"name":"...","objective":"...","missions":[{"title":"...","briefing":"plain text only","assetCodename":"OPERATIVE","priority":"routine","dependsOn":["same-phase mission title"]}]}]}
+{"summary":"...","phases":[{"name":"...","objective":"...","missions":[{"title":"...","briefing":"plain text only","assetCodename":"OPERATIVE","priority":"routine","type":"direct_action","dependsOn":["same-phase mission title"]}]}]}
 
-Rules: phases execute sequentially, missions within a phase run in parallel unless linked by dependsOn (same-phase only). Each briefing must be self-contained — the asset has NO other context.`;
+Rules: phases execute sequentially, missions within a phase run in parallel unless linked by dependsOn (same-phase only). Each briefing must be self-contained — the asset has NO other context.
+
+Mission "type" is optional and defaults to "direct_action". Use "verification" for strictly read-only missions that run tests/type-checks/audits and report results without modifying code. Verification missions must produce zero commits; direct_action missions must produce at least one. Use "verification" whenever the briefing verbs are run/check/verify/confirm/audit/report; use "direct_action" whenever the briefing asks to write/edit/refactor/fix/implement.`;
   } else if (isFirstMessage) {
     const systemPrompt = buildBriefingPrompt({
       campaignName: campaign.name,

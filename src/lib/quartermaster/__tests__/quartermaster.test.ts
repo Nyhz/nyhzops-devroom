@@ -49,6 +49,19 @@ vi.mock('fs', () => ({
   },
 }));
 
+// Mock simple-git so the commit-count safety net has a deterministic input.
+// Tests that want to exercise the zero-commit no-op path set raw to return '0\n';
+// tests that want the normal merge path set it to return '1\n' (or more).
+const mockGitRaw = vi.fn().mockResolvedValue('1\n');
+vi.mock('simple-git', () => ({
+  default: () => ({
+    raw: mockGitRaw,
+    status: vi.fn().mockResolvedValue({ modified: [], staged: [], not_added: [] }),
+    add: vi.fn().mockResolvedValue(undefined),
+    commit: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
+
 // ---------------------------------------------------------------------------
 // Import after mocks
 // ---------------------------------------------------------------------------
@@ -70,6 +83,8 @@ describe('triggerQuartermaster', () => {
     testDb = db;
     testSqlite = sqlite;
     vi.clearAllMocks();
+    // Default: branch has 1 commit ahead → normal merge path
+    mockGitRaw.mockResolvedValue('1\n');
   });
 
   afterEach(() => {
@@ -146,7 +161,15 @@ describe('triggerQuartermaster', () => {
     );
 
     expect(extractAndSaveSuggestions).toHaveBeenCalled();
-    expect(escalate).not.toHaveBeenCalled();
+    // Quartermaster emits an info-level "Mission Accomplished" escalation on successful merge
+    // (added in d3a0bf8 for accomplished notifications). Verify it's called with level:'info'.
+    expect(escalate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'info',
+        entityType: 'mission',
+        entityId: m.id,
+      }),
+    );
   });
 
   it('worktree mission with failed merge goes to compromised with merge-failed reason', async () => {
@@ -189,5 +212,47 @@ describe('triggerQuartermaster', () => {
 
     // Worktree should NOT have been removed (branch preserved)
     expect(removeWorktree).not.toHaveBeenCalled();
+  });
+
+  it('worktree mission with zero commits ahead completes as no-op (safety net)', async () => {
+    // Defense-in-depth: if a direct_action mission somehow slips through to
+    // Quartermaster with an empty branch, we complete cleanly instead of
+    // failing the merge with "HEAD unchanged" (the historical bug).
+    const bf = createTestBattlefield(testDb, {
+      repoPath: '/tmp/test-repo',
+      defaultBranch: 'main',
+    });
+    const m = createTestMission(testDb, {
+      battlefieldId: bf.id,
+      status: 'approved',
+      worktreeBranch: 'devroom/test-bf/empty0000',
+      useWorktree: 1,
+      debrief: 'Verification complete. No changes needed.',
+    });
+
+    // Branch has zero commits ahead of main → safety net fires
+    mockGitRaw.mockResolvedValueOnce('0\n');
+
+    await triggerQuartermaster(m.id);
+
+    const row = testDb.select().from(missions).where(eq(missions.id, m.id)).get();
+    expect(row?.status).toBe('accomplished');
+    expect(row?.completedAt).toBeTruthy();
+    expect(row?.mergeResult).toBe('clean');
+
+    // Merge should NOT have been attempted
+    expect(executeMerge).not.toHaveBeenCalled();
+
+    // Worktree cleanup + info escalation + follow-up extraction still happen
+    expect(removeWorktree).toHaveBeenCalled();
+    expect(extractAndSaveSuggestions).toHaveBeenCalled();
+    expect(escalate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'info',
+        entityType: 'mission',
+        entityId: m.id,
+      }),
+    );
+    expect(emitStatusChange).toHaveBeenCalledWith('mission', m.id, 'accomplished');
   });
 });

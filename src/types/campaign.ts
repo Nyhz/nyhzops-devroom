@@ -1,4 +1,4 @@
-import type { MissionPriority } from './status';
+import type { MissionPriority, MissionType } from './status';
 import type { Campaign, Phase, Mission } from './models';
 
 // ---------------------------------------------------------------------------
@@ -20,6 +20,7 @@ export interface PlanMission {
   briefing: string;
   assetCodename: string;
   priority: MissionPriority;
+  type?: MissionType;
   dependsOn?: string[];
 }
 
