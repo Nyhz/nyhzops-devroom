@@ -45,6 +45,7 @@ vi.mock('@/lib/socket/emit', () => ({
 vi.mock('fs', () => ({
   default: {
     rmSync: vi.fn(),
+    existsSync: vi.fn().mockReturnValue(false),
   },
 }));
 
