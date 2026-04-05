@@ -198,6 +198,7 @@ export const overseerLogs = sqliteTable('overseer_logs', {
   reasoning: text('reasoning').notNull(),
   confidence: text('confidence').notNull(),  // 'high' | 'medium' | 'low'
   escalated: integer('escalated').default(0),
+  decisionType: text('decision_type'),
   timestamp: integer('timestamp').notNull(),
 });
 
