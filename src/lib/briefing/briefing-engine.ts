@@ -14,7 +14,9 @@ import {
 } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
-import { buildBriefingPrompt } from './briefing-prompt';
+import { buildBriefingSystemPrompt, buildBriefingUserMessage } from './briefing-prompt';
+import { GENERATE_PLAN_CONTRACT } from './briefing-contract';
+import { formatAssetRoster } from './asset-roster';
 import { insertPlanFromJSON } from '@/actions/campaign-helpers';
 import type { PlanJSON } from '@/types';
 import { detectCycle } from '@/lib/utils/dependency-graph';
@@ -116,16 +118,32 @@ export async function sendBriefingMessage(
   // 5. Load STRATEGIST asset for full config (model, system prompt, skills, MCPs)
   const strategistAsset = getSystemAsset('STRATEGIST');
 
-  // Build asset CLI args, filtering --max-turns (we set our own).
-  // --append-system-prompt carries the STRATEGIST's identity and is kept.
+  // Build asset CLI args. We strip:
+  //  - --max-turns: we set our own below.
+  //  - --append-system-prompt: buildAssetCliArgs emits the stored seed prompt,
+  //    but we always replace it at runtime with the composed system prompt
+  //    (identity + contract + CLAUDE.md + SPEC.md + roster). Passing both
+  //    would duplicate the identity section.
   const assetArgs = buildAssetCliArgs(strategistAsset);
-  const filteredAssetArgs = filterFlags(assetArgs, ['--max-turns']);
+  const filteredAssetArgs = filterFlags(assetArgs, [
+    '--max-turns',
+    '--append-system-prompt',
+  ]);
 
   // 6. Detect GENERATE PLAN — uses a completely fresh process (no --resume)
-  // so the STRATEGIST gets up-to-date format instructions instead of relying on
-  // the old session's system prompt which may lack strict JSON requirements.
+  // so the model gets a single clean instruction with conversation history
+  // replayed in stdin, rather than carrying accumulated multi-turn context
+  // from the chat session.
   const isFirstMessage = !session.sessionId;
   const isGeneratePlan = message.trim().toUpperCase().includes('GENERATE PLAN');
+
+  // Composed system prompt: stable across turns within a briefing and across
+  // briefings on the same battlefield, so eligible for prompt caching.
+  const composedSystemPrompt = buildBriefingSystemPrompt({
+    claudeMdPath: battlefield.claudeMdPath,
+    specMdPath: battlefield.specMdPath,
+    allAssets,
+  });
 
   const cliArgs: string[] = [
     '--print',
@@ -134,65 +152,60 @@ export async function sendBriefingMessage(
     '--include-partial-messages',
     '--dangerously-skip-permissions',
     '--max-turns', '3',
+    '--append-system-prompt', composedSystemPrompt,
     ...filteredAssetArgs,
   ];
 
   // Resume the existing session for normal conversation messages only.
-  // GENERATE PLAN always starts fresh — the old session's system prompt doesn't
-  // include strict JSON format rules, so the STRATEGIST ignores them.
+  // GENERATE PLAN uses a fresh process (no --resume) so the model gets
+  // a single clean instruction with conversation history replayed in
+  // stdin, rather than carrying accumulated multi-turn context from the
+  // chat session.
   if (!isFirstMessage && session.sessionId && !isGeneratePlan) {
     cliArgs.push('--resume', session.sessionId);
   }
 
-  // 7. Build stdin content
+  // 7. Build stdin content. The stable contract + CLAUDE.md + SPEC.md + roster
+  // are already in --append-system-prompt, so stdin only carries volatile
+  // per-turn content.
   let stdinContent: string;
 
-  if (isGeneratePlan && !isFirstMessage) {
-    // Build a self-contained prompt with conversation history and strict format rules.
+  if (isGeneratePlan) {
+    // GENERATE PLAN runs fresh (no --resume), so it needs enough context to
+    // re-ground itself: the conversation history plus the strict format rules.
     const history = db
       .select({ role: briefingMessages.role, content: briefingMessages.content })
       .from(briefingMessages)
-      .where(eq(briefingMessages.briefingId, session!.id))
+      .where(eq(briefingMessages.briefingId, session.id))
       .all();
 
     const conversationLines = history.map((m) =>
-      m.role === 'commander' ? `Commander: ${m.content}` : `STRATEGIST: ${m.content.slice(0, 2000)}`,
+      m.role === 'commander'
+        ? `Commander: ${m.content}`
+        : `STRATEGIST: ${m.content.slice(0, 2000)}`,
     );
 
-    stdinContent = `You are STRATEGIST, a campaign planning specialist for NYHZ OPS DEVROOM.
-Campaign: "${campaign.name}" | Battlefield: ${battlefield.codename}
+    stdinContent = `Campaign: "${campaign.name}" | Battlefield: ${battlefield.codename}
 
 CAMPAIGN OBJECTIVE:
 ${campaign.objective}
 
-AVAILABLE ASSETS:
-${allAssets.filter(a => a.status === 'active' && a.codename !== 'STRATEGIST').map(a => `- ${a.codename}: ${a.specialty}`).join('\n')}
+AVAILABLE MISSION ASSETS:
+${formatAssetRoster(allAssets)}
 
 BRIEFING CONVERSATION SUMMARY:
 ${conversationLines.join('\n\n')}
 
 ---
 
-The Commander has issued GENERATE PLAN. Output ONLY a single raw JSON object. Your ENTIRE response must start with { and end with } — no markdown, no code fences, no backticks, no preamble, no commentary.
-
-Mission briefing values must be PLAIN TEXT — do NOT use markdown code fences (\`\`\`) inside briefing strings. Describe code changes in prose, reference file paths and type names directly.
-
-JSON schema:
-{"summary":"...","phases":[{"name":"...","objective":"...","missions":[{"title":"...","briefing":"plain text only","assetCodename":"OPERATIVE","priority":"routine","type":"direct_action","dependsOn":["same-phase mission title"]}]}]}
-
-Rules: phases execute sequentially, missions within a phase run in parallel unless linked by dependsOn (same-phase only). Each briefing must be self-contained — the asset has NO other context.
-
-Mission "type" is optional and defaults to "direct_action". Use "verification" for strictly read-only missions that run tests/type-checks/audits and report results without modifying code. Verification missions must produce zero commits; direct_action missions must produce at least one. Use "verification" whenever the briefing verbs are run/check/verify/confirm/audit/report; use "direct_action" whenever the briefing asks to write/edit/refactor/fix/implement.`;
+${GENERATE_PLAN_CONTRACT}`;
   } else if (isFirstMessage) {
-    const systemPrompt = buildBriefingPrompt({
+    stdinContent = buildBriefingUserMessage({
       campaignName: campaign.name,
       campaignObjective: campaign.objective,
       battlefieldCodename: battlefield.codename,
-      claudeMdPath: battlefield.claudeMdPath,
-      specMdPath: battlefield.specMdPath,
-      allAssets,
+      commanderMessage: message,
     });
-    stdinContent = systemPrompt + '\n\n---\n\nCommander says: ' + message;
   } else {
     stdinContent = message;
   }
@@ -268,107 +281,129 @@ Mission "type" is optional and defaults to "direct_action". Use "verification" f
   // Wait for process to complete
   return new Promise<void>((resolve, reject) => {
     proc.on('close', (code) => {
-      activeProcesses.delete(campaignId);
-
-      // Process any remaining buffered line
-      if (lineBuffer.trim()) {
+      void (async () => {
         try {
-          const event = JSON.parse(lineBuffer);
-          if (event.session_id && !extractedSessionId) {
-            extractedSessionId = event.session_id;
+          activeProcesses.delete(campaignId);
+
+          // Process any remaining buffered line
+          if (lineBuffer.trim()) {
+            try {
+              const event = JSON.parse(lineBuffer);
+              if (event.session_id && !extractedSessionId) {
+                extractedSessionId = event.session_id;
+              }
+              if (event.type === 'result') {
+                if (event.session_id) extractedSessionId = event.session_id;
+                if (!fullResponse && event.result && typeof event.result === 'string') {
+                  fullResponse = event.result;
+                }
+              }
+            } catch { /* ignore */ }
           }
-          if (event.type === 'result') {
-            if (event.session_id) extractedSessionId = event.session_id;
-            if (!fullResponse && event.result && typeof event.result === 'string') {
-              fullResponse = event.result;
+
+          // Update session with Claude session ID
+          if (extractedSessionId) {
+            db.update(briefingSessions)
+              .set({
+                sessionId: extractedSessionId,
+                updatedAt: Date.now(),
+              })
+              .where(eq(briefingSessions.id, session!.id))
+              .run();
+          }
+
+          if (code !== 0 && code !== null) {
+            const errorMsg = `STRATEGIST process exited with code ${code}: ${stderrOutput.slice(0, 500)}`;
+            io.to(room).emit('briefing:error', { campaignId, error: errorMsg });
+            reject(new Error(errorMsg));
+            return;
+          }
+
+          const responseText = fullResponse.trim();
+
+          // For GENERATE PLAN: extract the plan first, then store a formatted
+          // summary in the chat instead of the raw JSON blob. If extraction
+          // fails, attempt one silent retry with a stricter re-prompt before
+          // giving up with a distinct failure notification.
+          let storedContent = responseText;
+          if (isGeneratePlan) {
+            let planText = responseText;
+            let plan = tryExtractAndValidatePlan(planText);
+
+            if (!plan) {
+              console.warn(
+                `[BRIEFING] Plan parse failed for campaign ${campaignId}; retrying once with stricter re-prompt`,
+              );
+              try {
+                const retryStdin = `Your previous response was not valid JSON. Output ONLY the JSON object now — no prose, no code fences, no backticks, no preamble.\n\n${stdinContent}`;
+                const retry = await spawnStrategistPlan({
+                  battlefieldRepoPath: battlefield.repoPath,
+                  persistentHome,
+                  cliArgs,
+                  stdinContent: retryStdin,
+                });
+                planText = retry.text;
+                plan = tryExtractAndValidatePlan(planText);
+              } catch (retryErr) {
+                console.error(`[BRIEFING] Retry spawn failed:`, retryErr);
+              }
+            }
+
+            if (plan) {
+              const totalMissions = plan.phases.reduce((s, p) => s + p.missions.length, 0);
+              console.log(
+                `[BRIEFING] Plan generated for campaign ${campaignId}: ${plan.phases.length} phases, ${totalMissions} missions`,
+              );
+              insertPlanFromJSON(campaignId, campaign.battlefieldId, plan);
+
+              db.update(campaigns)
+                .set({ status: 'planning', updatedAt: Date.now() })
+                .where(eq(campaigns.id, campaignId))
+                .run();
+
+              storedContent = formatPlanSummary(plan);
+
+              io.to(room).emit('briefing:plan-ready', { campaignId, plan });
+            } else {
+              console.error(
+                `[BRIEFING] Plan extraction failed after retry for campaign ${campaignId}`,
+              );
+              const parseFailureMessage =
+                "STRATEGIST's plan could not be parsed as JSON after one retry. Ask the STRATEGIST to output the plan as a single JSON object with a \"summary\" key.";
+              io.to(room).emit('briefing:plan-parse-failed', {
+                campaignId,
+                error: parseFailureMessage,
+              });
+              // Also emit the generic error event so the existing UI loading-state
+              // handler unblocks. The distinct event above is for future UI specificity.
+              io.to(room).emit('briefing:error', {
+                campaignId,
+                error: parseFailureMessage,
+              });
+              storedContent = parseFailureMessage;
             }
           }
-        } catch { /* ignore */ }
-      }
 
-      // Update session with Claude session ID
-      if (extractedSessionId) {
-        db.update(briefingSessions)
-          .set({
-            sessionId: extractedSessionId,
-            updatedAt: Date.now(),
-          })
-          .where(eq(briefingSessions.id, session!.id))
-          .run();
-      }
+          // Store STRATEGIST's response (formatted summary if plan succeeded, raw otherwise)
+          const msgId = generateId();
+          db.insert(briefingMessages)
+            .values({
+              id: msgId,
+              briefingId: session!.id,
+              role: 'general',
+              content: storedContent,
+              timestamp: Date.now(),
+            })
+            .run();
 
-      if (code !== 0 && code !== null) {
-        const errorMsg = `STRATEGIST process exited with code ${code}: ${stderrOutput.slice(0, 500)}`;
-        io.to(room).emit('briefing:error', { campaignId, error: errorMsg });
-        reject(new Error(errorMsg));
-        return;
-      }
+          io.to(room).emit('briefing:complete', { campaignId, messageId: msgId, content: storedContent });
 
-      const responseText = fullResponse.trim();
-
-      // For GENERATE PLAN: extract the plan first, then store a formatted
-      // summary in the chat instead of the raw JSON blob.
-      let storedContent = responseText;
-      if (isGeneratePlan) {
-        try {
-          const plan = extractPlanJSON(responseText);
-          if (plan) {
-            const totalMissions = plan.phases.reduce((s, p) => s + p.missions.length, 0);
-            console.log(`[BRIEFING] Plan generated for campaign ${campaignId}: ${plan.phases.length} phases, ${totalMissions} missions`);
-            // Validate no circular dependencies
-            const allMissions = plan.phases.flatMap((p) =>
-              p.missions.map((m) => ({ title: m.title, dependsOn: m.dependsOn ?? [] })),
-            );
-            const cycle = detectCycle(allMissions);
-            if (cycle) throw new Error(`Plan contains circular dependencies: ${cycle}`);
-
-            insertPlanFromJSON(campaignId, campaign.battlefieldId, plan);
-
-            // Transition campaign to planning
-            db.update(campaigns)
-              .set({ status: 'planning', updatedAt: Date.now() })
-              .where(eq(campaigns.id, campaignId))
-              .run();
-
-            // Format a readable summary for the chat instead of raw JSON
-            storedContent = formatPlanSummary(plan);
-
-            io.to(room).emit('briefing:plan-ready', {
-              campaignId,
-              plan,
-            });
-          } else {
-            console.error(`[BRIEFING] extractPlanJSON returned null for campaign ${campaignId}`);
-            io.to(room).emit('briefing:error', {
-              campaignId,
-              error: 'Could not extract a valid JSON plan from STRATEGIST\'s response. Ask the STRATEGIST to output the plan as a single JSON object with a "summary" key.',
-            });
-          }
+          resolve();
         } catch (err) {
-          const planError = err instanceof Error ? err.message : String(err);
-          console.error(`[BRIEFING] Plan extraction/insertion failed for campaign ${campaignId}:`, planError);
-          io.to(room).emit('briefing:error', {
-            campaignId,
-            error: `Plan extraction failed: ${planError}`,
-          });
+          activeProcesses.delete(campaignId);
+          reject(err instanceof Error ? err : new Error(String(err)));
         }
-      }
-
-      // Store STRATEGIST's response (formatted summary if plan succeeded, raw otherwise)
-      const msgId = generateId();
-      db.insert(briefingMessages)
-        .values({
-          id: msgId,
-          briefingId: session!.id,
-          role: 'general',
-          content: storedContent,
-          timestamp: Date.now(),
-        })
-        .run();
-
-      io.to(room).emit('briefing:complete', { campaignId, messageId: msgId, content: storedContent });
-
-      resolve();
+      })();
     });
 
     proc.on('error', (err) => {
@@ -456,6 +491,105 @@ function formatPlanSummary(plan: PlanJSON): string {
 
   lines.push('*Transitioning to planning phase...*');
   return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// spawnStrategistPlan — one-shot silent spawn for GENERATE PLAN retries
+// ---------------------------------------------------------------------------
+
+/**
+ * Spawn a one-shot STRATEGIST process for GENERATE PLAN. Returns the raw
+ * response text. Used by the retry path when the primary GENERATE PLAN
+ * attempt produced un-parseable output. Intentionally NOT plumbed into
+ * active-process tracking or streaming emits — retries are brief and silent
+ * (the user already saw the primary attempt stream).
+ */
+async function spawnStrategistPlan(params: {
+  battlefieldRepoPath: string;
+  persistentHome: string;
+  cliArgs: string[];
+  stdinContent: string;
+}): Promise<{ text: string; code: number | null; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(config.claudePath, params.cliArgs, {
+      cwd: params.battlefieldRepoPath,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, HOME: params.persistentHome },
+    });
+
+    let text = '';
+    let stderr = '';
+    let lineBuffer = '';
+
+    proc.stdout.on('data', (chunk: Buffer) => {
+      lineBuffer += chunk.toString();
+      const lines = lineBuffer.split('\n');
+      lineBuffer = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line);
+          if (event.type === 'stream_event' && event.event) {
+            const inner = event.event;
+            if (
+              inner.type === 'content_block_delta' &&
+              inner.delta?.type === 'text_delta' &&
+              inner.delta.text
+            ) {
+              text += inner.delta.text;
+            }
+          }
+          if (event.type === 'result') {
+            if (!text && event.result && typeof event.result === 'string') {
+              text = event.result;
+            }
+          }
+        } catch { /* ignore non-JSON lines */ }
+      }
+    });
+
+    proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+
+    proc.stdin.write(params.stdinContent);
+    proc.stdin.end();
+
+    proc.on('close', (code) => resolve({ text, code, stderr }));
+    proc.on('error', reject);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// tryExtractAndValidatePlan — combined parse + cycle-detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Combined extract + validate for a STRATEGIST plan response. Returns a
+ * valid PlanJSON on success, or null on any failure (parse error, cycle
+ * detected, insert-time validation error). Errors are logged so retries
+ * and final failures are attributable.
+ */
+function tryExtractAndValidatePlan(text: string): PlanJSON | null {
+  try {
+    const plan = extractPlanJSON(text);
+    if (!plan) return null;
+
+    const allMissions = plan.phases.flatMap((p) =>
+      p.missions.map((m) => ({ title: m.title, dependsOn: m.dependsOn ?? [] })),
+    );
+    const cycle = detectCycle(allMissions);
+    if (cycle) {
+      console.warn(`[BRIEFING] Plan contains circular dependencies: ${cycle}`);
+      return null;
+    }
+
+    return plan;
+  } catch (err) {
+    console.warn(
+      '[BRIEFING] Plan extraction/validation threw:',
+      err instanceof Error ? err.message : String(err),
+    );
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
