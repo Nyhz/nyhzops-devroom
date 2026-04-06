@@ -46,8 +46,8 @@ const DEFAULT_ASSETS: Array<{
     maxTurns: 100,
     skills: JSON.stringify([
       'frontend-design:frontend-design',
-      'superpowers:verification-before-completion',
-      'superpowers:test-driven-development',
+      'verification-before-completion:verification-before-completion',
+      'test-driven-development:test-driven-development',
     ]),
     isSystem: 0,
     systemPrompt: `You specialize in frontend — components, layouts, styling, and client-side interactivity. Visual fidelity and accessibility are non-negotiable parts of your output.
