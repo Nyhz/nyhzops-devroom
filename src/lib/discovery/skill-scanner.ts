@@ -110,10 +110,19 @@ export function scanHostSkills(): ScanResult {
   const settings = safeReadJson<ClaudeSettings>(SETTINGS_PATH);
   const enabledPlugins = settings?.enabledPlugins ?? {};
 
+  // Plugins whose skills are already extracted as standalone project-scoped plugins.
+  // Their sub-skills would duplicate what the standalone plugins provide.
+  const HIDDEN_SKILL_PLUGINS = new Set(['superpowers@claude-plugins-official']);
+
   // 4. Process each plugin entry
   for (const [pluginKey, entries] of Object.entries(manifest.plugins)) {
     // If settings explicitly disables the plugin, skip it
     if (Object.keys(enabledPlugins).length > 0 && enabledPlugins[pluginKey] === false) {
+      continue;
+    }
+
+    // Skip plugins whose skills are surfaced via standalone project plugins
+    if (HIDDEN_SKILL_PLUGINS.has(pluginKey)) {
       continue;
     }
 
