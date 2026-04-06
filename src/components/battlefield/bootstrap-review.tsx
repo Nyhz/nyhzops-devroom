@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { TacButton } from "@/components/ui/tac-button";
 import { TacCard } from "@/components/ui/tac-card";
 import { TacTextarea } from "@/components/ui/tac-input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Markdown } from "@/components/ui/markdown";
 import { useConfirm } from "@/hooks/use-confirm";
 import {
@@ -184,11 +183,11 @@ export function BootstrapReview({
             </div>
           </div>
         ) : (
-          <ScrollArea className="max-h-72 md:max-h-96">
+          <div className="max-h-[36rem] md:max-h-[48rem] overflow-y-auto">
             <div className="font-data p-3 md:p-4 text-sm">
               <Markdown content={content} />
             </div>
-          </ScrollArea>
+          </div>
         )}
       </TacCard>
     );

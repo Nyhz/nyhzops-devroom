@@ -114,8 +114,10 @@ export async function runOverseerReview(missionId: string): Promise<void> {
     }
   }
 
-  const missionType: 'direct_action' | 'verification' =
-    mission.type === 'verification' ? 'verification' : 'direct_action';
+  const missionType: 'direct_action' | 'verification' | 'bootstrap' =
+    mission.type === 'verification' ? 'verification'
+    : mission.type === 'bootstrap' ? 'bootstrap'
+    : 'direct_action';
 
   // Run the overseer review
   let review: OverseerReview;
@@ -312,6 +314,41 @@ export async function runOverseerReview(missionId: string): Promise<void> {
         } catch (err) {
           console.error(`[Overseer] Follow-up extraction failed:`, err);
         }
+      }
+
+      if (mission.campaignId) {
+        const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
+        if (executor) {
+          executor.onCampaignMissionComplete(missionId).catch(err => {
+            console.error(`[Overseer] Campaign notification failed:`, err);
+          });
+        }
+      }
+      return;
+    }
+
+    if (missionType === 'bootstrap') {
+      // Bootstrap missions run directly in the repo without a worktree — no merge needed.
+      // Go straight to accomplished.
+      const completedAt = Date.now();
+      db.update(missions).set({
+        status: 'accomplished',
+        completedAt,
+        updatedAt: completedAt,
+      }).where(eq(missions.id, missionId)).run();
+
+      emitStatusChange('mission', missionId, 'accomplished');
+      emitMissionLog(missionId, '[Overseer] Bootstrap mission approved. No merge required.');
+
+      if (review.concerns.length > 0) {
+        await escalate({
+          level: 'info',
+          title: `Debrief Note: ${mission.title}`,
+          detail: review.concerns.join('. '),
+          entityType: 'mission',
+          entityId: mission.id,
+          battlefieldId: mission.battlefieldId,
+        });
       }
 
       if (mission.campaignId) {

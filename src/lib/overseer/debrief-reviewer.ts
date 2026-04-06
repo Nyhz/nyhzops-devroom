@@ -51,12 +51,14 @@ export function buildReviewUserPrompt(params: {
   missionDebrief: string;
   gitDiffStat: string | null;
   gitDiff: string | null;
-  missionType: 'direct_action' | 'verification';
+  missionType: 'direct_action' | 'verification' | 'bootstrap';
   commitCount: number | null;
 }): string {
   const sections: string[] = [];
 
-  const typeLabel = params.missionType === 'verification' ? 'VERIFICATION' : 'DIRECT_ACTION';
+  const typeLabel = params.missionType === 'verification' ? 'VERIFICATION'
+    : params.missionType === 'bootstrap' ? 'BOOTSTRAP'
+    : 'DIRECT_ACTION';
   const commitLine = params.commitCount === null
     ? 'Commit count on worktree branch: n/a (no worktree)'
     : `Commit count on worktree branch: ${params.commitCount}`;
@@ -94,6 +96,7 @@ MISSION TYPE RULES:
 - DIRECT_ACTION missions MUST produce at least one commit on their worktree branch. If the commit count is 0, the asset did nothing — respond with verdict "retry" and concern "no commits produced".
 - VERIFICATION missions are strictly read-only. They MUST produce zero commits. If the commit count is >0, the asset violated its scope — respond with verdict "retry" and concern "verification mission modified code".
 - VERIFICATION missions with zero commits and a quality debrief are the expected happy path — approve them normally.
+- BOOTSTRAP missions generate project documentation (CLAUDE.md, SPEC.md) directly in the repo without a worktree. Commit count will show "n/a (no worktree)" — this is expected. Judge bootstrap missions solely on debrief quality: did the agent produce the requested documentation? Do NOT retry or escalate for missing commits.
 
 Output must be a JSON object matching the provided schema:
 { "verdict": "approve"|"retry"|"escalate", "concerns": ["..."], "reasoning": "..." }
@@ -150,7 +153,7 @@ export async function reviewDebrief(params: {
   gitDiff: string | null;
   missionId: string;
   battlefieldId: string;
-  missionType: 'direct_action' | 'verification';
+  missionType: 'direct_action' | 'verification' | 'bootstrap';
   commitCount: number | null;
 }): Promise<OverseerReview> {
   const userPrompt = buildReviewUserPrompt({
