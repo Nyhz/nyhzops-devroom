@@ -117,14 +117,7 @@ export function buildAssetCliArgs(
     args.push('--effort', asset.effort);
   }
 
-  // --append-system-prompt (prepend shared ROE for mission assets)
-  if (asset.systemPrompt) {
-    const roe = asset.isSystem === 0 ? getRulesOfEngagement() : '';
-    const composed = roe ? `${roe}\n\n${asset.systemPrompt}` : asset.systemPrompt;
-    args.push('--append-system-prompt', composed);
-  }
-
-  // Skill resolution with overrides
+  // Skill resolution with overrides (before system prompt so we can list them)
   let resolvedSkills: string[] = asset.skills ? (JSON.parse(asset.skills) as string[]) : [];
 
   if (skillOverrides?.removed) {
@@ -134,6 +127,23 @@ export function buildAssetCliArgs(
     for (const s of skillOverrides.added) {
       if (!resolvedSkills.includes(s)) resolvedSkills.push(s);
     }
+  }
+
+  // --append-system-prompt (prepend shared ROE for mission assets)
+  if (asset.systemPrompt) {
+    const roe = asset.isSystem === 0 ? getRulesOfEngagement() : '';
+    let composed = roe ? `${roe}\n\n${asset.systemPrompt}` : asset.systemPrompt;
+
+    // Append active skill awareness
+    if (resolvedSkills.length > 0) {
+      const skillNames = resolvedSkills.map((id) => {
+        const colonIdx = id.indexOf(':');
+        return colonIdx !== -1 ? id.slice(colonIdx + 1) : id;
+      });
+      composed += `\n\nACTIVE SKILLS: You have the following skills loaded as plugins: ${skillNames.join(', ')}. Use them when relevant to your mission.`;
+    }
+
+    args.push('--append-system-prompt', composed);
   }
 
   // --plugin-dir for each resolved skill
