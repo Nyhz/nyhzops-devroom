@@ -4,8 +4,6 @@ import {
   getScheduleDossier,
   getDossiersByType,
   SCHEDULE_TASK_TYPES,
-  type ScheduleTaskType,
-  type ScheduleTaskDossier,
 } from '../dossiers';
 
 describe('SCHEDULE_DOSSIERS', () => {

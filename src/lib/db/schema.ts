@@ -163,6 +163,7 @@ export const scheduledTasks = sqliteTable('scheduled_tasks', {
   enabled: integer('enabled').default(1),
   missionTemplate: text('mission_template'),
   campaignId: text('campaign_id').references(() => campaigns.id),
+  dossierId: text('dossier_id'),
   lastRunAt: integer('last_run_at'),
   nextRunAt: integer('next_run_at'),
   runCount: integer('run_count').default(0),
