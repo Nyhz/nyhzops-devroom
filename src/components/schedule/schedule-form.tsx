@@ -60,6 +60,14 @@ export function ScheduleForm({
     setDossierId('');
   }
 
+  function handleDossierChange(newDossierId: string) {
+    setDossierId(newDossierId);
+    const dossier = SCHEDULE_DOSSIERS.find((d) => d.id === newDossierId);
+    if (dossier) {
+      setCron(dossier.defaultCron);
+    }
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -147,17 +155,17 @@ export function ScheduleForm({
           </TacSelect>
         </div>
 
-        {/* Dossier */}
+        {/* Task (dossier selector) */}
         <div>
           <label className="block text-dr-muted font-tactical text-xs uppercase tracking-wider mb-1">
-            Dossier
+            Task
           </label>
           <TacSelect
             value={dossierId}
-            onValueChange={(v) => { if (v) setDossierId(v); }}
+            onValueChange={(v) => { if (v) handleDossierChange(v); }}
           >
             <TacSelectTrigger>
-              <TacSelectValue placeholder="Select dossier" />
+              <TacSelectValue placeholder="Select task..." />
             </TacSelectTrigger>
             <TacSelectContent>
               {dossiersForType.length === 0 ? (
