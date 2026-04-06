@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS scheduled_tasks (
   enabled INTEGER DEFAULT 1,
   mission_template TEXT,
   campaign_id TEXT REFERENCES campaigns(id),
+  dossier_id TEXT,
   last_run_at INTEGER,
   next_run_at INTEGER,
   run_count INTEGER DEFAULT 0,
@@ -195,68 +196,37 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('createScheduledTask', () => {
-  it('creates a mission-type task with template', async () => {
+  it('creates a maintenance task with dossierId', async () => {
     const task = await createScheduledTask({
       battlefieldId: BF_ID,
-      name: 'Nightly Build',
-      type: 'mission',
-      cron: '0 2 * * *',
-      briefing: 'Run the build',
-      assetId: 'asset_1',
-      priority: 'high',
+      name: 'Nightly Sweep',
+      type: 'maintenance',
+      dossierId: 'worktree-sweep',
+      cron: '0 3 * * *',
     });
 
     expect(task.id).toBeDefined();
-    expect(task.name).toBe('Nightly Build');
-    expect(task.type).toBe('mission');
-    expect(task.cron).toBe('0 2 * * *');
+    expect(task.name).toBe('Nightly Sweep');
+    expect(task.type).toBe('maintenance');
+    expect(task.dossierId).toBe('worktree-sweep');
+    expect(task.cron).toBe('0 3 * * *');
     expect(task.enabled).toBe(1);
     expect(task.runCount).toBe(0);
     expect(task.nextRunAt).toBeGreaterThan(Date.now() - 1000);
-
-    const template = JSON.parse(task.missionTemplate!);
-    expect(template.briefing).toBe('Run the build');
-    expect(template.assetId).toBe('asset_1');
-    expect(template.priority).toBe('high');
-
     expect(revalidatePath).toHaveBeenCalledWith(`/battlefields/${BF_ID}/schedule`);
   });
 
-  it('creates a campaign-type task without mission template', async () => {
-    // Seed a campaign for the FK
-    testDb.insert(schema.campaigns).values({
-      id: 'camp_1',
-      battlefieldId: BF_ID,
-      name: 'Test Campaign',
-      objective: 'Test',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }).run();
-
+  it('creates a reporting task with dossierId', async () => {
     const task = await createScheduledTask({
       battlefieldId: BF_ID,
-      name: 'Weekly Campaign',
-      type: 'campaign',
-      cron: '0 0 * * 1',
-      campaignId: 'camp_1',
+      name: 'Weekly Digest',
+      type: 'reporting',
+      dossierId: 'activity-digest',
+      cron: '0 8 * * 1',
     });
 
-    expect(task.type).toBe('campaign');
-    expect(task.campaignId).toBe('camp_1');
-    expect(task.missionTemplate).toBeNull();
-  });
-
-  it('creates a maintenance-type task', async () => {
-    const task = await createScheduledTask({
-      battlefieldId: BF_ID,
-      name: 'DB Cleanup',
-      type: 'maintenance',
-      cron: '0 3 * * 0',
-    });
-
-    expect(task.type).toBe('maintenance');
-    expect(task.missionTemplate).toBeNull();
-    expect(task.campaignId).toBeNull();
+    expect(task.type).toBe('reporting');
+    expect(task.dossierId).toBe('activity-digest');
   });
 
   it('throws on invalid cron expression', async () => {
@@ -264,31 +234,43 @@ describe('createScheduledTask', () => {
       createScheduledTask({
         battlefieldId: BF_ID,
         name: 'Bad Cron',
-        type: 'mission',
+        type: 'maintenance',
+        dossierId: 'worktree-sweep',
         cron: 'not-a-cron',
       }),
     ).rejects.toThrow('invalid cron expression');
   });
 
-  it('defaults priority to normal when not specified', async () => {
-    const task = await createScheduledTask({
-      battlefieldId: BF_ID,
-      name: 'Default Priority',
-      type: 'mission',
-      cron: '*/10 * * * *',
-    });
+  it('throws on unknown dossierId', async () => {
+    await expect(
+      createScheduledTask({
+        battlefieldId: BF_ID,
+        name: 'Unknown',
+        type: 'maintenance',
+        dossierId: 'nonexistent-dossier',
+        cron: '0 3 * * *',
+      }),
+    ).rejects.toThrow('Unknown schedule dossier');
+  });
 
-    const template = JSON.parse(task.missionTemplate!);
-    expect(template.priority).toBe('routine');
-    expect(template.briefing).toBe('');
-    expect(template.assetId).toBeNull();
+  it('throws when dossierId type does not match task type', async () => {
+    await expect(
+      createScheduledTask({
+        battlefieldId: BF_ID,
+        name: 'Mismatched',
+        type: 'reporting',
+        dossierId: 'worktree-sweep',
+        cron: '0 3 * * *',
+      }),
+    ).rejects.toThrow('type mismatch');
   });
 
   it('persists in the database', async () => {
     const task = await createScheduledTask({
       battlefieldId: BF_ID,
       name: 'Persisted',
-      type: 'mission',
+      type: 'maintenance',
+      dossierId: 'branch-sweep',
       cron: '0 * * * *',
     });
 
@@ -300,6 +282,7 @@ describe('createScheduledTask', () => {
 
     expect(found).toBeDefined();
     expect(found!.name).toBe('Persisted');
+    expect(found!.dossierId).toBe('branch-sweep');
   });
 });
 
@@ -314,10 +297,9 @@ describe('updateScheduledTask', () => {
     const task = await createScheduledTask({
       battlefieldId: BF_ID,
       name: 'Original',
-      type: 'mission',
+      type: 'maintenance',
+      dossierId: 'worktree-sweep',
       cron: '0 * * * *',
-      briefing: 'Original briefing',
-      priority: 'routine',
     });
     taskId = task.id;
     vi.clearAllMocks();
@@ -356,19 +338,17 @@ describe('updateScheduledTask', () => {
     ).rejects.toThrow('nonexistent not found');
   });
 
-  it('merges mission template fields', async () => {
-    const updated = await updateScheduledTask(taskId, { priority: 'critical' });
-
-    const template = JSON.parse(updated.missionTemplate!);
-    expect(template.priority).toBe('critical');
-    expect(template.briefing).toBe('Original briefing');
+  it('updates dossierId with type validation', async () => {
+    const updated = await updateScheduledTask(taskId, {
+      dossierId: 'branch-sweep',
+    });
+    expect(updated.dossierId).toBe('branch-sweep');
   });
 
-  it('clears missionTemplate when switching to campaign type', async () => {
-    const updated = await updateScheduledTask(taskId, { type: 'campaign' });
-
-    expect(updated.type).toBe('campaign');
-    expect(updated.missionTemplate).toBeNull();
+  it('throws when updated dossierId type does not match task type', async () => {
+    await expect(
+      updateScheduledTask(taskId, { dossierId: 'activity-digest' }),
+    ).rejects.toThrow('type mismatch');
   });
 });
 
@@ -382,6 +362,7 @@ describe('deleteScheduledTask', () => {
       battlefieldId: BF_ID,
       name: 'To Delete',
       type: 'maintenance',
+      dossierId: 'worktree-sweep',
       cron: '0 0 * * *',
     });
 
@@ -413,20 +394,21 @@ describe('listScheduledTasks', () => {
     await createScheduledTask({
       battlefieldId: BF_ID,
       name: 'Task A',
-      type: 'mission',
+      type: 'maintenance',
+      dossierId: 'worktree-sweep',
       cron: '0 1 * * *',
     });
     await createScheduledTask({
       battlefieldId: BF_ID,
       name: 'Task B',
       type: 'maintenance',
+      dossierId: 'branch-sweep',
       cron: '0 2 * * *',
     });
 
     const tasks = await listScheduledTasks(BF_ID);
 
     expect(tasks).toHaveLength(2);
-    // Both tasks present (order depends on nextRunAt which is time-sensitive)
     const names = tasks.map(t => t.name).sort();
     expect(names).toEqual(['Task A', 'Task B']);
   });
@@ -451,12 +433,14 @@ describe('listScheduledTasks', () => {
       battlefieldId: 'bf_other',
       name: 'Other Task',
       type: 'maintenance',
+      dossierId: 'worktree-sweep',
       cron: '0 0 * * *',
     });
     await createScheduledTask({
       battlefieldId: BF_ID,
       name: 'My Task',
       type: 'maintenance',
+      dossierId: 'worktree-sweep',
       cron: '0 0 * * *',
     });
 
@@ -476,6 +460,7 @@ describe('toggleScheduledTask', () => {
       battlefieldId: BF_ID,
       name: 'Toggle Me',
       type: 'maintenance',
+      dossierId: 'worktree-sweep',
       cron: '0 0 * * *',
     });
     expect(task.enabled).toBe(1);
@@ -491,14 +476,13 @@ describe('toggleScheduledTask', () => {
       battlefieldId: BF_ID,
       name: 'Toggle Me',
       type: 'maintenance',
+      dossierId: 'worktree-sweep',
       cron: '0 0 * * *',
     });
 
-    // Disable first
     await toggleScheduledTask(task.id, false);
     vi.clearAllMocks();
 
-    // Enable — should recompute nextRunAt
     const enabled = await toggleScheduledTask(task.id, true);
 
     expect(enabled.enabled).toBe(1);

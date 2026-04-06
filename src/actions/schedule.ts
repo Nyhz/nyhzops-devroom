@@ -6,6 +6,7 @@ import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { scheduledTasks, missions } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import { validateCron, getNextRun } from '@/lib/scheduler/cron';
+import { getScheduleDossier, type ScheduleTaskType } from '@/lib/scheduler/dossiers';
 import type { ScheduledTask, Mission } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -15,14 +16,9 @@ import type { ScheduledTask, Mission } from '@/types';
 interface CreateScheduledTaskInput {
   battlefieldId: string;
   name: string;
-  type: 'mission' | 'campaign' | 'maintenance';
+  type: ScheduleTaskType;
+  dossierId: string;
   cron: string;
-  // Mission fields
-  briefing?: string;
-  assetId?: string;
-  priority?: 'low' | 'routine' | 'high' | 'critical';
-  // Campaign fields
-  campaignId?: string;
 }
 
 export async function createScheduledTask(
@@ -32,19 +28,20 @@ export async function createScheduledTask(
     throw new Error(`createScheduledTask: invalid cron expression "${data.cron}"`);
   }
 
+  const dossier = getScheduleDossier(data.dossierId);
+  if (!dossier) {
+    throw new Error(`createScheduledTask: Unknown schedule dossier "${data.dossierId}"`);
+  }
+  if (dossier.type !== data.type) {
+    throw new Error(
+      `createScheduledTask: type mismatch — dossier "${data.dossierId}" is ${dossier.type}, not ${data.type}`,
+    );
+  }
+
   const db = getDatabase();
   const id = generateId();
   const now = Date.now();
   const nextRunAt = getNextRun(data.cron);
-
-  let missionTemplate: string | null = null;
-  if (data.type === 'mission') {
-    missionTemplate = JSON.stringify({
-      briefing: data.briefing || '',
-      assetId: data.assetId || null,
-      priority: data.priority || 'routine',
-    });
-  }
 
   const record = db
     .insert(scheduledTasks)
@@ -55,8 +52,9 @@ export async function createScheduledTask(
       type: data.type,
       cron: data.cron,
       enabled: 1,
-      missionTemplate,
-      campaignId: data.type === 'campaign' ? (data.campaignId ?? null) : null,
+      dossierId: data.dossierId,
+      missionTemplate: null,
+      campaignId: null,
       nextRunAt,
       runCount: 0,
       createdAt: now,
@@ -76,11 +74,8 @@ export async function createScheduledTask(
 interface UpdateScheduledTaskInput {
   name?: string;
   cron?: string;
-  type?: 'mission' | 'campaign' | 'maintenance';
-  briefing?: string;
-  assetId?: string;
-  priority?: 'low' | 'routine' | 'high' | 'critical';
-  campaignId?: string;
+  type?: ScheduleTaskType;
+  dossierId?: string;
 }
 
 export async function updateScheduledTask(
@@ -91,9 +86,8 @@ export async function updateScheduledTask(
   const existing = getOrThrow(scheduledTasks, id, 'updateScheduledTask');
 
   const now = Date.now();
-  const updatedCron = data.cron ?? existing.cron;
 
-  // Recompute nextRunAt if cron changed
+  // Validate cron if changed
   let nextRunAt = existing.nextRunAt;
   if (data.cron && data.cron !== existing.cron) {
     if (!validateCron(data.cron)) {
@@ -102,28 +96,27 @@ export async function updateScheduledTask(
     nextRunAt = getNextRun(data.cron);
   }
 
+  // Validate dossierId if changed
   const effectiveType = data.type ?? existing.type;
-
-  let missionTemplate = existing.missionTemplate;
-  if (effectiveType === 'mission') {
-    const currentTemplate = existing.missionTemplate
-      ? (JSON.parse(existing.missionTemplate) as Record<string, unknown>)
-      : {};
-    missionTemplate = JSON.stringify({
-      briefing: data.briefing ?? currentTemplate.briefing ?? '',
-      assetId: data.assetId ?? currentTemplate.assetId ?? null,
-      priority: data.priority ?? currentTemplate.priority ?? 'routine',
-    });
+  if (data.dossierId) {
+    const dossier = getScheduleDossier(data.dossierId);
+    if (!dossier) {
+      throw new Error(`updateScheduledTask: Unknown schedule dossier "${data.dossierId}"`);
+    }
+    if (dossier.type !== effectiveType) {
+      throw new Error(
+        `updateScheduledTask: type mismatch — dossier "${data.dossierId}" is ${dossier.type}, not ${effectiveType}`,
+      );
+    }
   }
 
   const record = db
     .update(scheduledTasks)
     .set({
       name: data.name ?? existing.name,
-      cron: updatedCron,
+      cron: data.cron ?? existing.cron,
       type: effectiveType,
-      missionTemplate: effectiveType === 'mission' ? missionTemplate : null,
-      campaignId: effectiveType === 'campaign' ? (data.campaignId ?? existing.campaignId) : null,
+      dossierId: data.dossierId ?? existing.dossierId,
       nextRunAt,
       updatedAt: now,
     })

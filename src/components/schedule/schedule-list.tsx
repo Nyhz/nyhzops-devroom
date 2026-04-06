@@ -8,21 +8,17 @@ import { useConfirm } from '@/hooks/use-confirm';
 import { toggleScheduledTask, deleteScheduledTask } from '@/actions/schedule';
 import { formatCronHuman } from '@/lib/scheduler/cron';
 import { formatRelativeTime } from '@/lib/utils';
-import type { ScheduledTask, Asset, Campaign } from '@/types';
+import type { ScheduledTask } from '@/types';
 import { ScheduleForm } from './schedule-form';
 
 interface ScheduleListProps {
   tasks: ScheduledTask[];
   battlefieldId: string;
-  assets: Asset[];
-  campaignTemplates: Campaign[];
 }
 
 export function ScheduleList({
   tasks,
   battlefieldId,
-  assets,
-  campaignTemplates,
 }: ScheduleListProps) {
   const [editingTask, setEditingTask] = useState<ScheduledTask | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -88,8 +84,6 @@ export function ScheduleList({
     return (
       <ScheduleForm
         battlefieldId={battlefieldId}
-        assets={assets}
-        campaignTemplates={campaignTemplates}
         editTask={editingTask}
         onClose={() => setEditingTask(null)}
       />
@@ -100,8 +94,6 @@ export function ScheduleList({
     return (
       <ScheduleForm
         battlefieldId={battlefieldId}
-        assets={assets}
-        campaignTemplates={campaignTemplates}
         onClose={() => setShowCreate(false)}
       />
     );

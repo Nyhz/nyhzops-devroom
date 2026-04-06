@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useTransition, useMemo } from 'react';
+import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { TacButton } from '@/components/ui/tac-button';
-import { TacInput, TacTextarea } from '@/components/ui/tac-input';
+import { TacInput } from '@/components/ui/tac-input';
 import { TacCard } from '@/components/ui/tac-card';
 import {
   TacSelect,
@@ -14,12 +14,15 @@ import {
 } from '@/components/ui/tac-select';
 import { createScheduledTask, updateScheduledTask } from '@/actions/schedule';
 import { formatCronHuman, validateCron } from '@/lib/scheduler/cron';
-import type { ScheduledTask, Asset, Campaign } from '@/types';
+import {
+  SCHEDULE_DOSSIERS,
+  SCHEDULE_TASK_TYPES,
+  type ScheduleTaskType,
+} from '@/lib/scheduler/dossiers';
+import type { ScheduledTask } from '@/types';
 
 interface ScheduleFormProps {
   battlefieldId: string;
-  assets: Asset[];
-  campaignTemplates: Campaign[];
   editTask?: ScheduledTask;
   onClose: () => void;
 }
@@ -33,43 +36,29 @@ const CRON_PRESETS = [
 
 export function ScheduleForm({
   battlefieldId,
-  assets,
-  campaignTemplates,
   editTask,
   onClose,
 }: ScheduleFormProps) {
   const isEdit = !!editTask;
 
-  // Parse existing mission template for edit mode
-  const existingTemplate = useMemo(() => {
-    if (editTask?.missionTemplate) {
-      try {
-        return JSON.parse(editTask.missionTemplate) as {
-          briefing?: string;
-          assetId?: string;
-          priority?: string;
-        };
-      } catch {
-        return {};
-      }
-    }
-    return {};
-  }, [editTask]);
-
   const [name, setName] = useState(editTask?.name ?? '');
-  const [type, setType] = useState<'mission' | 'campaign'>(
-    (editTask?.type as 'mission' | 'campaign') ?? 'mission',
+  const [type, setType] = useState<ScheduleTaskType>(
+    (editTask?.type as ScheduleTaskType) ?? 'maintenance',
   );
+  const [dossierId, setDossierId] = useState(editTask?.dossierId ?? '');
   const [cron, setCron] = useState(editTask?.cron ?? '0 3 * * *');
-  const [briefing, setBriefing] = useState(existingTemplate.briefing ?? '');
-  const [assetId, setAssetId] = useState(existingTemplate.assetId ?? '');
-  const [priority, setPriority] = useState(existingTemplate.priority ?? 'routine');
-  const [campaignId, setCampaignId] = useState(editTask?.campaignId ?? '');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
 
   const cronValid = validateCron(cron);
   const cronHuman = cronValid ? formatCronHuman(cron) : 'Invalid expression';
+
+  const dossiersForType = SCHEDULE_DOSSIERS.filter((d) => d.type === type);
+
+  function handleTypeChange(newType: ScheduleTaskType) {
+    setType(newType);
+    setDossierId('');
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -83,12 +72,8 @@ export function ScheduleForm({
       setError('Invalid cron expression');
       return;
     }
-    if (type === 'mission' && !briefing.trim()) {
-      setError('Briefing is required for mission tasks');
-      return;
-    }
-    if (type === 'campaign' && !campaignId) {
-      setError('Campaign template is required');
+    if (!dossierId) {
+      setError('Dossier is required');
       return;
     }
 
@@ -99,25 +84,15 @@ export function ScheduleForm({
             name: name.trim(),
             cron,
             type,
-            briefing: type === 'mission' ? briefing : undefined,
-            assetId: type === 'mission' && assetId ? assetId : undefined,
-            priority: type === 'mission'
-              ? (priority as 'low' | 'routine' | 'high' | 'critical')
-              : undefined,
-            campaignId: type === 'campaign' ? campaignId : undefined,
+            dossierId,
           });
         } else {
           await createScheduledTask({
             battlefieldId,
             name: name.trim(),
             type,
+            dossierId,
             cron,
-            briefing: type === 'mission' ? briefing : undefined,
-            assetId: type === 'mission' && assetId ? assetId : undefined,
-            priority: type === 'mission'
-              ? (priority as 'low' | 'routine' | 'high' | 'critical')
-              : undefined,
-            campaignId: type === 'campaign' ? campaignId : undefined,
           });
         }
         toast.success(isEdit ? 'Task updated' : 'Task scheduled');
@@ -145,7 +120,7 @@ export function ScheduleForm({
           <TacInput
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Nightly test suite"
+            placeholder="e.g. Nightly worktree sweep"
             disabled={isPending}
           />
         </div>
@@ -155,15 +130,54 @@ export function ScheduleForm({
           <label className="block text-dr-muted font-tactical text-xs uppercase tracking-wider mb-1">
             Type
           </label>
-          <TacSelect value={type} onValueChange={(v) => { if (v) setType(v as 'mission' | 'campaign'); }}>
+          <TacSelect
+            value={type}
+            onValueChange={(v) => { if (v) handleTypeChange(v as ScheduleTaskType); }}
+          >
             <TacSelectTrigger>
               <TacSelectValue />
             </TacSelectTrigger>
             <TacSelectContent>
-              <TacSelectItem value="mission">Mission</TacSelectItem>
-              <TacSelectItem value="campaign">Campaign</TacSelectItem>
+              {SCHEDULE_TASK_TYPES.map((t) => (
+                <TacSelectItem key={t} value={t}>
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </TacSelectItem>
+              ))}
             </TacSelectContent>
           </TacSelect>
+        </div>
+
+        {/* Dossier */}
+        <div>
+          <label className="block text-dr-muted font-tactical text-xs uppercase tracking-wider mb-1">
+            Dossier
+          </label>
+          <TacSelect
+            value={dossierId}
+            onValueChange={(v) => { if (v) setDossierId(v); }}
+          >
+            <TacSelectTrigger>
+              <TacSelectValue placeholder="Select dossier" />
+            </TacSelectTrigger>
+            <TacSelectContent>
+              {dossiersForType.length === 0 ? (
+                <TacSelectItem value="_none" disabled>
+                  No dossiers for this type
+                </TacSelectItem>
+              ) : (
+                dossiersForType.map((d) => (
+                  <TacSelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </TacSelectItem>
+                ))
+              )}
+            </TacSelectContent>
+          </TacSelect>
+          {dossierId && (
+            <p className="mt-1 text-dr-muted font-tactical text-xs">
+              {SCHEDULE_DOSSIERS.find((d) => d.id === dossierId)?.description}
+            </p>
+          )}
         </div>
 
         {/* Cron */}
@@ -203,88 +217,6 @@ export function ScheduleForm({
             ))}
           </div>
         </div>
-
-        {/* Mission-specific fields */}
-        {type === 'mission' && (
-          <>
-            <div>
-              <label className="block text-dr-muted font-tactical text-xs uppercase tracking-wider mb-1">
-                Briefing
-              </label>
-              <TacTextarea
-                value={briefing}
-                onChange={(e) => setBriefing(e.target.value)}
-                placeholder="Mission briefing for the scheduled task..."
-                rows={4}
-                disabled={isPending}
-              />
-            </div>
-
-            <div>
-              <label className="block text-dr-muted font-tactical text-xs uppercase tracking-wider mb-1">
-                Asset
-              </label>
-              <TacSelect value={assetId} onValueChange={(v) => setAssetId(v ?? '')}>
-                <TacSelectTrigger>
-                  <TacSelectValue placeholder="Select asset (optional)" />
-                </TacSelectTrigger>
-                <TacSelectContent>
-                  {assets
-                    .filter((a) => a.status === 'active')
-                    .map((asset) => (
-                      <TacSelectItem key={asset.id} value={asset.id}>
-                        {asset.codename} -- {asset.specialty}
-                      </TacSelectItem>
-                    ))}
-                </TacSelectContent>
-              </TacSelect>
-            </div>
-
-            <div>
-              <label className="block text-dr-muted font-tactical text-xs uppercase tracking-wider mb-1">
-                Priority
-              </label>
-              <TacSelect value={priority} onValueChange={(v) => setPriority(v ?? 'routine')}>
-                <TacSelectTrigger>
-                  <TacSelectValue />
-                </TacSelectTrigger>
-                <TacSelectContent>
-                  <TacSelectItem value="low">Low</TacSelectItem>
-                  <TacSelectItem value="routine">Routine</TacSelectItem>
-                  <TacSelectItem value="high">High</TacSelectItem>
-                  <TacSelectItem value="critical">Critical</TacSelectItem>
-                </TacSelectContent>
-              </TacSelect>
-            </div>
-          </>
-        )}
-
-        {/* Campaign-specific fields */}
-        {type === 'campaign' && (
-          <div>
-            <label className="block text-dr-muted font-tactical text-xs uppercase tracking-wider mb-1">
-              Campaign Template
-            </label>
-            <TacSelect value={campaignId} onValueChange={(v) => setCampaignId(v ?? '')}>
-              <TacSelectTrigger>
-                <TacSelectValue placeholder="Select campaign template" />
-              </TacSelectTrigger>
-              <TacSelectContent>
-                {campaignTemplates.length === 0 ? (
-                  <TacSelectItem value="_none" disabled>
-                    No campaign templates available
-                  </TacSelectItem>
-                ) : (
-                  campaignTemplates.map((c) => (
-                    <TacSelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </TacSelectItem>
-                  ))
-                )}
-              </TacSelectContent>
-            </TacSelect>
-          </div>
-        )}
 
         {/* Error */}
         {error && (
