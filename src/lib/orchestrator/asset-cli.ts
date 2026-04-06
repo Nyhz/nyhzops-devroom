@@ -5,22 +5,12 @@ import type { Asset, SkillOverrides } from '@/types';
 import { getRulesOfEngagement } from '@/lib/settings/rules-of-engagement';
 
 /**
- * Resolves a skill ID (format: "name@publisher") to its plugin directory on disk.
- * Looks for the latest version directory under ~/.claude/plugins/cache/{publisher}/{name}/
- * Returns the path if it exists, or null if not found.
+ * Find the latest version directory for a plugin under its cache path.
+ * Returns the full path or null if not found.
  */
-function resolveSkillPath(skillId: string): string | null {
-  const atIdx = skillId.lastIndexOf('@');
-  if (atIdx === -1) return null;
-
-  const name = skillId.slice(0, atIdx);
-  const publisher = skillId.slice(atIdx + 1);
-
-  const pluginBase = path.join(os.homedir(), '.claude', 'plugins', 'cache', publisher, name);
-
+function findLatestVersion(pluginBase: string): string | null {
   if (!fs.existsSync(pluginBase)) return null;
 
-  // Find the latest version directory
   let versions: string[];
   try {
     versions = fs.readdirSync(pluginBase);
@@ -30,13 +20,77 @@ function resolveSkillPath(skillId: string): string | null {
 
   if (versions.length === 0) return null;
 
-  // Sort versions descending and pick the first (latest)
   const latest = versions.sort().reverse()[0];
   const resolvedPath = path.join(pluginBase, latest);
+  return fs.existsSync(resolvedPath) ? resolvedPath : null;
+}
 
-  if (!fs.existsSync(resolvedPath)) return null;
+/**
+ * Read the installed_plugins.json manifest once and cache it.
+ */
+let _manifest: Record<string, Array<{ installPath: string }>> | null = null;
+function getPluginManifest(): Record<string, Array<{ installPath: string }>> {
+  if (_manifest) return _manifest;
+  const manifestPath = path.join(os.homedir(), '.claude', 'plugins', 'installed_plugins.json');
+  try {
+    const raw = fs.readFileSync(manifestPath, 'utf-8');
+    const parsed = JSON.parse(raw) as { plugins: Record<string, Array<{ installPath: string }>> };
+    _manifest = parsed.plugins ?? {};
+  } catch {
+    _manifest = {};
+  }
+  return _manifest;
+}
 
-  return resolvedPath;
+/**
+ * Resolves a skill ID to its plugin directory on disk.
+ *
+ * Accepts two formats:
+ *   - "pluginName:skillName" — the format produced by the discovery scanner / UI toggle
+ *   - "name@publisher" — legacy format (used by older seed data)
+ *
+ * For "pluginName:skillName": looks up the manifest to find the publisher,
+ * then resolves the installPath. For multi-skill plugins (e.g. superpowers),
+ * returns the skill subdirectory.
+ */
+function resolveSkillPath(skillId: string): string | null {
+  // Legacy "@" format: name@publisher
+  const atIdx = skillId.lastIndexOf('@');
+  if (atIdx !== -1) {
+    const name = skillId.slice(0, atIdx);
+    const publisher = skillId.slice(atIdx + 1);
+    const pluginBase = path.join(os.homedir(), '.claude', 'plugins', 'cache', publisher, name);
+    return findLatestVersion(pluginBase);
+  }
+
+  // Scanner format: pluginName:skillName
+  const colonIdx = skillId.indexOf(':');
+  if (colonIdx === -1) return null;
+
+  const pluginName = skillId.slice(0, colonIdx);
+  const skillName = skillId.slice(colonIdx + 1);
+
+  // Find the manifest entry for this plugin (try all publishers)
+  const manifest = getPluginManifest();
+  for (const [key, entries] of Object.entries(manifest)) {
+    const keyName = key.split('@')[0];
+    if (keyName === pluginName && entries[0]) {
+      const installPath = entries[0].installPath;
+      // For multi-skill plugins, check if skills/{skillName} exists
+      const skillSubdir = path.join(installPath, 'skills', skillName);
+      if (fs.existsSync(skillSubdir)) {
+        return skillSubdir;
+      }
+      // For single-skill plugins (pluginName === skillName), return the install root
+      if (pluginName === skillName) {
+        return installPath;
+      }
+      // Fallback: return the install root
+      return installPath;
+    }
+  }
+
+  return null;
 }
 
 /**

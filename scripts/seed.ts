@@ -29,9 +29,9 @@ const DEFAULT_ASSETS: Array<{
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
     skills: JSON.stringify([
-      'verification-before-completion@devroom',
-      'systematic-debugging@devroom',
-      'simplify@devroom',
+      'verification-before-completion:verification-before-completion',
+      'systematic-debugging:systematic-debugging',
+      'simplify:simplify',
     ]),
     isSystem: 0,
     systemPrompt: `You are the generalist — deployed when no specialist is obviously right. Glue code, scripts, config changes, one-off fixes, small features that touch several areas lightly.
@@ -45,9 +45,9 @@ const DEFAULT_ASSETS: Array<{
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
     skills: JSON.stringify([
-      'frontend-design@claude-plugins-official',
-      'verification-before-completion@devroom',
-      'test-driven-development@devroom',
+      'frontend-design:frontend-design',
+      'superpowers:verification-before-completion',
+      'superpowers:test-driven-development',
     ]),
     isSystem: 0,
     systemPrompt: `You specialize in frontend — components, layouts, styling, and client-side interactivity. Visual fidelity and accessibility are non-negotiable parts of your output.
@@ -64,9 +64,9 @@ const DEFAULT_ASSETS: Array<{
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
     skills: JSON.stringify([
-      'verification-before-completion@devroom',
-      'systematic-debugging@devroom',
-      'test-driven-development@devroom',
+      'verification-before-completion:verification-before-completion',
+      'systematic-debugging:systematic-debugging',
+      'test-driven-development:test-driven-development',
     ]),
     isSystem: 0,
     systemPrompt: `You specialize in backend — APIs, data layer, databases, services, authentication, and server-side business logic. You have sharp instincts for anything involving secrets, data integrity, or cross-service boundaries.
@@ -83,8 +83,8 @@ const DEFAULT_ASSETS: Array<{
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
     skills: JSON.stringify([
-      'verification-before-completion@devroom',
-      'simplify@devroom',
+      'verification-before-completion:verification-before-completion',
+      'simplify:simplify',
     ]),
     isSystem: 0,
     systemPrompt: `You specialize in system design and refactoring — boundaries, interfaces, decomposition, and structural improvements.
@@ -101,9 +101,9 @@ const DEFAULT_ASSETS: Array<{
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
     skills: JSON.stringify([
-      'verification-before-completion@devroom',
-      'test-driven-development@devroom',
-      'systematic-debugging@devroom',
+      'verification-before-completion:verification-before-completion',
+      'test-driven-development:test-driven-development',
+      'systematic-debugging:systematic-debugging',
     ]),
     isSystem: 0,
     systemPrompt: `You specialize in testing and quality assurance. Your tests are the safety net the rest of the roster depends on.
@@ -120,7 +120,7 @@ const DEFAULT_ASSETS: Array<{
     model: 'claude-sonnet-4-6',
     maxTurns: 100,
     skills: JSON.stringify([
-      'verification-before-completion@devroom',
+      'verification-before-completion:verification-before-completion',
     ]),
     isSystem: 0,
     systemPrompt: `You specialize in documentation and codebase intelligence — specs, analysis, bootstrap docs, and authoritative references.
