@@ -100,6 +100,9 @@ export async function createMission(
 export async function createAndDeployMission(
   data: CreateMissionInput,
 ): Promise<Mission> {
+  if (!data.assetId) {
+    throw new Error('An asset must be selected to deploy a mission');
+  }
   return _createMission(data, 'queued');
 }
 
