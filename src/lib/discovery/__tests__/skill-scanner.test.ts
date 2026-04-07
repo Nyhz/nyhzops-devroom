@@ -86,7 +86,7 @@ describe('scanHostSkills', () => {
   });
 
   it('discovers skills from manifest + skill files', () => {
-    const installPath = '/Users/testuser/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7';
+    const installPath = '/Users/testuser/.claude/plugins/cache/claude-plugins-official/devtools/1.0.0';
     const skillsDir = `${installPath}/skills`;
     const brainstormingDir = `${skillsDir}/brainstorming`;
     const skillMdPath = `${brainstormingDir}/SKILL.md`;
@@ -115,11 +115,11 @@ description: "Brainstorm features before implementing"
         return JSON.stringify({
           version: 2,
           plugins: {
-            'superpowers@claude-plugins-official': [
+            'devtools@claude-plugins-official': [
               {
                 scope: 'user',
                 installPath,
-                version: '5.0.7',
+                version: '1.0.0',
                 installedAt: '2026-01-01T00:00:00Z',
                 lastUpdated: '2026-01-01T00:00:00Z',
               },
@@ -128,7 +128,7 @@ description: "Brainstorm features before implementing"
         });
       }
       if (s.endsWith('settings.json')) {
-        return JSON.stringify({ enabledPlugins: { 'superpowers@claude-plugins-official': true } });
+        return JSON.stringify({ enabledPlugins: { 'devtools@claude-plugins-official': true } });
       }
       if (s === skillMdPath) {
         return skillMdContent;
@@ -147,9 +147,9 @@ description: "Brainstorm features before implementing"
 
     expect(result.skills).toHaveLength(1);
     expect(result.skills[0]).toMatchObject({
-      id: 'superpowers:brainstorming',
+      id: 'devtools:brainstorming',
       name: 'brainstorming',
-      pluginName: 'superpowers',
+      pluginName: 'devtools',
       description: 'Brainstorm features before implementing',
       pluginDir: brainstormingDir,
     });
