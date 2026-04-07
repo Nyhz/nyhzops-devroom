@@ -91,7 +91,7 @@ describe('DeployMission', () => {
       const options = Array.from(select.querySelectorAll('option'));
       const optionTexts = options.map((o) => o.textContent);
 
-      expect(optionTexts).toContain('NO ASSET');
+      expect(optionTexts).toContain('SELECT ASSET');
       expect(optionTexts).toContain('ALPHA');
       expect(optionTexts).toContain('BRAVO');
       expect(optionTexts).not.toContain('CHARLIE');
@@ -122,12 +122,28 @@ describe('DeployMission', () => {
       expect(screen.getByRole('button', { name: /save & deploy/i })).toBeDisabled();
     });
 
-    it('enables buttons when briefing has text', async () => {
+    it('enables SAVE button when briefing has text', async () => {
       const { user } = renderWithProviders(<DeployMission {...baseProps} />);
 
       await user.type(screen.getByTestId('briefing-textarea'), 'A mission');
 
       expect(screen.getByRole('button', { name: /^save$/i })).not.toBeDisabled();
+    });
+
+    it('disables SAVE & DEPLOY when briefing has text but no asset selected', async () => {
+      const { user } = renderWithProviders(<DeployMission {...baseProps} />);
+
+      await user.type(screen.getByTestId('briefing-textarea'), 'A mission');
+
+      expect(screen.getByRole('button', { name: /save & deploy/i })).toBeDisabled();
+    });
+
+    it('enables SAVE & DEPLOY when briefing has text and asset is selected', async () => {
+      const { user } = renderWithProviders(<DeployMission {...baseProps} />);
+
+      await user.type(screen.getByTestId('briefing-textarea'), 'A mission');
+      await user.selectOptions(screen.getByRole('combobox'), 'a1');
+
       expect(screen.getByRole('button', { name: /save & deploy/i })).not.toBeDisabled();
     });
   });
@@ -190,17 +206,18 @@ describe('DeployMission', () => {
   });
 
   describe('save & deploy action', () => {
-    it('calls createAndDeployMission', async () => {
+    it('calls createAndDeployMission with selected asset', async () => {
       const { user } = renderWithProviders(<DeployMission {...baseProps} />);
 
       await user.type(screen.getByTestId('briefing-textarea'), 'Deploy now');
+      await user.selectOptions(screen.getByRole('combobox'), 'a1');
       await user.click(screen.getByRole('button', { name: /save & deploy/i }));
 
       await waitFor(() => {
         expect(mockCreateAndDeployMission).toHaveBeenCalledWith({
           battlefieldId: 'bf-1',
           briefing: 'Deploy now',
-          assetId: undefined,
+          assetId: 'a1',
         });
       });
     });
@@ -211,6 +228,7 @@ describe('DeployMission', () => {
       );
 
       await user.type(screen.getByTestId('briefing-textarea'), 'Deploy it');
+      await user.selectOptions(screen.getByRole('combobox'), 'a1');
       await user.click(screen.getByRole('button', { name: /save & deploy/i }));
 
       await waitFor(() => {
@@ -241,6 +259,7 @@ describe('DeployMission', () => {
       const { user } = renderWithProviders(<DeployMission {...baseProps} />);
 
       await user.type(screen.getByTestId('briefing-textarea'), 'Fail deploy');
+      await user.selectOptions(screen.getByRole('combobox'), 'a1');
       await user.click(screen.getByRole('button', { name: /save & deploy/i }));
 
       await waitFor(() => {

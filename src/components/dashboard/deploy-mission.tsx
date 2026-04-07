@@ -122,7 +122,7 @@ export function DeployMission({ battlefieldId, assets, className, initialBriefin
             disabled={isPending}
             className="bg-dr-bg border border-dr-border text-dr-text font-tactical text-sm px-3 py-2 focus:border-dr-amber focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <option value="">NO ASSET</option>
+            <option value="">SELECT ASSET</option>
             {activeAssets.map((asset) => (
               <option key={asset.id} value={asset.id}>
                 {asset.codename}
@@ -168,7 +168,7 @@ export function DeployMission({ battlefieldId, assets, className, initialBriefin
             variant="primary"
             size="sm"
             onClick={handleSaveAndDeploy}
-            disabled={isPending || !briefing.trim()}
+            disabled={isPending || !briefing.trim() || !assetId}
           >
             SAVE &amp; DEPLOY
           </TacButton>

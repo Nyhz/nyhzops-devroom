@@ -177,9 +177,11 @@ describe('Mission Server Actions', () => {
   describe('createAndDeployMission', () => {
     it('creates a mission with QUEUED status', async () => {
       const bf = createTestBattlefield(testDb);
+      const asset = createTestAsset(testDb);
       const result = await createAndDeployMission({
         battlefieldId: bf.id,
         briefing: 'Deploy immediately',
+        assetId: asset.id,
       });
 
       expect(result.status).toBe('queued');
@@ -187,9 +189,11 @@ describe('Mission Server Actions', () => {
 
     it('calls orchestrator.onMissionQueued', async () => {
       const bf = createTestBattlefield(testDb);
+      const asset = createTestAsset(testDb);
       const result = await createAndDeployMission({
         battlefieldId: bf.id,
         briefing: 'Queue this mission',
+        assetId: asset.id,
       });
 
       expect(globalThis.orchestrator?.onMissionQueued).toHaveBeenCalledWith(result.id);
@@ -197,9 +201,11 @@ describe('Mission Server Actions', () => {
 
     it('emits Socket.IO activity event with QUEUED detail', async () => {
       const bf = createTestBattlefield(testDb);
+      const asset = createTestAsset(testDb);
       await createAndDeployMission({
         battlefieldId: bf.id,
         briefing: 'Socket test',
+        assetId: asset.id,
       });
 
       expect(globalThis.io?.to).toHaveBeenCalledWith('hq:activity');
