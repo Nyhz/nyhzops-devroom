@@ -26,6 +26,7 @@ vi.mock('@/lib/db/index', async (importOriginal) => {
 const mockGitAdd = vi.fn().mockResolvedValue(undefined);
 const mockGitCommit = vi.fn().mockResolvedValue(undefined);
 const mockGitInit = vi.fn().mockResolvedValue(undefined);
+const mockGitRaw = vi.fn().mockResolvedValue('');
 const mockGitBranchLocal = vi.fn().mockResolvedValue({ current: 'main', all: ['main'] });
 
 vi.mock('simple-git', () => ({
@@ -33,6 +34,7 @@ vi.mock('simple-git', () => ({
     add: mockGitAdd,
     commit: mockGitCommit,
     init: mockGitInit,
+    raw: mockGitRaw,
     branchLocal: mockGitBranchLocal,
   }),
 }));
