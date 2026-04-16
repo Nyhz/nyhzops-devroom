@@ -13,7 +13,7 @@ export default defineConfig({
           environment: 'node',
           setupFiles: ['./src/lib/test/setup.ts'],
           include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
-          exclude: ['src/hooks/__tests__/**'],
+          exclude: ['src/hooks/__tests__/**', 'tests/control/fixtures/repos/templates/**'],
         },
       }),
       defineProject({
