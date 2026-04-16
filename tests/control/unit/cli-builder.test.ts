@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { buildClaudeArgs } from '@/control/assets/cli-builder';
 
+type AssetArg = Parameters<typeof buildClaudeArgs>[0]['asset'];
+
 describe('buildClaudeArgs', () => {
   it('produces flags for a combat asset with RoE prepended', () => {
     const args = buildClaudeArgs({
-      asset: { codename: 'OPERATIVE', model: 'claude-sonnet-4-6', maxTurns: 100, effort: 'medium', isSystem: 0, systemPrompt: 'You are OPERATIVE.', skills: [], mcpServers: [] } as any,
+      asset: { codename: 'OPERATIVE', model: 'claude-sonnet-4-6', maxTurns: 100, effort: 'medium', isSystem: 0, systemPrompt: 'You are OPERATIVE.', skills: [], mcpServers: [] } satisfies AssetArg,
       rulesOfEngagement: 'ROE-TEXT',
       outputFormat: 'stream-json',
       extraFlags: [],
@@ -20,7 +22,7 @@ describe('buildClaudeArgs', () => {
 
   it('omits RoE for system assets', () => {
     const args = buildClaudeArgs({
-      asset: { codename: 'OVERSEER', model: 'claude-sonnet-4-6', maxTurns: 2, effort: 'medium', isSystem: 1, systemPrompt: 'OVERSEER prompt', skills: [], mcpServers: [] } as any,
+      asset: { codename: 'OVERSEER', model: 'claude-sonnet-4-6', maxTurns: 2, effort: 'medium', isSystem: 1, systemPrompt: 'OVERSEER prompt', skills: [], mcpServers: [] } satisfies AssetArg,
       rulesOfEngagement: 'ROE-TEXT',
       outputFormat: 'print',
       extraFlags: ['--print'],

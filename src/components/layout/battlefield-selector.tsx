@@ -13,7 +13,10 @@ interface BattlefieldSelectorProps {
 export function BattlefieldSelector({ battlefields }: BattlefieldSelectorProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  // Track the pathname at which the dropdown was opened.
+  // The dropdown is only considered open when the current pathname matches.
+  const [openAtPathname, setOpenAtPathname] = useState<string | null>(null);
+  const open = openAtPathname === pathname;
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Extract current battlefield ID from URL: /battlefields/[id]/...
@@ -28,17 +31,12 @@ export function BattlefieldSelector({ battlefields }: BattlefieldSelectorProps) 
     if (!open) return;
     function handleClick(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        setOpenAtPathname(null);
       }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
-
-  // Close dropdown on route change
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
 
   if (battlefields.length === 0) {
     return (
@@ -47,7 +45,7 @@ export function BattlefieldSelector({ battlefields }: BattlefieldSelectorProps) 
   }
 
   function handleSelect(id: string) {
-    setOpen(false);
+    setOpenAtPathname(null);
     router.push(`/battlefields/${id}`);
   }
 
@@ -57,7 +55,7 @@ export function BattlefieldSelector({ battlefields }: BattlefieldSelectorProps) 
       <div className="relative flex-1 min-w-0">
         <button
           type="button"
-          onClick={() => setOpen((prev) => !prev)}
+          onClick={() => setOpenAtPathname((prev) => (prev === null ? pathname : null))}
           className={cn(
             "w-full flex items-center justify-between gap-2 px-3 py-2 text-sm",
             "bg-dr-elevated border border-dr-border rounded",

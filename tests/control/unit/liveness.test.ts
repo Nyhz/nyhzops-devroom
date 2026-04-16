@@ -5,7 +5,7 @@ import { attachLivenessMonitor, LivenessEvent } from '@/control/liveness';
 
 function makeFakeProcess(): ChildProcess {
   const ee = new EventEmitter() as unknown as ChildProcess;
-  (ee as any).kill = vi.fn();
+  (ee as unknown as { kill: ReturnType<typeof vi.fn> }).kill = vi.fn();
   return ee;
 }
 

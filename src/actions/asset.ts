@@ -328,7 +328,6 @@ export async function deleteAsset(id: string) {
 const MAX_MEMORY_ENTRIES = 15;
 
 export async function getAssetMemory(assetId: string): Promise<string[]> {
-  const db = getDatabase();
   const asset = getOrThrow(assets, assetId, 'getAssetMemory');
   if (!asset.memory) return [];
   try {

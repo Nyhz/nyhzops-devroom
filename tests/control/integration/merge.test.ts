@@ -342,7 +342,6 @@ describe('runMerge', () => {
 
     // Wait until p1 has actually entered its QM callback.
     while (!order.includes('qm1-start')) {
-      // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, 10));
     }
 

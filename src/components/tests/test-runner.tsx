@@ -25,7 +25,7 @@ interface Summary {
   coveragePercent?: number;
 }
 
-export function TestRunner({ battlefieldId, framework, latestRun }: TestRunnerProps) {
+export function TestRunner({ battlefieldId, framework: _framework, latestRun }: TestRunnerProps) {
   const [pattern, setPattern] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);

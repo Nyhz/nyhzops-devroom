@@ -90,7 +90,6 @@ export class MergeLockManager {
   async acquire<T>(battlefieldId: string, fn: () => Promise<T>): Promise<T> {
     // Drain any chain of pending locks for this battlefield before taking our turn.
     while (this.locks.has(battlefieldId)) {
-      // eslint-disable-next-line no-await-in-loop
       await this.locks.get(battlefieldId);
     }
     let release: () => void = () => {};

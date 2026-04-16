@@ -14,6 +14,7 @@ export const test = base.extend<{ appPage: Page }>({
   appPage: async ({ page }, use) => {
     await page.goto('/');
     await waitForAppShell(page);
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(page);
   },
 });

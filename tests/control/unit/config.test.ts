@@ -8,7 +8,7 @@ const db = getDatabase();
 describe('getControlConfig', () => {
   beforeEach(() => {
     clearConfigCache();
-    db.delete(settings).where(undefined as any).run?.();
+    db.delete(settings).run();
   });
 
   it('returns hardcoded defaults when no settings exist', () => {

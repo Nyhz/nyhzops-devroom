@@ -30,7 +30,6 @@ export function reactivateCampaignIfNeeded(campaignId: string) {
  * CONTROL handles campaign progression by polling DB — no explicit trigger needed.
  * This function is a no-op after the Phase 10 CONTROL cutover.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function notifyCampaignExecutor(_campaignId: string, _missionId: string) {
   // CONTROL polls DB for mission status changes — no orchestrator signal needed.
 }
