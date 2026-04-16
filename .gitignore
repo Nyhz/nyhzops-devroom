@@ -52,3 +52,4 @@ devroom.db-wal
 devroom.db-shm
 .superpowers/
 .worktrees/
+devroom.db.pre-cutover-*
