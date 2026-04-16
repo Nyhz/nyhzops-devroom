@@ -5,7 +5,11 @@ import { eq, desc, and, inArray } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { campaigns, phases, missions, assets, battlefields, intelNotes } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
-import { emitStatusChange } from '@/lib/socket/emit';
+import { emitComm } from '@/control/comms';
+import {
+  launchCampaign as executorLaunchCampaign,
+  abandonMission as executorAbandonMission,
+} from '@/control/campaign/executor';
 import type { Campaign, CampaignWithPlan } from '@/types';
 import { cloneCampaignPlan, deletePlanData, revalidateCampaignPaths } from './campaign-helpers';
 
@@ -46,6 +50,13 @@ export async function createCampaign(
   if (!campaign) {
     throw new Error(`createCampaign: failed to retrieve campaign ${id}`);
   }
+
+  emitComm({
+    campaignId: id,
+    battlefieldId,
+    actor: 'CONTROL',
+    message: `Campaign "${name}" created — status DRAFT`,
+  });
 
   revalidateCampaignPaths(battlefieldId, id);
   return campaign;
@@ -264,15 +275,6 @@ export async function launchCampaign(
   const { deleteBriefingData } = await import('@/lib/briefing/briefing-engine');
 
   db.transaction(() => {
-    db.update(campaigns)
-      .set({
-        status: 'active',
-        currentPhase: 1,
-        updatedAt: Date.now(),
-      })
-      .where(eq(campaigns.id, campaignId))
-      .run();
-
     // Delete briefing data — no longer needed once campaign is live
     deleteBriefingData(campaignId);
 
@@ -302,22 +304,86 @@ export async function launchCampaign(
     }
   });
 
-  emitStatusChange('campaign', campaignId, 'active');
-
-  // Trigger orchestrator to begin campaign execution — outside transaction
-  globalThis.orchestrator?.startCampaign(campaignId);
+  // Delegate to executor — transitions campaign draft/planning → active, queues phase 1 missions
+  executorLaunchCampaign(campaignId);
 
   revalidateCampaignPaths(campaign.battlefieldId, campaignId);
 }
 
 // ---------------------------------------------------------------------------
-// 9. completeCampaign
+// 7. abandonCampaign
 // ---------------------------------------------------------------------------
 
-export async function completeCampaign(id: string): Promise<void> {
+export async function abandonCampaign(id: string): Promise<void> {
   const db = getDatabase();
 
-  const campaign = getOrThrow(campaigns, id, 'completeCampaign');
+  const campaign = getOrThrow(campaigns, id, 'abandonCampaign');
+
+  // Abandon all non-terminal missions via executor (emits comms, cascades deps)
+  const nonTerminalMissions = db
+    .select({ id: missions.id })
+    .from(missions)
+    .where(
+      and(
+        eq(missions.campaignId, id),
+        inArray(missions.status, ['standby', 'queued', 'deploying', 'in_combat', 'merging', 'compromised']),
+      ),
+    )
+    .all();
+
+  for (const m of nonTerminalMissions) {
+    executorAbandonMission(m.id, { reason: 'campaign-abandoned' });
+  }
+
+  const now = Date.now();
+
+  // Set all non-terminal phases to compromised
+  const campaignPhases = db
+    .select({ id: phases.id })
+    .from(phases)
+    .where(eq(phases.campaignId, id))
+    .all();
+
+  const phaseIds = campaignPhases.map((p) => p.id);
+  if (phaseIds.length > 0) {
+    db.update(phases)
+      .set({ status: 'compromised' })
+      .where(
+        and(
+          inArray(phases.id, phaseIds),
+          inArray(phases.status, ['standby', 'active']),
+        ),
+      )
+      .run();
+  }
+
+  db.update(campaigns)
+    .set({
+      status: 'abandoned',
+      updatedAt: now,
+    })
+    .where(eq(campaigns.id, id))
+    .run();
+
+  emitComm({
+    campaignId: id,
+    battlefieldId: campaign.battlefieldId,
+    actor: 'COMMANDER',
+    message: 'Campaign ABANDONED — all active missions terminated',
+    level: 'warn',
+  });
+
+  revalidateCampaignPaths(campaign.battlefieldId, id);
+}
+
+// ---------------------------------------------------------------------------
+// 8. acceptCampaign — force accomplishment (meta-level "declare done")
+// ---------------------------------------------------------------------------
+
+export async function acceptCampaign(id: string): Promise<void> {
+  const db = getDatabase();
+
+  const campaign = getOrThrow(campaigns, id, 'acceptCampaign');
 
   db.update(campaigns)
     .set({
@@ -327,116 +393,26 @@ export async function completeCampaign(id: string): Promise<void> {
     .where(eq(campaigns.id, id))
     .run();
 
-  emitStatusChange('campaign', id, 'accomplished');
-  revalidateCampaignPaths(campaign.battlefieldId, id);
-}
-
-// ---------------------------------------------------------------------------
-// 10. abandonCampaign
-// ---------------------------------------------------------------------------
-
-export async function abandonCampaign(id: string): Promise<void> {
-  const db = getDatabase();
-
-  const campaign = getOrThrow(campaigns, id, 'abandonCampaign');
-
-  // Abort all running missions via orchestrator
-  globalThis.orchestrator?.abortCampaign(id);
-
-  const now = Date.now();
-
-  db.transaction(() => {
-    // Set all non-terminal missions to abandoned
-    db.update(missions)
-      .set({ status: 'abandoned', updatedAt: now })
-      .where(
-        and(
-          eq(missions.campaignId, id),
-          inArray(missions.status, ['standby', 'queued', 'deploying', 'in_combat']),
-        ),
-      )
-      .run();
-
-    // Set all non-terminal phases to compromised
-    const campaignPhases = db
-      .select({ id: phases.id })
-      .from(phases)
-      .where(eq(phases.campaignId, id))
-      .all();
-
-    const phaseIds = campaignPhases.map((p) => p.id);
-    if (phaseIds.length > 0) {
-      db.update(phases)
-        .set({ status: 'compromised' })
-        .where(
-          and(
-            inArray(phases.id, phaseIds),
-            inArray(phases.status, ['standby', 'active']),
-          ),
-        )
-        .run();
-    }
-
-    db.update(campaigns)
-      .set({
-        status: 'abandoned',
-        updatedAt: now,
-      })
-      .where(eq(campaigns.id, id))
-      .run();
+  emitComm({
+    campaignId: id,
+    battlefieldId: campaign.battlefieldId,
+    actor: 'COMMANDER',
+    message: 'Campaign declared ACCOMPLISHED — Commander override',
   });
 
-  emitStatusChange('campaign', id, 'abandoned');
   revalidateCampaignPaths(campaign.battlefieldId, id);
 }
 
 // ---------------------------------------------------------------------------
-// 11. redeployCampaign
+// 9. completeCampaign — alias for acceptCampaign (UI compat)
 // ---------------------------------------------------------------------------
 
-export async function redeployCampaign(id: string): Promise<Campaign> {
-  const db = getDatabase();
-
-  const campaign = getOrThrow(campaigns, id, 'redeployCampaign');
-
-  const now = Date.now();
-  const newCampaignId = generateId();
-
-  // Clone campaign
-  db.insert(campaigns).values({
-    id: newCampaignId,
-    battlefieldId: campaign.battlefieldId,
-    name: campaign.name,
-    objective: campaign.objective,
-    status: 'planning',
-    worktreeMode: campaign.worktreeMode,
-    currentPhase: 0,
-    isTemplate: 0,
-    templateId: campaign.id,
-    createdAt: now,
-    updatedAt: now,
-  }).run();
-
-  cloneCampaignPlan(id, newCampaignId, campaign.battlefieldId);
-
-  const newCampaign = db
-    .select()
-    .from(campaigns)
-    .where(eq(campaigns.id, newCampaignId))
-    .get();
-
-  if (!newCampaign) {
-    throw new Error(
-      `redeployCampaign: failed to retrieve cloned campaign ${newCampaignId}`,
-    );
-  }
-
-  revalidateCampaignPaths(campaign.battlefieldId, newCampaignId);
-  return newCampaign;
+export async function completeCampaign(id: string): Promise<void> {
+  return acceptCampaign(id);
 }
 
 // ---------------------------------------------------------------------------
-// 12. saveAsTemplate
+// 10. saveAsTemplate
 // ---------------------------------------------------------------------------
 
 export async function saveAsTemplate(campaignId: string): Promise<void> {
@@ -458,7 +434,7 @@ export async function saveAsTemplate(campaignId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// 13. runTemplate
+// 11. runTemplate
 // ---------------------------------------------------------------------------
 
 export async function runTemplate(templateId: string): Promise<Campaign> {
@@ -504,7 +480,7 @@ export async function runTemplate(templateId: string): Promise<Campaign> {
 }
 
 // ---------------------------------------------------------------------------
-// 14. listTemplates
+// 12. listTemplates
 // ---------------------------------------------------------------------------
 
 export async function listTemplates(battlefieldId: string): Promise<Campaign[]> {
@@ -519,27 +495,14 @@ export async function listTemplates(battlefieldId: string): Promise<Campaign[]> 
 }
 
 // ---------------------------------------------------------------------------
-// 15. resumeCampaign
+// Deprecated stubs — these depended on the old orchestrator flow.
+// See Phase 8.4/8.7 for replacements.
 // ---------------------------------------------------------------------------
 
-export async function resumeCampaign(campaignId: string): Promise<void> {
-  const db = getDatabase();
-
-  const campaign = getOrThrow(campaigns, campaignId, 'resumeCampaign');
-  if (campaign.status !== 'paused') {
-    throw new Error(
-      `resumeCampaign: campaign must be paused to resume (current: ${campaign.status})`,
-    );
-  }
-
-  db.update(campaigns)
-    .set({ status: 'active', updatedAt: Date.now() })
-    .where(eq(campaigns.id, campaignId))
-    .run();
-
-  emitStatusChange('campaign', campaignId, 'active');
-  globalThis.orchestrator?.resumeCampaign(campaignId);
-
-  revalidateCampaignPaths(campaign.battlefieldId, campaignId);
+export async function redeployCampaign(_id: string): Promise<Campaign> {
+  throw new Error('Deprecated: redeployCampaign — see Phase 8.4/8.7');
 }
 
+export async function resumeCampaign(_campaignId: string): Promise<void> {
+  throw new Error('Deprecated: resumeCampaign — see Phase 8.4/8.7');
+}
