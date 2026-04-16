@@ -14,7 +14,6 @@ export const statusColorMap: Record<string, StatusColor> = {
   active: 'amber',
   in_combat: 'amber',
   deploying: 'amber',
-  reviewing: 'blue',
   compromised: 'red',
   initializing: 'blue',
   queued: 'blue',
@@ -22,7 +21,6 @@ export const statusColorMap: Record<string, StatusColor> = {
   draft: 'dim',
   offline: 'dim',
   abandoned: 'dim',
-  approved: 'teal',
   merging: 'amber',
 } as const;
 

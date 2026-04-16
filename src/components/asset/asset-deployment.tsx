@@ -92,20 +92,16 @@ export function AssetDeployment({ initialData }: AssetDeploymentProps) {
             const colorClass =
               entry.status === 'in_combat'
                 ? 'text-dr-amber'
-                : entry.status === 'reviewing'
-                  ? 'text-dr-blue'
-                  : entry.status === 'merging'
-                    ? 'text-dr-green'
-                    : 'text-dr-muted';
+                : entry.status === 'merging'
+                  ? 'text-dr-green'
+                  : 'text-dr-muted';
 
             const label =
               entry.status === 'in_combat'
                 ? 'ACTIVE'
-                : entry.status === 'reviewing'
-                  ? 'REVIEWING'
-                  : entry.status === 'merging'
-                    ? 'MERGING'
-                    : 'QUEUED';
+                : entry.status === 'merging'
+                  ? 'MERGING'
+                  : 'QUEUED';
 
             return (
               <div key={entry.id} className="flex items-center gap-2">

@@ -169,7 +169,7 @@ export function IntelBoard({ battlefieldId, initialNotes }: IntelBoardProps) {
   // Stats
   // ---------------------------------------------------------------------------
 
-  const activeStatuses = new Set(['deploying', 'in_combat', 'reviewing']);
+  const activeStatuses = new Set(['deploying', 'in_combat']);
   let totalCards = 0;
   let activeCards = 0;
 

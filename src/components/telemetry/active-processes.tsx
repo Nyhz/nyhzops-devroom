@@ -22,7 +22,6 @@ interface ActiveProcessesProps {
 const statusConfig: Record<string, { label: string; color: string }> = {
   deploying: { label: 'DEPLOYING', color: 'text-dr-amber' },
   in_combat: { label: 'IN COMBAT', color: 'text-dr-amber' },
-  reviewing: { label: 'REVIEWING', color: 'text-dr-blue' },
 };
 
 function formatRuntime(startedAt: number | null): string {

@@ -85,7 +85,6 @@ describe('LiveStatusBadge', () => {
       { status: 'compromised', expected: 'COMPROMISED' },
       { status: 'deploying', expected: 'DEPLOYING' },
       { status: 'queued', expected: 'QUEUED' },
-      { status: 'reviewing', expected: 'REVIEWING' },
       { status: 'abandoned', expected: 'ABANDONED' },
     ];
 

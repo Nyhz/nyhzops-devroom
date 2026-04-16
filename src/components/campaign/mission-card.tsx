@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { cn, formatDuration, formatTokens } from '@/lib/utils';
 import { TacBadge } from '@/components/ui/tac-badge';
 import { InlineErrorPanel } from '@/components/ui/inline-error-panel';
-import { MergeCountdown } from '@/components/mission/merge-countdown';
 import { MissionSkillPanel } from '@/components/campaign/mission-skill-panel';
 import { DebriefPanel } from '@/components/mission/debrief-panel';
 import { DebriefSchema } from '@/control/debrief/schema';
@@ -21,7 +20,6 @@ interface CampaignMissionCardProps {
   costInput: number | null;
   costOutput: number | null;
   compromiseReason?: string | null;
-  mergeRetryAt?: number | null;
   battlefieldId?: string | null;
   className?: string;
   /** Structured debrief JSON string from missions.debrief_structured */
@@ -47,10 +45,8 @@ const priorityDotColor: Record<string, string> = {
 function getCompromiseTitle(reason: string | null): string {
   switch (reason) {
     case 'merge-failed': return 'MERGE FAILED';
-    case 'review-failed': return 'OVERSEER REJECTED';
     case 'timeout': return 'MISSION TIMED OUT';
     case 'execution-failed': return 'PROCESS CRASHED';
-    case 'escalated': return 'OVERSEER ESCALATION';
     default: return 'COMPROMISED';
   }
 }
@@ -65,7 +61,6 @@ export function CampaignMissionCard({
   costInput,
   costOutput,
   compromiseReason,
-  mergeRetryAt,
   battlefieldId,
   className,
   debriefStructured,
@@ -83,7 +78,6 @@ export function CampaignMissionCard({
   const hasMetrics = durationMs != null || (costInput != null && costOutput != null);
   const normalizedStatus = status?.toLowerCase().replace(/\s+/g, '_') ?? null;
   const isCompromised = normalizedStatus === 'compromised';
-  const isMerging = normalizedStatus === 'merging';
 
   // Parse structured debrief JSON if present
   let parsedDebrief: Debrief | null = null;
@@ -165,13 +159,6 @@ export function CampaignMissionCard({
       {status && (
         <div className="pl-4">
           <TacBadge status={status} className="text-xs" />
-        </div>
-      )}
-
-      {/* Merge countdown */}
-      {isMerging && mergeRetryAt && (
-        <div className="pl-4">
-          <MergeCountdown retryAt={mergeRetryAt} />
         </div>
       )}
 

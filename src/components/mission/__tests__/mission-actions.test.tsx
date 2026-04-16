@@ -149,13 +149,6 @@ describe('MissionActions', () => {
       expect(screen.queryByRole('button', { name: /tactical override/i })).not.toBeInTheDocument();
     });
 
-    it('does not show ABANDON for reviewing (legacy) status', () => {
-      // 'reviewing' is a legacy status — not in the new canAbandon set
-      renderWithProviders(
-        <MissionActions {...baseProps} status="reviewing" />,
-      );
-      expect(screen.queryByRole('button', { name: /abandon/i })).not.toBeInTheDocument();
-    });
   });
 
   describe('escalation answer panel', () => {

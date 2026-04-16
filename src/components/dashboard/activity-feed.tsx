@@ -18,12 +18,6 @@ function getTypeIndicator(type: string): { icon: string; color: string } {
   if (normalized.includes('in_combat')) {
     return { icon: '\u2694', color: 'text-dr-amber' }; // ⚔
   }
-  if (normalized.includes('reviewing')) {
-    return { icon: '\u25C9', color: 'text-dr-blue' }; // ◉
-  }
-  if (normalized.includes('approved')) {
-    return { icon: '\u2713', color: 'text-dr-teal' }; // ✓
-  }
   if (normalized.includes('merging')) {
     return { icon: '\u27F3', color: 'text-dr-amber' }; // ⟳
   }

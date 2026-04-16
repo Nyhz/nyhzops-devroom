@@ -25,7 +25,6 @@ interface PhaseTimelineProps {
       costInput: number | null;
       costOutput: number | null;
       compromiseReason?: string | null;
-      mergeRetryAt?: number | null;
       debriefStructured?: string | null;
       debrief?: string | null;
     }>;
@@ -107,7 +106,6 @@ export function PhaseTimeline({ phases, battlefieldId }: PhaseTimelineProps) {
                         costInput={mission.costInput}
                         costOutput={mission.costOutput}
                         compromiseReason={mission.compromiseReason ?? null}
-                        mergeRetryAt={mission.mergeRetryAt ?? null}
                         battlefieldId={battlefieldId ?? null}
                         debriefStructured={mission.debriefStructured ?? null}
                         debriefText={mission.debrief ?? null}

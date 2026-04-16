@@ -32,7 +32,6 @@ interface CampaignLiveViewProps {
       costInput: number | null;
       costOutput: number | null;
       compromiseReason?: string | null;
-      mergeRetryAt?: number | null;
       debriefStructured?: string | null;
       debrief?: string | null;
     }>;

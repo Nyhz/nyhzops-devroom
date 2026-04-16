@@ -12,7 +12,6 @@ const STATUS_COLORS: Record<string, string> = {
   queued: 'border-l-dr-muted/40',
   deploying: 'border-l-dr-amber/50',
   in_combat: 'border-l-dr-amber',
-  reviewing: 'border-l-dr-blue/50',
   accomplished: 'border-l-dr-green/40',
   compromised: 'border-l-dr-red/40',
 };
@@ -22,7 +21,6 @@ const STATUS_TEXT_COLORS: Record<string, string> = {
   queued: 'text-dr-muted/60',
   deploying: 'text-dr-amber/60',
   in_combat: 'text-dr-amber/70',
-  reviewing: 'text-dr-blue/60',
   accomplished: 'text-dr-green/50',
   compromised: 'text-dr-red/50',
 };

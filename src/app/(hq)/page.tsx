@@ -18,7 +18,7 @@ export default function ProjectsPage() {
 
   // Global stats
   const totalInCombatResult = db.select({ value: count() }).from(missions)
-    .where(inArray(missions.status, ['in_combat', 'deploying', 'reviewing'])).all();
+    .where(inArray(missions.status, ['in_combat', 'deploying'])).all();
   const totalAccomplishedResult = db.select({ value: count() }).from(missions)
     .where(eq(missions.status, 'accomplished')).all();
   const totalCompromisedResult = db.select({ value: count() }).from(missions)
