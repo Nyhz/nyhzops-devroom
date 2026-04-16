@@ -200,41 +200,9 @@ git add src/lib/db/schema.ts src/lib/db/migrations/
 git commit -m "feat(db): add battlefields gate manifest + missions lifecycle columns"
 ```
 
-### Task 1.3: Drizzle schema — drop deprecated columns
+### Task 1.3: **DEFERRED to Phase 10** — drop deprecated columns
 
-**Files:**
-- Modify: `src/lib/db/schema.ts`
-- Generate: `src/lib/db/migrations/0026_drop_deprecated.sql`
-
-- [ ] **Step 1: Remove deprecated columns from schema**
-
-Delete these columns from the `missions` table definition in `schema.ts`:
-- `reviewAttempts`
-- `compromiseReason`
-- `mergeRetryAt`
-
-- [ ] **Step 2: Generate migration**
-
-Run: `pnpm db:generate`
-Expected: migration drops the three columns.
-
-- [ ] **Step 3: Apply migration locally**
-
-Run: `pnpm db:migrate`
-Expected: columns dropped.
-
-- [ ] **Step 4: Search for references to dropped columns in the codebase**
-
-Run: `grep -r "reviewAttempts\|compromiseReason\|mergeRetryAt" src/ --include="*.ts"`
-
-Do NOT fix them yet — these live in the old orchestrator code which is being replaced. They will all disappear at Phase 10 cutover. Just confirm the references are all in `src/lib/orchestrator/`, `src/lib/overseer/`, `src/lib/quartermaster/`, `src/actions/mission.ts`, `src/actions/campaign.ts`, or UI files — not in new Phase 1 code.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add src/lib/db/schema.ts src/lib/db/migrations/
-git commit -m "feat(db): drop deprecated mission columns (replaced by mission_attempts)"
-```
+Originally this task dropped `reviewAttempts` / `compromiseReason` / `mergeRetryAt` in Phase 1. Deferred to Phase 10 because these columns are still referenced by the old orchestrator/overseer/quartermaster code (which remains live until Phase 10 cutover). Dropping them in Phase 1 would require either gutting the old code early (out of scope for Phase 1) or adding shims (ugly transitional code). Cleaner to drop columns in the same migration that deletes the referencing code. The column drops are now merged into the cutover migration at Task 10.2 — see that task for the consolidated SQL.
 
 ### Task 1.4: Clean-slate wipe migration
 
@@ -2942,10 +2910,37 @@ git add -A
 git commit -m "chore(cutover): delete obsolete orchestrator/overseer/quartermaster subsystems"
 ```
 
-### Task 10.2: Run clean-slate migration
+### Task 10.2: Run clean-slate migration + drop deprecated columns
 
 **Files:**
 - Use: `src/lib/db/migrations/0027_clean_slate.sql` (created in Task 1.4)
+- Modify: `src/lib/db/schema.ts` — remove deprecated column declarations
+- Generate: `src/lib/db/migrations/0028_drop_deprecated.sql` (after Task 10.1 deletes the referencing code)
+
+The drop-deprecated-columns step was deferred from Task 1.3 (Phase 1) to this point, because the columns (`missions.reviewAttempts`, `missions.compromiseReason`, `missions.mergeRetryAt`) were referenced throughout the old orchestrator/overseer/quartermaster code. Task 10.1 deletes that code; this task drops the now-unreferenced columns.
+
+- [ ] **Step 0: Drop deprecated columns (performed AFTER Task 10.1 deletes old code)**
+
+Verify no remaining references:
+
+```bash
+grep -r "reviewAttempts\|compromiseReason\|mergeRetryAt" src/ tests/ --include="*.ts" --include="*.tsx"
+```
+
+Expected: zero matches (all references were in code deleted by Task 10.1). If any remain, fix or delete them before proceeding.
+
+In `src/lib/db/schema.ts`, remove these column declarations from the `missions` table definition:
+- `reviewAttempts`
+- `compromiseReason`
+- `mergeRetryAt`
+
+Generate migration:
+
+```bash
+pnpm db:generate
+```
+
+Expected: a new migration (numbered after the latest — at this point likely `0028_*.sql`) containing `ALTER TABLE ... DROP COLUMN ...` statements (or SQLite's table-rebuild equivalent) for the three columns. Inspect the generated SQL to confirm only these three columns are dropped and nothing else.
 
 - [ ] **Step 1: Back up production DB before proceeding**
 
