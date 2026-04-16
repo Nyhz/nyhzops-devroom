@@ -17,7 +17,7 @@ import type {
   autoCommitSweep,
   removeMissionWorktree,
 } from './worktree';
-import { decideNextAction, nextInfraBackoffMs, type RetryState } from './retry-policy';
+import { decideNextAction, nextInfraBackoffMs } from './retry-policy';
 import { emitComm } from './comms';
 
 /**
@@ -139,7 +139,6 @@ type BattlefieldRow = typeof battlefields.$inferSelect;
 const DEFAULT_INFRA_BACKOFF = [30_000, 120_000, 600_000, 1_800_000];
 const DEFAULT_RATE_LIMIT_BACKOFF = 60_000;
 const DEFAULT_INFRA_MAX_RETRIES = 4;
-const MAX_SORTIE_ATTEMPTS = 4; // 3 deterministic + 1 OVERSEER redirect
 
 function loadMission(missionId: string): { mission: MissionRow; battlefield: BattlefieldRow } {
   const db = getDatabase();
@@ -222,29 +221,6 @@ function hashDiff(s: string): string {
   return createHash('sha1').update(s).digest('hex');
 }
 
-function classificationToOutcome(cat: Classification['category']):
-  | 'infrastructure'
-  | 'rate-limit'
-  | 'auth'
-  | 'timeout'
-  | 'turn-limit'
-  | null {
-  switch (cat) {
-    case 'INFRASTRUCTURE':
-    case 'AGENT_FAILURE':
-      return 'infrastructure';
-    case 'RATE_LIMIT':
-      return 'rate-limit';
-    case 'AUTH':
-      return 'auth';
-    case 'TIMEOUT':
-      return 'timeout';
-    case 'TURN_LIMIT':
-      return 'turn-limit';
-    default:
-      return null;
-  }
-}
 
 /**
  * Drive a mission through its lifecycle. Implements spec §5 retry loop:
@@ -307,8 +283,6 @@ export async function runMission(
   // Safety cap to avoid runaway loops in pathological dep configurations.
   for (let guard = 0; guard < 20; guard++) {
     const attemptNumber = countAttempts(missionId) + 1;
-    const isSortieAttempt = redirectPrompt !== null || sortieAttempt < MAX_SORTIE_ATTEMPTS;
-    // Track whether this spawn uses the deterministic-retry prompt (sortie)
     const spawnStart = deps.now();
 
     const briefing = redirectPrompt ?? mission.briefing;

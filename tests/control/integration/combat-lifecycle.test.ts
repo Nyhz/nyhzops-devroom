@@ -30,10 +30,7 @@ import {
   autoCommitSweep,
   removeMissionWorktree,
 } from '@/control/worktree';
-import {
-  materializeRepo,
-  type MaterializedRepo,
-} from '@/../tests/control/fixtures/repos/materialize';
+import { materializeRepo } from '@/../tests/control/fixtures/repos/materialize';
 
 // ---------------------------------------------------------------------------
 // Scripted-claude wiring — see tests/control/unit/spawn-asset.test.ts
