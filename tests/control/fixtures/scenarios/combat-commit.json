@@ -1,0 +1,12 @@
+{
+  "writeFiles": [
+    { "path": "feature.txt", "contents": "feature work\n" }
+  ],
+  "events": [
+    { "type": "assistant", "text": "Starting", "delayMs": 20 },
+    { "type": "tool_use", "name": "Edit", "delayMs": 20 },
+    { "type": "assistant", "text": "Done.", "delayMs": 20 },
+    { "type": "result", "subtype": "success", "duration_ms": 100, "num_turns": 2, "total_cost_usd": 0.001, "usage": { "input_tokens": 80, "output_tokens": 30, "cache_read_input_tokens": 500 } }
+  ],
+  "exitCode": 0
+}

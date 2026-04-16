@@ -1,0 +1,5 @@
+{
+  "events": [],
+  "exitCode": 1,
+  "stderr": "HTTP 401 unauthorized — invalid credentials; keychain entry missing"
+}

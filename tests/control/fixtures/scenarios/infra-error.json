@@ -1,0 +1,7 @@
+{
+  "events": [
+    { "type": "assistant", "text": "Connecting...", "delayMs": 20 }
+  ],
+  "exitCode": 1,
+  "stderr": "fetch failed: ECONNRESET from upstream (503 server busy)"
+}

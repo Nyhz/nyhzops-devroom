@@ -9,6 +9,11 @@ export interface Scenario {
   stderr?: string;
   /** Optional hang: if set, process sleeps this many ms before emitting events. */
   hangMs?: number;
+  /** Optional files to write into the cwd before emitting events. Used by
+   *  integration tests that need to exercise the auto-commit-sweep path —
+   *  scripted-claude writes files the "agent" would have edited. Paths are
+   *  resolved relative to the subprocess cwd. */
+  writeFiles?: Array<{ path: string; contents: string }>;
 }
 
 export type ScenarioEvent =

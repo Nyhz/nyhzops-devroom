@@ -1,6 +1,8 @@
 #!/usr/bin/env tsx
 // Scripted claude stand-in. Reads a scenario path from env var SCRIPTED_CLAUDE_SCENARIO
 // and emits pre-canned JSON stream events with optional delays.
+import fs from 'node:fs';
+import path from 'node:path';
 import { loadScenario } from './scenario';
 
 function sleep(ms: number): Promise<void> {
@@ -15,6 +17,14 @@ async function main(): Promise<void> {
   }
 
   const scenario = loadScenario(scenarioPath);
+
+  if (scenario.writeFiles && scenario.writeFiles.length > 0) {
+    for (const f of scenario.writeFiles) {
+      const abs = path.resolve(process.cwd(), f.path);
+      fs.mkdirSync(path.dirname(abs), { recursive: true });
+      fs.writeFileSync(abs, f.contents);
+    }
+  }
 
   if (scenario.hangMs && scenario.hangMs > 0) {
     await sleep(scenario.hangMs);

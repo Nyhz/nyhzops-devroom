@@ -1,0 +1,7 @@
+{
+  "events": [
+    { "type": "assistant", "text": "Hello", "delayMs": 20 }
+  ],
+  "exitCode": 1,
+  "stderr": "HTTP 429 rate limit exceeded; please retry-after 30s"
+}
