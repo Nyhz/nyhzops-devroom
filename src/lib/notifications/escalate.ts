@@ -1,3 +1,13 @@
+/**
+ * escalate — central entry point for all DEVROOM notifications.
+ *
+ * Stores a notification in the DB, emits a Socket.IO event, and sends
+ * Telegram messages for warning/critical levels.
+ *
+ * Moved here from the deleted @/lib/overseer/escalation module (Phase 10
+ * CONTROL reliability cutover).
+ */
+
 import { eq, desc, lt } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { notifications } from '@/lib/db/schema';
@@ -11,10 +21,6 @@ import {
 import type { NotificationLevel, NotificationEntityType } from '@/types';
 
 const MAX_NOTIFICATIONS = 100;
-
-// ---------------------------------------------------------------------------
-// escalate — central entry point for all escalations
-// ---------------------------------------------------------------------------
 
 export async function escalate(params: {
   level: NotificationLevel;
@@ -168,31 +174,11 @@ export async function handleTelegramCallback(
         break;
       }
 
-      case 'resume': {
-        if (entityType === 'campaign') {
-          const { resumeCampaign } = await import('@/actions/campaign');
-          await resumeCampaign(entityId);
-          await editMessage(messageId, '\u25b6\ufe0f *Commander ordered resume.* Campaign continuing.');
-        }
-        break;
-      }
-
       case 'skip': {
         if (entityType === 'campaign') {
           const { skipAndContinueCampaign } = await import('@/actions/campaign-overrides');
           await skipAndContinueCampaign(entityId);
           await editMessage(messageId, '\u23e9 *Commander ordered skip & continue.* Advancing to next phase.');
-        }
-        break;
-      }
-
-      case 'unpause': {
-        const orch = globalThis.orchestrator;
-        if (orch) {
-          orch.unpause();
-          await editMessage(messageId, '▶️ *Commander unpaused the queue.* Draining...');
-        } else {
-          await editMessage(messageId, '⚠️ *Orchestrator not available.* Cannot unpause.');
         }
         break;
       }

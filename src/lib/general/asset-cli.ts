@@ -48,10 +48,6 @@ function getPluginManifest(): Record<string, Array<{ installPath: string }>> {
  * Accepts two formats:
  *   - "pluginName:skillName" — the format produced by the discovery scanner / UI toggle
  *   - "name@publisher" — legacy format (used by older seed data)
- *
- * For "pluginName:skillName": looks up the manifest to find the publisher,
- * then resolves the installPath. For multi-skill plugins (e.g. superpowers),
- * returns the skill subdirectory.
  */
 function resolveSkillPath(skillId: string): string | null {
   // Legacy "@" format: name@publisher
@@ -95,6 +91,7 @@ function resolveSkillPath(skillId: string): string | null {
 
 /**
  * Translates an Asset config (plus optional skill overrides) into Claude Code CLI flags.
+ * Used by the GENERAL assistant engine.
  */
 export function buildAssetCliArgs(
   asset: Asset,

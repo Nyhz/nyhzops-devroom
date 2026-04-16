@@ -8,7 +8,7 @@ import { eq, desc, and, isNotNull, inArray } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { missions, battlefields } from '@/lib/db/schema';
 import { getRepoPath } from '@/actions/_helpers';
-import { removeWorktree } from '@/lib/orchestrator/worktree';
+import { removeMissionWorktree } from '@/control/worktree';
 import type {
   WorktreeEntry,
   WorktreeState,
@@ -184,7 +184,7 @@ export async function cleanupWorktree(
   branch: string,
 ): Promise<void> {
   const repoPath = await getRepoPath(battlefieldId);
-  await removeWorktree(repoPath, worktreePath, branch);
+  await removeMissionWorktree({ repoPath, worktreePath, branch, deleteBranch: true });
 }
 
 export async function cleanupAllStale(

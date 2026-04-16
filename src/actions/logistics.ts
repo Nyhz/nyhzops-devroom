@@ -207,6 +207,6 @@ export async function getDailyUsage(days = 30): Promise<DailyUsage[]> {
 }
 
 export async function getRateLimitStatus(): Promise<RateLimitStatus | null> {
-  const rl = globalThis.orchestrator?.latestRateLimit ?? null;
-  return rl;
+  // CONTROL does not track latestRateLimit — rate-limit info is not available in this architecture.
+  return null;
 }

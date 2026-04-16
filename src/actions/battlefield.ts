@@ -437,33 +437,18 @@ export async function deleteBattlefield(id: string): Promise<void> {
     .get();
 
   // --- Step 1: abort in-flight work ---------------------------------------
+  // CONTROL picks up DB status changes automatically — mark missions/campaigns
+  // abandoned here; any running subprocesses will be cleaned up by the watchdog.
   if (battlefield) {
-    const orchestrator = globalThis.orchestrator;
-    if (orchestrator) {
-      const ACTIVE_MISSION_STATUSES = ['queued', 'deploying', 'in_combat', 'reviewing', 'approved', 'merging'] as const;
-      const activeMissions = db
-        .select({ id: missions.id })
-        .from(missions)
-        .where(and(eq(missions.battlefieldId, id), inArray(missions.status, [...ACTIVE_MISSION_STATUSES])))
-        .all();
-      for (const m of activeMissions) {
-        try { await orchestrator.onMissionAbort(m.id); } catch (err) {
-          console.error(`[deleteBattlefield] Failed to abort mission ${m.id}:`, err);
-        }
-      }
+    const ACTIVE_MISSION_STATUSES = ['queued', 'deploying', 'in_combat', 'reviewing', 'approved', 'merging'] as const;
+    db.update(missions).set({ status: 'abandoned', updatedAt: Date.now() })
+      .where(and(eq(missions.battlefieldId, id), inArray(missions.status, [...ACTIVE_MISSION_STATUSES])))
+      .run();
 
-      const ACTIVE_CAMPAIGN_STATUSES = ['planning', 'active', 'paused'] as const;
-      const activeCampaigns = db
-        .select({ id: campaigns.id })
-        .from(campaigns)
-        .where(and(eq(campaigns.battlefieldId, id), inArray(campaigns.status, [...ACTIVE_CAMPAIGN_STATUSES])))
-        .all();
-      for (const c of activeCampaigns) {
-        try { await orchestrator.abortCampaign(c.id); } catch (err) {
-          console.error(`[deleteBattlefield] Failed to abort campaign ${c.id}:`, err);
-        }
-      }
-    }
+    const ACTIVE_CAMPAIGN_STATUSES = ['planning', 'active', 'paused'] as const;
+    db.update(campaigns).set({ status: 'abandoned', updatedAt: Date.now() })
+      .where(and(eq(campaigns.battlefieldId, id), inArray(campaigns.status, [...ACTIVE_CAMPAIGN_STATUSES])))
+      .run();
 
     // --- Step 2: stop dev server ------------------------------------------
     try { globalThis.devServerManager?.stop(id); } catch (err) {

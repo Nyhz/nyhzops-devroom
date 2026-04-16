@@ -12,12 +12,11 @@ vi.mock('next/headers', () => ({
   headers: () => new Map(),
 }));
 
-// --- Mock globalThis.orchestrator ---
+// --- Mock globalThis.orchestrator (Control) ---
 globalThis.orchestrator = {
-  onMissionQueued: vi.fn(),
-  onMissionAbort: vi.fn(),
-  queueMission: vi.fn(),
-  abortMission: vi.fn(),
+  live: new Map(),
+  start: vi.fn().mockResolvedValue(undefined),
+  stop: vi.fn().mockResolvedValue(undefined),
 } as unknown as typeof globalThis.orchestrator;
 
 // --- Mock globalThis.io (Socket.IO) ---

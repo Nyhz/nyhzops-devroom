@@ -52,8 +52,8 @@ vi.mock('@/lib/db/index', () => ({
   })),
 }));
 
-vi.mock('@/lib/orchestrator/worktree', () => ({
-  removeWorktree: vi.fn().mockResolvedValue(undefined),
+vi.mock('@/control/worktree', () => ({
+  removeMissionWorktree: vi.fn().mockResolvedValue(undefined),
 }));
 
 // ---------------------------------------------------------------------------
@@ -70,7 +70,7 @@ import {
   getQuartermasterLog,
 } from '../field-check';
 import simpleGit from 'simple-git';
-import { removeWorktree } from '@/lib/orchestrator/worktree';
+import { removeMissionWorktree } from '@/control/worktree';
 
 // ---------------------------------------------------------------------------
 // Reset mocks between tests
@@ -176,11 +176,12 @@ describe('cleanupWorktree', () => {
       'devroom/bf/foo',
     );
 
-    expect(removeWorktree).toHaveBeenCalledWith(
-      TEST_REPO_PATH,
-      '/tmp/test-repo/.worktrees/foo',
-      'devroom/bf/foo',
-    );
+    expect(removeMissionWorktree).toHaveBeenCalledWith({
+      repoPath: TEST_REPO_PATH,
+      worktreePath: '/tmp/test-repo/.worktrees/foo',
+      branch: 'devroom/bf/foo',
+      deleteBranch: true,
+    });
   });
 });
 

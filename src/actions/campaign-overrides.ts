@@ -5,7 +5,6 @@ import { eq } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
 import { campaigns, phases, missions } from '@/lib/db/schema';
 import { emitStatusChange } from '@/lib/socket/emit';
-import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
 import { reactivateCampaignIfNeeded, notifyCampaignExecutor, revalidateCampaignPaths } from './campaign-helpers';
 
 // ---------------------------------------------------------------------------
@@ -22,8 +21,7 @@ export async function skipAndContinueCampaign(
     );
   }
 
-  globalThis.orchestrator?.skipAndContinueCampaign(campaignId);
-
+  // CONTROL monitors DB state — no explicit signal needed.
   revalidateCampaignPaths(campaign.battlefieldId, campaignId);
 }
 
@@ -58,7 +56,7 @@ export async function tacticalOverride(
 
   emitStatusChange('mission', missionId, 'queued');
   revalidatePath(`/battlefields/${mission.battlefieldId}`);
-  safeQueueMission(missionId);
+  // CONTROL polls DB for status='queued' — no explicit trigger needed.
 }
 
 // ---------------------------------------------------------------------------
@@ -85,7 +83,7 @@ export async function commanderOverride(missionId: string): Promise<void> {
 
   emitStatusChange('mission', missionId, 'accomplished');
 
-  const { escalate } = await import('@/lib/overseer/escalation');
+  const { escalate } = await import('@/lib/notifications/escalate');
   await escalate({
     level: 'info',
     title: `Mission Accomplished — ${mission.title}`,
@@ -177,15 +175,7 @@ export async function retryPhaseDebrief(campaignId: string): Promise<void> {
   }).where(eq(campaigns.id, campaignId)).run();
   emitStatusChange('campaign', campaignId, 'active');
 
-  // Re-trigger generateAndAdvance via the campaign executor
-  const executor = globalThis.orchestrator?.activeCampaigns.get(campaignId);
-  if (executor) {
-    executor.retryGenerateAndAdvance(campaign.stalledPhaseId).catch((err: Error) => {
-      console.error('[Campaign] Retry phase debrief failed:', err);
-    });
-  } else {
-    globalThis.orchestrator?.startCampaign(campaignId);
-  }
+  // CONTROL polls DB for status='active' campaigns — no explicit trigger needed.
 
   revalidateCampaignPaths(campaign.battlefieldId, campaignId);
 }
@@ -252,15 +242,7 @@ export async function skipPhaseDebrief(campaignId: string): Promise<void> {
   }).where(eq(campaigns.id, campaignId)).run();
   emitStatusChange('campaign', campaignId, 'active');
 
-  // Advance to next phase
-  const executor = globalThis.orchestrator?.activeCampaigns.get(campaignId);
-  if (executor) {
-    executor.retryAdvanceToNextPhase().catch((err: Error) => {
-      console.error('[Campaign] Skip + advance failed:', err);
-    });
-  } else {
-    globalThis.orchestrator?.startCampaign(campaignId);
-  }
+  // CONTROL polls DB for status='active' campaigns — no explicit trigger needed.
 
   revalidateCampaignPaths(campaign.battlefieldId, campaignId);
 }

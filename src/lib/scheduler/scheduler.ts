@@ -127,7 +127,8 @@ export class Scheduler {
   // ---------------------------------------------------------------------------
 
   private async runWorktreeSweep(battlefieldIds: string[]): Promise<void> {
-    const { cleanOrphanedWorktrees } = await import('@/lib/orchestrator/worktree');
+    const { removeMissionWorktree, sanitizeBranchForPath } = await import('@/control/worktree');
+    const simpleGit = (await import('simple-git')).default;
     const db = getDatabase();
     const startTime = Date.now();
 
@@ -145,6 +146,25 @@ export class Scheduler {
       )
       .all();
     const activeIds = activeMissions.map((m) => m.id);
+
+    // Inline cleanOrphanedWorktrees (previously in deleted @/lib/orchestrator/worktree)
+    const cleanOrphanedWorktrees = async (repoPath: string, activeMissionIds: string[]): Promise<number> => {
+      const git = simpleGit(repoPath);
+      let cleaned = 0;
+      const branches = await git.branchLocal();
+      const devroomBranches = Object.keys(branches.branches).filter(b => b.startsWith('devroom/'));
+      for (const branch of devroomBranches) {
+        const parts = branch.split('/');
+        const idSuffix = parts[parts.length - 1];
+        const isActive = activeMissionIds.some(id => id.slice(-12).toLowerCase() === idSuffix);
+        if (!isActive) {
+          const worktreeDir = `${repoPath}/.worktrees/${sanitizeBranchForPath(branch)}`;
+          await removeMissionWorktree({ repoPath, worktreePath: worktreeDir, branch, deleteBranch: true });
+          cleaned++;
+        }
+      }
+      return cleaned;
+    };
 
     let totalCleaned = 0;
     const logLines: string[] = [`WORKTREE SWEEP — ${new Date().toISOString()}`];
@@ -362,7 +382,7 @@ export class Scheduler {
       ].join('\n');
 
       // Create notification via escalation system (handles DB + Telegram)
-      const { escalate } = await import('@/lib/overseer/escalation');
+      const { escalate } = await import('@/lib/notifications/escalate');
       await escalate({
         level: 'info',
         title: `ACTIVITY DIGEST — ${bf.codename}`,

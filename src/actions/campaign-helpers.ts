@@ -26,19 +26,13 @@ export function reactivateCampaignIfNeeded(campaignId: string) {
 }
 
 /**
- * Ensure a CampaignExecutor is registered and notify it of mission completion.
- * Auto-registers executor if missing (e.g. after server restart).
+ * Notify campaign of mission completion.
+ * CONTROL handles campaign progression by polling DB — no explicit trigger needed.
+ * This function is a no-op after the Phase 10 CONTROL cutover.
  */
-export async function notifyCampaignExecutor(campaignId: string, missionId: string) {
-  let executor = globalThis.orchestrator?.activeCampaigns.get(campaignId);
-  if (!executor && globalThis.orchestrator) {
-    const { CampaignExecutor } = await import('@/lib/orchestrator/campaign-executor');
-    executor = new CampaignExecutor(campaignId, globalThis.io!);
-    globalThis.orchestrator.activeCampaigns.set(campaignId, executor);
-  }
-  if (executor) {
-    executor.onCampaignMissionComplete(missionId).catch(console.error);
-  }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function notifyCampaignExecutor(_campaignId: string, _missionId: string) {
+  // CONTROL polls DB for mission status changes — no orchestrator signal needed.
 }
 
 export function revalidateCampaignPaths(battlefieldId: string, campaignId?: string) {

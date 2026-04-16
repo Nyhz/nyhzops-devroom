@@ -3,8 +3,8 @@ import { eq } from 'drizzle-orm';
 import type { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
 import { createAuthenticatedHomeAt } from '@/lib/process/claude-print';
-import { getSystemAsset } from '@/lib/orchestrator/system-asset';
-import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
+import { buildAssetCliArgs } from '@/lib/general/asset-cli';
+import type { Asset } from '@/types';
 import {
   briefingSessions,
   briefingMessages,
@@ -20,6 +20,26 @@ import { formatAssetRoster } from './asset-roster';
 import { insertPlanFromJSON } from '@/actions/campaign-helpers';
 import type { PlanJSON } from '@/types';
 import { detectCycle } from '@/lib/utils/dependency-graph';
+
+// ---------------------------------------------------------------------------
+// System asset lookup (inlined from deleted @/lib/orchestrator/system-asset)
+// ---------------------------------------------------------------------------
+
+const _systemAssetCache = new Map<string, { asset: Asset; cachedAt: number }>();
+const SYSTEM_ASSET_CACHE_TTL = 60_000;
+
+function getSystemAsset(codename: string): Asset {
+  const now = Date.now();
+  const cached = _systemAssetCache.get(codename);
+  if (cached && (now - cached.cachedAt) < SYSTEM_ASSET_CACHE_TTL) {
+    return cached.asset;
+  }
+  const db = getDatabase();
+  const asset = db.select().from(assets).where(eq(assets.codename, codename)).get();
+  if (!asset) throw new Error(`System asset ${codename} not found. Run seed.`);
+  _systemAssetCache.set(codename, { asset, cachedAt: now });
+  return asset;
+}
 
 // ---------------------------------------------------------------------------
 // Active process tracking (for abort support)

@@ -3,15 +3,35 @@ import type { Server as SocketIOServer } from 'socket.io';
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { createAuthenticatedHomeAt } from '@/lib/process/claude-print';
-import { generalSessions, generalMessages, battlefields } from '@/lib/db/schema';
+import { generalSessions, generalMessages, battlefields, assets } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
+import type { Asset } from '@/types';
 import { buildGeneralPrompt } from './general-prompt';
 import { parseCommand } from './general-commands';
-import { getSystemAsset } from '@/lib/orchestrator/system-asset';
-import { buildAssetCliArgs } from '@/lib/orchestrator/asset-cli';
+import { buildAssetCliArgs } from './asset-cli';
 import { filterFlags } from '@/lib/utils/cli';
-import { StreamParser } from '@/lib/orchestrator/stream-parser';
+import { StreamParser } from './stream-parser';
+
+// ---------------------------------------------------------------------------
+// System asset lookup (cached, TTL 60s)
+// ---------------------------------------------------------------------------
+
+const _systemAssetCache = new Map<string, { asset: Asset; cachedAt: number }>();
+const SYSTEM_ASSET_CACHE_TTL = 60_000;
+
+function getSystemAsset(codename: string): Asset {
+  const now = Date.now();
+  const cached = _systemAssetCache.get(codename);
+  if (cached && (now - cached.cachedAt) < SYSTEM_ASSET_CACHE_TTL) {
+    return cached.asset;
+  }
+  const db = getDatabase();
+  const asset = db.select().from(assets).where(eq(assets.codename, codename)).get();
+  if (!asset) throw new Error(`System asset ${codename} not found. Run seed.`);
+  _systemAssetCache.set(codename, { asset, cachedAt: now });
+  return asset;
+}
 
 // ---------------------------------------------------------------------------
 // Active process tracking

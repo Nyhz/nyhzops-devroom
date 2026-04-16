@@ -8,6 +8,7 @@ import {
   phases,
   missions,
   comms,
+  missionAttempts,
 } from '@/lib/db/schema';
 import {
   launchCampaign,
@@ -47,6 +48,7 @@ function cleanDb(): void {
 
   if (missionIds.length) {
     db.delete(comms).where(inArray(comms.missionId, missionIds)).run();
+    db.delete(missionAttempts).where(inArray(missionAttempts.missionId, missionIds)).run();
     db.delete(missions).where(inArray(missions.id, missionIds)).run();
   }
   if (campaignIds.length) {

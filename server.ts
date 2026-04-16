@@ -10,20 +10,21 @@ import { getDatabase, runMigrations, closeDatabase } from './src/lib/db/index';
 import { battlefields, campaigns, missions } from './src/lib/db/schema';
 import { setupSocketIO } from './src/lib/socket/server';
 import { config } from './src/lib/config';
-import { Orchestrator } from './src/lib/orchestrator/orchestrator';
+import { Control } from './src/control/control';
+import { buildProductionDeps } from './src/control/production-deps';
 import { DevServerManager } from './src/lib/process/dev-server';
 import { Scheduler } from './src/lib/scheduler/scheduler';
 import { telegramBot } from './src/lib/telegram/bot';
 import { attachCallbackHandler } from './src/lib/telegram/notifier';
 // Legacy telegram module kept for backwards-compatibility shim (isEnabled check).
 import { isEnabled as telegramIsEnabled } from './src/lib/telegram/telegram';
-import { handleTelegramCallback } from './src/lib/overseer/escalation';
+import { handleTelegramCallback } from './src/lib/notifications/escalate';
 import { setBootTimestamp, stopMetricsEmitter } from './src/lib/system-metrics';
 
 // Typed globalThis for Socket.IO access
 declare global {
   var io: SocketIOServer | undefined;
-  var orchestrator: Orchestrator | undefined;
+  var orchestrator: Control | undefined;
   var devServerManager: DevServerManager | undefined;
   var scheduler: Scheduler | undefined;
 }
@@ -57,10 +58,12 @@ async function start() {
   setupSocketIO(io);
   setBootTimestamp(SERVER_BOOT_TIME);
 
-  // 5b. Create orchestrator
-  const orchestrator = new Orchestrator(io);
+  // 5b. Start CONTROL (replaces old Orchestrator)
+  const missionDeps = buildProductionDeps(io);
+  const orchestrator = new Control({ missionDeps });
   globalThis.orchestrator = orchestrator;
-  console.log(`[DEVROOM] Orchestrator online — ${config.maxAgents} agent slots`);
+  await orchestrator.start();
+  console.log(`[DEVROOM] CONTROL online — ${config.maxAgents} agent slots`);
 
   // 5c. Dev server manager
   const devServerManager = new DevServerManager();
@@ -81,15 +84,13 @@ async function start() {
     }
   }
 
-  // Re-trigger Overseer review for missions stuck in reviewing
-  const { runOverseerReview } = await import('./src/lib/overseer/review-handler');
+  // Re-queue missions stuck in reviewing — CONTROL will pick them up and re-run review
   const reviewingMissions = db.select().from(missions)
     .where(eq(missions.status, 'reviewing')).all();
   for (const m of reviewingMissions) {
-    console.log(`[DEVROOM] Mission ${m.id} re-triggering Overseer review — was reviewing when server stopped`);
-    runOverseerReview(m.id).catch(err => {
-      console.error(`[DEVROOM] Overseer review retry failed for ${m.id}:`, err);
-    });
+    db.update(missions).set({ status: 'queued', updatedAt: Date.now() })
+      .where(eq(missions.id, m.id)).run();
+    console.log(`[DEVROOM] Mission ${m.id} re-queued — was reviewing when server stopped`);
   }
 
   // Pause active campaigns (they'll resume their orphaned missions when unpaused)
@@ -164,7 +165,7 @@ async function start() {
     telegramBot.stop();
     scheduler.stop();
     devServerManager.stopAll();
-    await orchestrator.shutdown();
+    await orchestrator.stop();
 
     // Force exit after 5 seconds if graceful close hangs
     const forceExit = setTimeout(() => {

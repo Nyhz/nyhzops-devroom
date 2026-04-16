@@ -89,15 +89,14 @@ beforeEach(async () => {
 describe('getActiveProcesses', () => {
   it('returns empty array when no orchestrator is present', async () => {
     // globalThis.orchestrator is undefined
+    mockAll.mockReturnValue([]);
     const result = await getActiveProcesses('bf_test_001');
     expect(result).toEqual([]);
-    // DB should NOT have been queried
-    expect(mockSelect).not.toHaveBeenCalled();
   });
 
   it('returns empty array when orchestrator exists but no active missions', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (globalThis as any).orchestrator = { getWorkingCount: vi.fn(() => 0) };
+    (globalThis as any).orchestrator = { live: new Map() };
     mockAll.mockReturnValue([]);
 
     const result = await getActiveProcesses('bf_test_001');
@@ -106,7 +105,7 @@ describe('getActiveProcesses', () => {
 
   it('maps DB rows to ProcessEntry shape with placeholder PID and memory', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (globalThis as any).orchestrator = { getWorkingCount: vi.fn(() => 1) };
+    (globalThis as any).orchestrator = { live: new Map([['mission-001', 12345]]) };
 
     const now = Date.now();
     const missionRows = [
@@ -131,7 +130,7 @@ describe('getActiveProcesses', () => {
       missionId: 'mission-001',
       missionCodename: 'Alpha Strike',
       asset: 'RANGER',
-      pid: 0,
+      pid: 12345,
       status: 'in_combat',
       memoryRss: 0,
     });
@@ -155,9 +154,9 @@ describe('getResourceUsage', () => {
     expect(result.agentSlots).toEqual({ active: 0, max: 5 });
   });
 
-  it('returns orchestrator working count when available', async () => {
+  it('returns orchestrator live.size when available', async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (globalThis as any).orchestrator = { getWorkingCount: vi.fn(() => 3) };
+    (globalThis as any).orchestrator = { live: new Map([['m1', 1], ['m2', 2], ['m3', 3]]) };
 
     const result = await getResourceUsage(TEST_BATTLEFIELD_ID);
 

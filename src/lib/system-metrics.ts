@@ -80,8 +80,6 @@ function collectMetrics(): SystemMetrics {
   const totalMem = os.totalmem();
   const usedMem = getMemoryUsed();
 
-  const orchestrator = globalThis.orchestrator;
-
   return {
     cores: computeCoreUsage(),
     ram: {
@@ -92,7 +90,7 @@ function collectMetrics(): SystemMetrics {
     disk: getDiskUsage(),
     uptime: Date.now() - bootTimestamp,
     assets: {
-      active: orchestrator?.getWorkingCount() ?? 0,
+      active: globalThis.orchestrator?.live.size ?? 0,
       max: config.maxAgents,
     },
   };

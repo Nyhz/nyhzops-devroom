@@ -525,15 +525,15 @@ describe('campaign-actions integration — Phase 8.2', () => {
   });
 
   // =========================================================================
-  // Deprecated stubs
+  // Previously deprecated stubs — now implemented
   // =========================================================================
-  describe('deprecated stub actions', () => {
-    it('redeployCampaign throws deprecation error', async () => {
-      await expect(redeployCampaign('any-id')).rejects.toThrow('Deprecated');
+  describe('redeployCampaign / resumeCampaign', () => {
+    it('redeployCampaign throws when campaign not found', async () => {
+      await expect(redeployCampaign('any-id')).rejects.toThrow('not found');
     });
 
-    it('resumeCampaign throws deprecation error', async () => {
-      await expect(resumeCampaign('any-id')).rejects.toThrow('Deprecated');
+    it('resumeCampaign throws when campaign not found', async () => {
+      await expect(resumeCampaign('any-id')).rejects.toThrow('not found');
     });
   });
 });

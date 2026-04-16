@@ -238,23 +238,9 @@ describe('logistics actions', () => {
   // getRateLimitStatus
   // ---------------------------------------------------------------------------
   describe('getRateLimitStatus', () => {
-    it('returns null when no rate limit data', async () => {
-      globalThis.orchestrator = { latestRateLimit: null } as unknown as typeof globalThis.orchestrator;
+    it('returns null — CONTROL does not track rate limit data', async () => {
       const result = await getRateLimitStatus();
       expect(result).toBeNull();
-    });
-
-    it('returns rate limit info when available', async () => {
-      const rl = {
-        status: 'limited',
-        resetsAt: Date.now() + 60000,
-        rateLimitType: 'tokens',
-        lastUpdated: Date.now(),
-      };
-      globalThis.orchestrator = { latestRateLimit: rl } as unknown as typeof globalThis.orchestrator;
-
-      const result = await getRateLimitStatus();
-      expect(result).toEqual(rl);
     });
   });
 });

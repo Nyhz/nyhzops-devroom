@@ -3,9 +3,10 @@
 import { redirect } from 'next/navigation';
 import { eq, desc, and, inArray } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
-import { campaigns, phases, missions, assets, battlefields, intelNotes } from '@/lib/db/schema';
+import { campaigns, phases, missions, assets, battlefields, intelNotes, briefingSessions, briefingMessages } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import { emitComm } from '@/control/comms';
+import { emitStatusChange } from '@/lib/socket/emit';
 import {
   launchCampaign as executorLaunchCampaign,
   abandonMission as executorAbandonMission,
@@ -13,6 +14,29 @@ import {
 import type { Campaign, CampaignWithPlan } from '@/types';
 import { cloneCampaignPlan, deletePlanData, revalidateCampaignPaths } from './campaign-helpers';
 
+// ---------------------------------------------------------------------------
+// deleteBriefingData — inlined from deleted @/lib/briefing/briefing-engine
+// ---------------------------------------------------------------------------
+
+function deleteBriefingData(campaignId: string): void {
+  const db = getDatabase();
+  const sessions = db
+    .select({ id: briefingSessions.id })
+    .from(briefingSessions)
+    .where(eq(briefingSessions.campaignId, campaignId))
+    .all();
+  const sessionIds = sessions.map((s) => s.id);
+  if (sessionIds.length > 0) {
+    for (const sid of sessionIds) {
+      db.delete(briefingMessages)
+        .where(eq(briefingMessages.briefingId, sid))
+        .run();
+    }
+    db.delete(briefingSessions)
+      .where(eq(briefingSessions.campaignId, campaignId))
+      .run();
+  }
+}
 
 // ---------------------------------------------------------------------------
 // 1. createCampaign
@@ -211,7 +235,6 @@ export async function deleteCampaign(id: string): Promise<void> {
   const battlefieldId = campaign.battlefieldId;
 
   // FK-safe cascade: briefing → intel notes → logs → missions → phases → campaign
-  const { deleteBriefingData } = await import('@/lib/briefing/briefing-engine');
   deleteBriefingData(id);
   db.delete(intelNotes).where(eq(intelNotes.campaignId, id)).run();
   deletePlanData(id);
@@ -271,8 +294,6 @@ export async function launchCampaign(
       }
     }
   }
-
-  const { deleteBriefingData } = await import('@/lib/briefing/briefing-engine');
 
   db.transaction(() => {
     // Delete briefing data — no longer needed once campaign is live
@@ -524,14 +545,64 @@ export async function listTemplates(battlefieldId: string): Promise<Campaign[]> 
 }
 
 // ---------------------------------------------------------------------------
-// Deprecated stubs — these depended on the old orchestrator flow.
-// See Phase 8.4/8.7 for replacements.
+// 13. redeployCampaign
 // ---------------------------------------------------------------------------
 
-export async function redeployCampaign(_id: string): Promise<Campaign> {
-  throw new Error('Deprecated: redeployCampaign — see Phase 8.4/8.7');
+export async function redeployCampaign(id: string): Promise<Campaign> {
+  const db = getDatabase();
+  const source = getOrThrow(campaigns, id, 'redeployCampaign');
+
+  const now = Date.now();
+  const newCampaignId = generateId();
+
+  db.insert(campaigns).values({
+    id: newCampaignId,
+    battlefieldId: source.battlefieldId,
+    name: source.name,
+    objective: source.objective,
+    status: 'planning',
+    worktreeMode: source.worktreeMode,
+    currentPhase: 0,
+    isTemplate: 0,
+    templateId: source.id,
+    createdAt: now,
+    updatedAt: now,
+  }).run();
+
+  cloneCampaignPlan(id, newCampaignId, source.battlefieldId);
+
+  const newCampaign = db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.id, newCampaignId))
+    .get();
+
+  if (!newCampaign) {
+    throw new Error(`redeployCampaign: failed to retrieve cloned campaign ${newCampaignId}`);
+  }
+
+  revalidateCampaignPaths(source.battlefieldId, newCampaignId);
+  return newCampaign;
 }
 
-export async function resumeCampaign(_campaignId: string): Promise<void> {
-  throw new Error('Deprecated: resumeCampaign — see Phase 8.4/8.7');
+// ---------------------------------------------------------------------------
+// 14. resumeCampaign
+// ---------------------------------------------------------------------------
+
+export async function resumeCampaign(campaignId: string): Promise<void> {
+  const db = getDatabase();
+  const campaign = getOrThrow(campaigns, campaignId, 'resumeCampaign');
+
+  if (campaign.status !== 'paused') {
+    throw new Error(`resumeCampaign: campaign must be paused to resume (current: ${campaign.status})`);
+  }
+
+  db.update(campaigns).set({
+    status: 'active',
+    updatedAt: Date.now(),
+  }).where(eq(campaigns.id, campaignId)).run();
+
+  emitStatusChange('campaign', campaignId, 'active');
+  // CONTROL polls DB for status='active' campaigns — no explicit trigger needed.
+  revalidateCampaignPaths(campaign.battlefieldId, campaignId);
 }

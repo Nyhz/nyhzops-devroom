@@ -6,12 +6,11 @@ vi.mock('next/cache', () => ({
   revalidateTag: vi.fn(),
 }));
 
-// --- Mock globalThis.orchestrator ---
+// --- Mock globalThis.orchestrator (Control) ---
 globalThis.orchestrator = {
-  queueMission: vi.fn(),
-  abortMission: vi.fn(),
-  getRunningCount: vi.fn().mockReturnValue(0),
-  getQueuedCount: vi.fn().mockReturnValue(0),
+  live: new Map(),
+  start: vi.fn().mockResolvedValue(undefined),
+  stop: vi.fn().mockResolvedValue(undefined),
 } as unknown as typeof globalThis.orchestrator;
 
 // --- Mock globalThis.io (Socket.IO) ---

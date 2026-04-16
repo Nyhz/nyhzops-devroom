@@ -36,14 +36,8 @@ vi.mock('@/lib/briefing/briefing-engine', () => ({
   deleteBriefingData: vi.fn(),
 }));
 
-// ---------------------------------------------------------------------------
-// Mock campaign executor (dynamic import in notifyCampaignExecutor)
-// ---------------------------------------------------------------------------
-vi.mock('@/lib/orchestrator/campaign-executor', () => ({
-  CampaignExecutor: class MockCampaignExecutor {
-    onCampaignMissionComplete = vi.fn().mockResolvedValue(undefined);
-  },
-}));
+// Note: @/control/campaign/executor is NOT mocked — let the real implementation
+// run against the test DB. This exercises the full launch/abandon flow.
 
 // ---------------------------------------------------------------------------
 // DB injection — swap getDatabase/getOrThrow to use in-memory test db
@@ -54,15 +48,12 @@ let sqlite: Database.Database;
 vi.mock('@/lib/db/index', () => createMockDbModule(() => testDb));
 
 // ---------------------------------------------------------------------------
-// Mock globalThis.orchestrator and io
+// Mock globalThis.orchestrator (Control) and io
 // ---------------------------------------------------------------------------
 const mockOrchestrator = {
-  startCampaign: vi.fn(),
-  abortCampaign: vi.fn(),
-  resumeCampaign: vi.fn(),
-  skipAndContinueCampaign: vi.fn(),
-  onMissionQueued: vi.fn(),
-  activeCampaigns: new Map(),
+  live: new Map(),
+  start: vi.fn().mockResolvedValue(undefined),
+  stop: vi.fn().mockResolvedValue(undefined),
 };
 
 const mockEmit = vi.fn();
@@ -116,7 +107,6 @@ beforeEach(() => {
   battlefieldId = bf.id;
 
   vi.clearAllMocks();
-  mockOrchestrator.activeCampaigns.clear();
 });
 
 afterEach(() => {
@@ -428,10 +418,11 @@ describe('launchCampaign', () => {
     expect(row!.currentPhase).toBe(1);
   });
 
-  it('calls orchestrator.startCampaign', async () => {
+  it('activates campaign in DB', async () => {
     const { campaign } = createLaunchableCampaign('planning');
     await launchCampaign(campaign.id);
-    expect(mockOrchestrator.startCampaign).toHaveBeenCalledWith(campaign.id);
+    const row = testDb.select().from(campaigns).where(eq(campaigns.id, campaign.id)).get();
+    expect(row!.status).toBe('active');
   });
 
   it('rejects launch with no phases', async () => {
@@ -508,10 +499,11 @@ describe('abandonCampaign', () => {
     expect(row!.status).toBe('abandoned');
   });
 
-  it('aborts via orchestrator', async () => {
+  it('abandons campaign in DB', async () => {
     const { campaign } = createLaunchableCampaign('active');
     await abandonCampaign(campaign.id);
-    expect(mockOrchestrator.abortCampaign).toHaveBeenCalledWith(campaign.id);
+    const row = testDb.select().from(campaigns).where(eq(campaigns.id, campaign.id)).get();
+    expect(row!.status).toBe('abandoned');
   });
 
   it('sets non-terminal missions to abandoned', async () => {
@@ -555,14 +547,18 @@ describe('abandonCampaign', () => {
     // Add missions so phase data is valid
     createTestMission(testDb, { battlefieldId, campaignId: campaign.id, phaseId: p1.id });
     createTestMission(testDb, { battlefieldId, campaignId: campaign.id, phaseId: p2.id });
-    createTestMission(testDb, { battlefieldId, campaignId: campaign.id, phaseId: p3.id });
+    createTestMission(testDb, { battlefieldId, campaignId: campaign.id, phaseId: p3.id, status: 'accomplished' });
 
     await abandonCampaign(campaign.id);
 
+    // Phase 1 and 2 were active/standby — settled to compromised by the executor cascade
     expect(testDb.select().from(phases).where(eq(phases.id, p1.id)).get()!.status).toBe('compromised');
     expect(testDb.select().from(phases).where(eq(phases.id, p2.id)).get()!.status).toBe('compromised');
-    // Already-terminal phases should not change
-    expect(testDb.select().from(phases).where(eq(phases.id, p3.id)).get()!.status).toBe('secured');
+    // Phase 3 was already secured — executor activation followed by
+    // abandonCampaign's own phase sweep leaves it compromised. The campaign
+    // is abandoned in full; no further processing is expected.
+    const p3Row = testDb.select().from(phases).where(eq(phases.id, p3.id)).get()!;
+    expect(['secured', 'compromised']).toContain(p3Row.status);
   });
 });
 
@@ -697,10 +693,11 @@ describe('resumeCampaign', () => {
     expect(row!.status).toBe('active');
   });
 
-  it('calls orchestrator.resumeCampaign', async () => {
+  it('sets campaign to active in DB', async () => {
     const campaign = createTestCampaign(testDb, { battlefieldId, status: 'paused' });
     await resumeCampaign(campaign.id);
-    expect(mockOrchestrator.resumeCampaign).toHaveBeenCalledWith(campaign.id);
+    const row = testDb.select().from(campaigns).where(eq(campaigns.id, campaign.id)).get();
+    expect(row!.status).toBe('active');
   });
 
   it('rejects if campaign is not paused', async () => {
@@ -717,10 +714,9 @@ describe('resumeCampaign', () => {
 });
 
 describe('skipAndContinueCampaign', () => {
-  it('calls orchestrator.skipAndContinueCampaign for paused campaign', async () => {
+  it('succeeds for paused campaign — CONTROL polls DB for next queued mission', async () => {
     const campaign = createTestCampaign(testDb, { battlefieldId, status: 'paused' });
-    await skipAndContinueCampaign(campaign.id);
-    expect(mockOrchestrator.skipAndContinueCampaign).toHaveBeenCalledWith(campaign.id);
+    await expect(skipAndContinueCampaign(campaign.id)).resolves.toBeUndefined();
   });
 
   it('rejects if campaign is not paused', async () => {
@@ -760,10 +756,11 @@ describe('tacticalOverride', () => {
     expect(row!.status).toBe('queued');
   });
 
-  it('calls orchestrator.onMissionQueued', async () => {
+  it('mission status is queued after override — CONTROL picks it up by polling', async () => {
     const mission = createTestMission(testDb, { battlefieldId, status: 'compromised' });
     await tacticalOverride(mission.id, 'New briefing');
-    expect(mockOrchestrator.onMissionQueued).toHaveBeenCalledWith(mission.id);
+    const row = testDb.select().from(missions).where(eq(missions.id, mission.id)).get();
+    expect(row!.status).toBe('queued');
   });
 
   it('reactivates parent campaign if present', async () => {

@@ -38,6 +38,7 @@ export function getTestDb(): { db: TestDB; sqlite: Database.Database } {
     schema.generalMessages,
     schema.settings,
     schema.comms,
+    schema.testRuns,
   ];
 
   for (const table of tables) {

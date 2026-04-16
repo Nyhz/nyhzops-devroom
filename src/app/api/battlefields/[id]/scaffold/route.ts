@@ -3,7 +3,6 @@ import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { battlefields } from '@/lib/db/schema';
 import { runCommand } from '@/lib/process/command-runner';
-import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
 import simpleGit from 'simple-git';
 
 export async function POST(
@@ -43,10 +42,8 @@ export async function POST(
         .where(eq(battlefields.id, id))
         .run();
 
-      // After scaffold success, trigger bootstrap if one is waiting
-      if (battlefield.bootstrapMissionId) {
-        safeQueueMission(battlefield.bootstrapMissionId);
-      }
+      // Bootstrap mission (if one is waiting) will be picked up automatically
+      // by CONTROL, which polls DB for status='queued'.
     } else {
       db.update(battlefields)
         .set({ scaffoldStatus: 'failed', updatedAt: Date.now() })

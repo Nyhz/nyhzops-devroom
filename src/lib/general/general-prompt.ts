@@ -1,7 +1,43 @@
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { battlefields, assets } from '@/lib/db/schema';
-import { formatAssetRoster } from '@/lib/briefing/asset-roster';
+import type { Asset } from '@/types';
+
+// ---------------------------------------------------------------------------
+// Asset roster formatting (inlined from deleted @/lib/briefing/asset-roster)
+// ---------------------------------------------------------------------------
+
+const IDENTITY_LINE_CAP = 200;
+
+function extractAssetIdentityLine(systemPrompt: string | null): string {
+  if (!systemPrompt) return '';
+  const firstLine = systemPrompt
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.length > 0);
+  if (!firstLine) return '';
+  const stripped = firstLine.replace(
+    /^You are\s+[A-Z][A-Z0-9_\- ]*\s*[—-]\s*/,
+    '',
+  );
+  return stripped.length > IDENTITY_LINE_CAP
+    ? stripped.slice(0, IDENTITY_LINE_CAP)
+    : stripped;
+}
+
+function formatAssetRoster(allAssets: Asset[]): string {
+  const mission = allAssets
+    .filter((a) => a.status === 'active' && a.isSystem === 0)
+    .sort((a, b) => a.codename.localeCompare(b.codename));
+  if (mission.length === 0) return '(no active mission assets)';
+  return mission
+    .map((a) => {
+      const identity = extractAssetIdentityLine(a.systemPrompt);
+      const head = `- ${a.codename} (${a.specialty})`;
+      return identity ? `${head}: ${identity}` : head;
+    })
+    .join('\n');
+}
 
 export function buildGeneralPrompt(battlefieldId?: string | null): string {
   const db = getDatabase();

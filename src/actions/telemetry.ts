@@ -44,7 +44,6 @@ function getDirSize(dirPath: string): number {
 const ACTIVE_PROCESS_STATUSES: MissionStatus[] = ['deploying', 'in_combat', 'reviewing'];
 
 export async function getActiveProcesses(battlefieldId: string): Promise<ProcessEntry[]> {
-  if (!globalThis.orchestrator) return [];
 
   const db = getDatabase();
 
@@ -86,7 +85,7 @@ export async function getActiveProcesses(battlefieldId: string): Promise<Process
     missionId: row.id,
     missionCodename: row.title,
     asset: assetMap.get(row.assetId ?? '') ?? 'unknown',
-    pid: 0, // PIDs not tracked per-mission by the current orchestrator
+    pid: globalThis.orchestrator?.live.get(row.id) ?? 0,
     startedAt: row.startedAt ?? row.updatedAt,
     status: row.status as MissionStatus,
     memoryRss: 0, // not tracked
@@ -107,7 +106,14 @@ export async function killProcess(battlefieldId: string, missionId: string): Pro
     throw new Error(`killProcess: mission ${missionId} not found in battlefield ${battlefieldId}`);
   }
 
-  await globalThis.orchestrator?.onMissionAbort(missionId);
+  // Mark abandoned in DB — CONTROL watchdog will clean up the subprocess.
+  // If we have the pid, send SIGTERM immediately.
+  const pid = globalThis.orchestrator?.live.get(missionId);
+  if (pid && pid > 0) {
+    try { process.kill(pid, 'SIGTERM'); } catch { /* pid may have exited */ }
+  }
+  db.update(missions).set({ status: 'abandoned', updatedAt: Date.now() })
+    .where(eq(missions.id, missionId)).run();
 }
 
 export async function killAllProcesses(battlefieldId: string): Promise<{ killed: number }> {
@@ -116,7 +122,13 @@ export async function killAllProcesses(battlefieldId: string): Promise<{ killed:
 
   for (const proc of active) {
     try {
-      await globalThis.orchestrator?.onMissionAbort(proc.missionId);
+      const pid = globalThis.orchestrator?.live.get(proc.missionId);
+      if (pid && pid > 0) {
+        try { process.kill(pid, 'SIGTERM'); } catch { /* pid may have exited */ }
+      }
+      const db = getDatabase();
+      db.update(missions).set({ status: 'abandoned', updatedAt: Date.now() })
+        .where(eq(missions.id, proc.missionId)).run();
       killed++;
     } catch {
       // Continue — partial kill is acceptable
@@ -133,8 +145,8 @@ export async function killAllProcesses(battlefieldId: string): Promise<{ killed:
 export async function getResourceUsage(battlefieldId: string): Promise<ResourceMetrics> {
   const repoPath = await getRepoPath(battlefieldId);
 
-  // Agent slots
-  const active = globalThis.orchestrator?.getWorkingCount() ?? 0;
+  // Agent slots — CONTROL.live tracks currently dispatched missions
+  const active = globalThis.orchestrator?.live.size ?? 0;
   const max = config.maxAgents;
 
   // Worktree disk
