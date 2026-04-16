@@ -353,3 +353,20 @@ export const missionAttempts = sqliteTable('mission_attempts', {
 
 export type MissionAttempt = typeof missionAttempts.$inferSelect;
 export type NewMissionAttempt = typeof missionAttempts.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Comms (structured event stream — CONTROL reliability layer)
+// ---------------------------------------------------------------------------
+export const comms = sqliteTable('comms', {
+  id: text('id').primaryKey(),
+  missionId: text('mission_id'),
+  campaignId: text('campaign_id'),
+  battlefieldId: text('battlefield_id'),
+  actor: text('actor').notNull(),
+  message: text('message').notNull(),
+  level: text('level', { enum: ['info', 'warn', 'error'] }).notNull().default('info'),
+  createdAt: integer('created_at').notNull(),
+});
+
+export type Comm = typeof comms.$inferSelect;
+export type NewComm = typeof comms.$inferInsert;

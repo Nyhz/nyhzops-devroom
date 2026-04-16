@@ -252,6 +252,38 @@ git add src/lib/db/migrations/
 git commit -m "feat(db): add clean-slate migration (applied at cutover only)"
 ```
 
+### Task 1.4b: Drizzle schema — `comms` table
+
+**Files:**
+- Modify: `src/lib/db/schema.ts`
+- Generate: `src/lib/db/migrations/0026_*.sql`
+
+Rationale: Spec §4 names CONTROL's event stream `comms`. Task 2.2's emitter writes to a `comms` table; clean-slate migration (Task 1.4) already references `DELETE FROM comms`. The existing `mission_logs` table is mission-scoped and tied to the old orchestrator — `comms` is a fresh table that also carries campaign- and battlefield-scoped events under a named actor (CONTROL, OPERATIVE, OVERSEER, etc.).
+
+- [ ] **Step 1: Add `comms` table definition**
+
+Append to `src/lib/db/schema.ts` (after `missionAttempts`):
+
+```ts
+export const comms = sqliteTable('comms', {
+  id: text('id').primaryKey(),
+  missionId: text('mission_id'),
+  campaignId: text('campaign_id'),
+  battlefieldId: text('battlefield_id'),
+  actor: text('actor').notNull(),
+  message: text('message').notNull(),
+  level: text('level', { enum: ['info', 'warn', 'error'] }).notNull().default('info'),
+  createdAt: integer('created_at').notNull(),
+});
+
+export type Comm = typeof comms.$inferSelect;
+export type NewComm = typeof comms.$inferInsert;
+```
+
+- [ ] **Step 2: Generate migration** — `pnpm db:generate`.
+- [ ] **Step 3: Apply migration** — `pnpm db:migrate`.
+- [ ] **Step 4: Commit** — `feat(db): add comms table for CONTROL event stream`.
+
 ### Task 1.5: Build scripted-claude fixture
 
 **Files:**
