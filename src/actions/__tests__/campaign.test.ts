@@ -741,7 +741,6 @@ describe('tacticalOverride', () => {
     expect(row!.briefing).toBe('New approach: try harder');
     expect(row!.sessionId).toBeNull();
     expect(row!.debrief).toBeNull();
-    expect(row!.reviewAttempts).toBe(0);
   });
 
   it('works on abandoned missions', async () => {

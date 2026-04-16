@@ -51,13 +51,11 @@ export const missions = sqliteTable('missions', {
   costInput: integer('cost_input').default(0),
   costOutput: integer('cost_output').default(0),
   costCacheHit: integer('cost_cache_hit').default(0),
-  reviewAttempts: integer('review_attempts').default(0),
   compromiseReason: text('compromise_reason'),
   nextAttemptAt: integer('next_attempt_at'),
   infrastructureRetryCount: integer('infrastructure_retry_count').notNull().default(0),
   reconViolatedReadonly: integer('recon_violated_readonly').notNull().default(0),
   currentSortieAttempts: integer('current_sortie_attempts').notNull().default(0),
-  mergeRetryAt: integer('merge_retry_at'),
   mergeResult: text('merge_result'),           // 'clean' | 'conflict_resolved' | 'failed' | null
   mergeConflictFiles: text('merge_conflict_files'), // JSON array of file paths
   mergeTimestamp: integer('merge_timestamp'),

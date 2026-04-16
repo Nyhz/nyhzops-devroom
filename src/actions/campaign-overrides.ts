@@ -44,7 +44,6 @@ export async function tacticalOverride(
     status: 'queued',
     sessionId: null,
     debrief: null,
-    reviewAttempts: 0,
     completedAt: null,
     startedAt: null,
     updatedAt: now,
