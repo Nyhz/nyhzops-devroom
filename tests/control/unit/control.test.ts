@@ -71,7 +71,7 @@ function baseDeps(spawnImpl: MissionRunnerDeps['spawnAsset']): MissionRunnerDeps
       sweep: vi.fn(async () => ({ swept: false, filesChanged: 0 })),
       remove: vi.fn(async () => {}),
     } as unknown as MissionRunnerDeps['worktree'],
-    overseerConsult: vi.fn(async () => ({ verdict: 'escalate', reasoning: 's', escalate: { question: '?' } })),
+    overseerConsult: vi.fn(async () => ({ verdict: 'escalate' as const, reasoning: 's', escalate: { question: '?' } })),
     mergeFn: vi.fn(async () => ({ status: 'clean' })) as unknown as MissionRunnerDeps['mergeFn'],
     now: () => Date.now(),
   };
