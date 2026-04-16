@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { getMission } from '@/actions/mission';
 import { getOverseerLogs } from '@/actions/overseer';
 import { getSuggestions } from '@/actions/follow-up';
 import { getDatabase } from '@/lib/db/index';
-import { missionLogs } from '@/lib/db/schema';
+import { missionLogs, missionAttempts, comms, missions } from '@/lib/db/schema';
 import { LiveStatusBadge } from '@/components/mission/live-status-badge';
 import { MissionTypeBadge } from '@/components/mission/mission-type-badge';
 import { MissionComms } from '@/components/mission/mission-comms';
@@ -13,6 +13,8 @@ import { PageWrapper } from '@/components/layout/page-wrapper';
 import { TacCard } from '@/components/ui/tac-card';
 import { Markdown } from '@/components/ui/markdown';
 import { formatRelativeTime } from '@/lib/utils';
+import { DebriefSchema } from '@/control/debrief/schema';
+import type { Debrief } from '@/control/debrief/schema';
 
 export default async function MissionDetailPage({
   params,
@@ -27,6 +29,8 @@ export default async function MissionDetailPage({
   }
 
   const db = getDatabase();
+
+  // Legacy mission logs (used as fallback if no comms table entries)
   const logRows = db
     .select()
     .from(missionLogs)
@@ -34,11 +38,65 @@ export default async function MissionDetailPage({
     .orderBy(missionLogs.timestamp)
     .all();
 
+  // Fetch debriefStructured directly (getMission select doesn't include it)
+  const missionRaw = db
+    .select({ debriefStructured: missions.debriefStructured })
+    .from(missions)
+    .where(eq(missions.id, missionId))
+    .get();
+  const rawDebriefStructured = missionRaw?.debriefStructured ?? null;
+
+  // New structured comms stream (actor-labelled)
+  const commRows = db
+    .select()
+    .from(comms)
+    .where(eq(comms.missionId, missionId))
+    .orderBy(comms.createdAt)
+    .limit(200)
+    .all();
+
+  // Latest mission attempt — for debriefSynthesized flag
+  const latestAttempt = db
+    .select()
+    .from(missionAttempts)
+    .where(eq(missionAttempts.missionId, missionId))
+    .orderBy(desc(missionAttempts.attemptNumber))
+    .get() ?? null;
+
+  const isSynthesized = latestAttempt?.debriefSynthesized === 1;
+
+  // Parse structured debrief if present (debriefStructured stores raw JSON, not <DEBRIEF> tagged text)
+  let structuredDebrief: Debrief | null = null;
+  if (rawDebriefStructured) {
+    try {
+      const raw = JSON.parse(rawDebriefStructured);
+      const validation = DebriefSchema.safeParse(raw);
+      if (validation.success) {
+        structuredDebrief = validation.data;
+      }
+    } catch {
+      // malformed JSON — fall through to plain debrief text
+    }
+  }
+
+  // Extract escalation question from open_questions in structured debrief
+  // when compromiseReason === 'escalated'
+  let escalationQuestion: string | null = null;
+  if (mission.compromiseReason === 'escalated' && structuredDebrief) {
+    const highSeverityQ = structuredDebrief.open_questions.find(
+      (q) => q.severity === 'high',
+    );
+    escalationQuestion =
+      highSeverityQ?.description ??
+      structuredDebrief.open_questions[0]?.description ??
+      null;
+  }
+
   const overseerLogEntries = await getOverseerLogs({ missionId });
   const suggestions = await getSuggestions({ missionId });
 
   const status = mission.status ?? 'standby';
-  const isTerminal = status === 'accomplished' || status === 'compromised';
+  const isTerminal = status === 'accomplished' || status === 'compromised' || status === 'abandoned';
   const missionType = mission.type === 'recon' ? 'verification' : 'direct_action';
 
   return (
@@ -77,25 +135,76 @@ export default async function MissionDetailPage({
         </div>
       )}
 
-      {/* Briefing */}
+      {/* Briefing — collapsed by default */}
       <div className="space-y-3">
-        <div className="space-y-1">
-          <h2 className="text-sm font-tactical text-dr-amber tracking-wider">
-            BRIEFING
-          </h2>
-          <div className="h-px bg-dr-border" />
-        </div>
-        <TacCard className="p-2.5 sm:p-4">
-          <Markdown content={mission.briefing} className="text-sm" />
-        </TacCard>
+        <details>
+          <summary className="cursor-pointer list-none flex items-center gap-2 group">
+            <div className="space-y-1 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-dr-dim group-open:hidden" aria-hidden="true">▶</span>
+                <span className="text-dr-dim group-open:hidden" aria-hidden="true" style={{ display: 'none' }} />
+                <h2 className="text-sm font-tactical text-dr-amber tracking-wider">
+                  BRIEFING
+                </h2>
+              </div>
+              <div className="h-px bg-dr-border" />
+            </div>
+          </summary>
+          <TacCard className="p-2.5 sm:p-4 mt-3">
+            <Markdown content={mission.briefing} className="text-sm" />
+          </TacCard>
+        </details>
       </div>
 
-      {/* Live Comms + Tokens + Debrief + Actions */}
+      {/* Telemetry row */}
+      {(mission.iterations || mission.durationMs || mission.costInput || mission.worktreeBranch) && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-xs font-data">
+          {mission.iterations != null && mission.iterations > 0 && (
+            <div className="bg-dr-surface border border-dr-border px-2 py-1.5">
+              <div className="text-dr-dim uppercase tracking-wider text-[10px]">ITERATIONS</div>
+              <div className="text-dr-text mt-0.5">{mission.iterations}</div>
+            </div>
+          )}
+          {mission.durationMs != null && mission.durationMs > 0 && (
+            <div className="bg-dr-surface border border-dr-border px-2 py-1.5">
+              <div className="text-dr-dim uppercase tracking-wider text-[10px]">DURATION</div>
+              <div className="text-dr-text mt-0.5">{Math.round(mission.durationMs / 1000)}s</div>
+            </div>
+          )}
+          {mission.costInput != null && mission.costInput > 0 && (
+            <div className="bg-dr-surface border border-dr-border px-2 py-1.5">
+              <div className="text-dr-dim uppercase tracking-wider text-[10px]">INPUT TOKENS</div>
+              <div className="text-dr-text mt-0.5">{mission.costInput.toLocaleString()}</div>
+            </div>
+          )}
+          {mission.costOutput != null && mission.costOutput > 0 && (
+            <div className="bg-dr-surface border border-dr-border px-2 py-1.5">
+              <div className="text-dr-dim uppercase tracking-wider text-[10px]">OUTPUT TOKENS</div>
+              <div className="text-dr-text mt-0.5">{mission.costOutput.toLocaleString()}</div>
+            </div>
+          )}
+          {mission.costCacheHit != null && mission.costCacheHit > 0 && (
+            <div className="bg-dr-surface border border-dr-border px-2 py-1.5">
+              <div className="text-dr-dim uppercase tracking-wider text-[10px]">CACHE HIT</div>
+              <div className="text-dr-text mt-0.5">{mission.costCacheHit.toLocaleString()}</div>
+            </div>
+          )}
+          {mission.worktreeBranch && (
+            <div className="bg-dr-surface border border-dr-border px-2 py-1.5 col-span-2">
+              <div className="text-dr-dim uppercase tracking-wider text-[10px]">WORKTREE BRANCH</div>
+              <div className="text-dr-text font-mono mt-0.5 truncate">{mission.worktreeBranch}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Live Comms + Debrief + Actions */}
       <MissionComms
         missionId={missionId}
         initialLogs={logRows}
         initialStatus={status}
         initialDebrief={mission.debrief ?? null}
+        initialStructuredDebrief={structuredDebrief}
         initialTokens={{
           input: mission.costInput ?? 0,
           output: mission.costOutput ?? 0,
@@ -108,6 +217,9 @@ export default async function MissionDetailPage({
         briefing={mission.briefing}
         worktreeBranch={mission.worktreeBranch}
         compromiseReason={mission.compromiseReason}
+        escalationQuestion={escalationQuestion}
+        isSynthesized={isSynthesized}
+        initialComms={commRows}
       />
 
       {/* Follow-Up Suggestions */}

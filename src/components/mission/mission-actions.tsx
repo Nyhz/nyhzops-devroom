@@ -10,11 +10,11 @@ import {
   abandonMission,
   continueMission,
   deployMission,
-  removeMission,
-  retryMerge,
-  retryReview,
+  tacticalOverride,
+  acceptMergeOverride,
+  answerEscalation,
 } from '@/actions/mission';
-import { tacticalOverride, skipMission, commanderOverride } from '@/actions/campaign-overrides';
+import { skipMission } from '@/actions/campaign-overrides';
 import { tacTooltip } from '@/components/ui/tac-tooltip';
 
 interface MissionActionsProps {
@@ -27,6 +27,7 @@ interface MissionActionsProps {
   worktreeBranch?: string | null;
   debrief?: string | null;
   compromiseReason?: string | null;
+  escalationQuestion?: string | null;
 }
 
 export function MissionActions({
@@ -36,9 +37,8 @@ export function MissionActions({
   sessionId,
   campaignId,
   briefing,
-  worktreeBranch,
-  debrief,
   compromiseReason,
+  escalationQuestion,
 }: MissionActionsProps) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
@@ -46,65 +46,43 @@ export function MissionActions({
   const [continueBriefing, setContinueBriefing] = useState('');
   const [showOverride, setShowOverride] = useState(false);
   const [overrideBriefing, setOverrideBriefing] = useState('');
+  const [escalationAnswer, setEscalationAnswer] = useState('');
   const [confirm, ConfirmDialog] = useConfirm();
 
   const canDeploy = status === 'standby';
-  const canAbandon = status === 'standby' || status === 'queued' || status === 'in_combat' || status === 'reviewing' || (status === 'compromised' && !campaignId);
+  const canAbandon =
+    status === 'standby' ||
+    status === 'queued' ||
+    status === 'deploying' ||
+    status === 'in_combat' ||
+    status === 'compromised';
   const canContinue =
     (status === 'accomplished' || status === 'compromised') && sessionId != null;
   const canTacticalOverride = status === 'compromised' || status === 'abandoned';
-  const canRetryReview = status === 'compromised' && (compromiseReason === 'escalated' || compromiseReason === 'review-failed') && !!debrief;
-  const canRetryMerge = (status === 'compromised' || status === 'abandoned') && !!worktreeBranch && compromiseReason === 'merge-failed';
+  const canAcceptMerge = status === 'compromised';
   const canSkipMission = status === 'compromised' && !!campaignId;
+  const isEscalated =
+    status === 'compromised' && compromiseReason === 'escalated' && !!escalationQuestion;
 
   const handleAbandon = async () => {
     const result = await confirm({
       title: 'CONFIRM ABANDON',
-      description: 'Choose how to handle this mission.',
-      body: (
-        <div className="space-y-3">
-          <p>
-            <span className="text-dr-amber font-tactical">ABANDON</span>{' '}
-            — marks the mission as abandoned. The briefing, comms, and debrief
-            are preserved for reference.
-          </p>
-          <p>
-            <span className="text-dr-red font-tactical">ABANDON &amp; REMOVE</span>{' '}
-            — permanently deletes the mission and all associated records
-            (comms, logs, overseer&apos;s log). This cannot be undone.
-          </p>
-        </div>
-      ),
+      description: 'Abandon this mission — all comms and debrief are preserved.',
       actions: [
         { label: 'ABANDON', variant: 'danger' },
-        { label: 'ABANDON & REMOVE', variant: 'danger', className: 'bg-dr-red/10' },
       ],
     });
 
-    if (result === 0) {
-      // Abandon
-      setIsPending(true);
-      try {
-        await abandonMission(missionId);
-        toast('Mission abandoned');
-        router.refresh();
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Failed to abandon mission');
-      } finally {
-        setIsPending(false);
-      }
-    } else if (result === 1) {
-      // Abandon & Remove
-      setIsPending(true);
-      try {
-        const { battlefieldId: bfId } = await removeMission(missionId);
-        toast('Mission removed');
-        router.push(`/battlefields/${bfId}`);
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Failed to remove mission');
-      } finally {
-        setIsPending(false);
-      }
+    if (result !== 0) return;
+    setIsPending(true);
+    try {
+      await abandonMission(missionId);
+      toast('Mission abandoned');
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to abandon mission');
+    } finally {
+      setIsPending(false);
     }
   };
 
@@ -140,9 +118,53 @@ export function MissionActions({
     }
   };
 
+  const handleAnswerEscalation = async () => {
+    if (!escalationAnswer.trim()) return;
+    setIsPending(true);
+    try {
+      await answerEscalation(missionId, escalationAnswer.trim());
+      toast.success('Escalation answered — mission re-queued');
+      setEscalationAnswer('');
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to submit answer');
+    } finally {
+      setIsPending(false);
+    }
+  };
+
   return (
     <>
       <div className="space-y-4">
+        {/* Escalation answer panel */}
+        {isEscalated && (
+          <div className="border border-dr-amber/40 bg-dr-amber/5 p-3 sm:p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <span aria-hidden="true" className="text-dr-amber text-sm">⚠</span>
+              <h3 className="text-sm font-tactical text-dr-amber uppercase tracking-wider">
+                OVERSEER ESCALATION — COMMANDER INPUT REQUIRED
+              </h3>
+            </div>
+            <p className="font-data text-sm text-dr-text whitespace-pre-wrap">
+              {escalationQuestion}
+            </p>
+            <TacTextarea
+              placeholder="Your answer to the Overseer's question..."
+              value={escalationAnswer}
+              onChange={(e) => setEscalationAnswer(e.target.value)}
+              rows={4}
+              className="w-full"
+            />
+            <TacButton
+              variant="primary"
+              onClick={handleAnswerEscalation}
+              disabled={isPending || !escalationAnswer.trim()}
+            >
+              {isPending ? 'SUBMITTING...' : 'SUBMIT ANSWER'}
+            </TacButton>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-3">
           {canDeploy && (
             <TacButton
@@ -159,9 +181,43 @@ export function MissionActions({
               variant="danger"
               onClick={handleAbandon}
               disabled={isPending}
-              {...tacTooltip('Stop this mission. Can abandon or permanently remove.')}
+              {...tacTooltip('Abandon this mission. Records are preserved.')}
             >
               {isPending ? 'PROCESSING...' : 'ABANDON'}
+            </TacButton>
+          )}
+          {canAcceptMerge && !showOverride && (
+            <TacButton
+              variant="success"
+              {...tacTooltip('Force-merge the worktree branch regardless of failure reason. You accept responsibility for the state of the code.')}
+              onClick={async () => {
+                const result = await confirm({
+                  title: 'ACCEPT & MERGE',
+                  description: 'Force-merge this mission\'s worktree branch into the target branch.',
+                  body: (
+                    <p>
+                      This merges the work branch even though the mission is{' '}
+                      <span className="text-dr-red font-tactical">COMPROMISED</span>. Use when
+                      you&apos;ve reviewed the work and it&apos;s acceptable.
+                    </p>
+                  ),
+                  actions: [{ label: 'ACCEPT & MERGE', variant: 'success' }],
+                });
+                if (result !== 0) return;
+                setIsPending(true);
+                try {
+                  await acceptMergeOverride(missionId);
+                  toast.success('Merge accepted — mission accomplished');
+                  router.refresh();
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'Merge failed');
+                } finally {
+                  setIsPending(false);
+                }
+              }}
+              disabled={isPending}
+            >
+              ACCEPT & MERGE
             </TacButton>
           )}
           {canContinue && !showContinue && !showOverride && (
@@ -185,76 +241,6 @@ export function MissionActions({
               {...tacTooltip('Edit the briefing and redeploy. Agent keeps session context + receives your corrected orders.')}
             >
               TACTICAL OVERRIDE
-            </TacButton>
-          )}
-          {status === 'compromised' && (
-            <TacButton
-              variant="success"
-              {...tacTooltip("Override the Overseer's rejection. Mark this mission as accomplished — you outrank the Overseer.")}
-              onClick={async () => {
-                const result = await confirm({
-                  title: 'COMMANDER OVERRIDE',
-                  description: 'Override the Overseer and approve this mission as accomplished.',
-                  body: <p>This marks the mission as accomplished regardless of the Overseer&apos;s assessment. Use when you&apos;ve reviewed the work and deem it acceptable.</p>,
-                  actions: [{ label: 'APPROVE', variant: 'success' }],
-                });
-                if (result !== 0) return;
-                setIsPending(true);
-                try {
-                  await commanderOverride(missionId);
-                  toast.success('Mission approved by Commander');
-                  router.refresh();
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : 'Override failed');
-                } finally {
-                  setIsPending(false);
-                }
-              }}
-              disabled={isPending}
-            >
-              APPROVE
-            </TacButton>
-          )}
-          {canRetryReview && (
-            <TacButton
-              variant="primary"
-              {...tacTooltip('Send the work back to the AI reviewer for another pass. Use when the review process itself failed, not the work.')}
-              onClick={async () => {
-                setIsPending(true);
-                try {
-                  await retryReview(missionId);
-                  toast.success('Overseer review re-initiated');
-                  router.refresh();
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : 'Retry review failed');
-                } finally {
-                  setIsPending(false);
-                }
-              }}
-              disabled={isPending}
-            >
-              {isPending ? 'REVIEWING...' : 'RESUBMIT REVIEW'}
-            </TacButton>
-          )}
-          {canRetryMerge && (
-            <TacButton
-              variant="primary"
-              {...tacTooltip('Try merging the work branch back into the main branch again.')}
-              onClick={async () => {
-                setIsPending(true);
-                try {
-                  await retryMerge(missionId);
-                  toast.success('Branch merged — mission accomplished');
-                  router.refresh();
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : 'Merge failed');
-                } finally {
-                  setIsPending(false);
-                }
-              }}
-              disabled={isPending}
-            >
-              {isPending ? 'REINTEGRATING...' : 'REINTEGRATE'}
             </TacButton>
           )}
           {canSkipMission && (

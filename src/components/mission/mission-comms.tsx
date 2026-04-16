@@ -5,14 +5,17 @@ import { useRouter } from 'next/navigation';
 import { useMissionComms } from '@/hooks/use-mission-comms';
 import { Terminal } from '@/components/ui/terminal';
 import { MissionActions } from '@/components/mission/mission-actions';
-import { Markdown } from '@/components/ui/markdown';
+import { DebriefPanel } from '@/components/mission/debrief-panel';
 import type { MissionLog, MissionStatus } from '@/types';
+import type { Debrief } from '@/control/debrief/schema';
+import type { Comm } from '@/lib/db/schema';
 
 interface MissionCommsProps {
   missionId: string;
   initialLogs: MissionLog[];
   initialStatus: string;
   initialDebrief: string | null;
+  initialStructuredDebrief: Debrief | null;
   initialTokens: {
     input: number;
     output: number;
@@ -25,16 +28,28 @@ interface MissionCommsProps {
   briefing?: string;
   worktreeBranch?: string | null;
   compromiseReason?: string | null;
+  escalationQuestion?: string | null;
+  isSynthesized: boolean;
+  initialComms: Comm[];
 }
 
 const TERMINAL_STATUSES: MissionStatus[] = ['accomplished', 'compromised', 'abandoned'];
 const PRE_DEPLOY_STATUSES = ['standby', 'queued'];
+
+// Actor label colors: CONTROL=dim gray, OPERATIVE=green, OVERSEER=cyan, COMMANDER=amber
+const ACTOR_PREFIXES: Record<string, string> = {
+  CONTROL: '\x1b[2m[CONTROL]\x1b[0m ',
+  OPERATIVE: '\x1b[32m[OPERATIVE]\x1b[0m ',
+  OVERSEER: '\x1b[36m[OVERSEER]\x1b[0m ',
+  COMMANDER: '\x1b[33m[COMMANDER]\x1b[0m ',
+};
 
 export function MissionComms({
   missionId,
   initialLogs,
   initialStatus,
   initialDebrief,
+  initialStructuredDebrief,
   initialTokens,
   battlefieldId,
   initialSessionId,
@@ -42,6 +57,9 @@ export function MissionComms({
   briefing,
   worktreeBranch,
   compromiseReason,
+  escalationQuestion,
+  isSynthesized,
+  initialComms,
 }: MissionCommsProps) {
   const router = useRouter();
   const { logs, status, debrief, tokens, compromiseReason: liveCompromiseReason } = useMissionComms(
@@ -70,16 +88,15 @@ export function MissionComms({
   const displayInput = tokens?.input ?? initialTokens.input;
   const _displayOutput = tokens?.output ?? initialTokens.output;
   const displayCacheHit = tokens?.cacheHit ?? initialTokens.cacheHit;
-  const _displayDuration = initialTokens.duration; // Duration comes from DB on completion
+  const _displayDuration = initialTokens.duration;
   const _displayCostUsd = tokens?.costUsd ?? null;
 
   const totalInputContext = displayInput + displayCacheHit;
   const _cachePercent =
     totalInputContext > 0 ? Math.round((displayCacheHit / totalInputContext) * 100) : 0;
 
-  // Build terminal logs
+  // Build terminal logs — prefer structured comms table if available, else fall back to missionLogs
   const isPreDeploy = PRE_DEPLOY_STATUSES.includes(liveStatus);
-  const isReviewing = liveStatus === 'reviewing';
   const terminalLogs = isPreDeploy
     ? [
         {
@@ -90,21 +107,7 @@ export function MissionComms({
         },
       ]
     : [
-        ...logs
-          .filter((log) => {
-            // Hide the raw debrief text from comms — it's shown formatted below
-            // Only filter when mission is terminal (not while still running)
-            const isTerminal = TERMINAL_STATUSES.includes(liveStatus);
-            if (isTerminal && liveDebrief && log.type === 'comms' && liveDebrief.startsWith(log.content.slice(0, 100))) {
-              return false;
-            }
-            return true;
-          })
-          .map((log) => ({
-            timestamp: log.timestamp,
-            type: (log.type as 'comms' | 'sitrep' | 'alert') ?? 'comms',
-            content: log.content,
-          })),
+        ...buildTerminalLogs(logs, liveDebrief, liveStatus, initialComms),
         ...(TERMINAL_STATUSES.includes(liveStatus) && liveDebrief
           ? [
               {
@@ -114,16 +117,9 @@ export function MissionComms({
               },
             ]
           : []),
-        ...(isReviewing
-          ? [
-              {
-                timestamp: 0,
-                type: 'sitrep' as const,
-                content: 'Agent work complete. Overseer reviewing debrief...',
-              },
-            ]
-          : []),
       ];
+
+  const liveCompromise = liveCompromiseReason ?? compromiseReason;
 
   return (
     <div className="space-y-6">
@@ -138,26 +134,13 @@ export function MissionComms({
         <Terminal logs={terminalLogs} />
       </div>
 
-      {/* Debrief */}
-      {liveDebrief && (
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <h2 className="text-sm font-tactical text-dr-amber tracking-wider">
-              {liveStatus === 'compromised' ? 'SITUATION REPORT' : 'DEBRIEF'}
-            </h2>
-            <div className="h-px bg-dr-border" />
-          </div>
-          <div
-            className={`border p-2.5 sm:p-4 ${
-              liveStatus === 'compromised'
-                ? 'bg-dr-red/5 border-dr-red/30'
-                : 'bg-dr-surface border-dr-border'
-            }`}
-          >
-            <Markdown content={liveDebrief} className="text-sm" />
-          </div>
-        </div>
-      )}
+      {/* Debrief panel */}
+      <DebriefPanel
+        debrief={initialStructuredDebrief}
+        debriefText={liveDebrief}
+        isSynthesized={isSynthesized}
+        isCompromised={liveStatus === 'compromised'}
+      />
 
       {/* Mission Actions */}
       <MissionActions
@@ -169,8 +152,51 @@ export function MissionComms({
         briefing={briefing}
         worktreeBranch={worktreeBranch}
         debrief={liveDebrief}
-        compromiseReason={liveCompromiseReason ?? compromiseReason}
+        compromiseReason={liveCompromise}
+        escalationQuestion={escalationQuestion}
       />
     </div>
   );
+}
+
+/**
+ * Build terminal log entries from either the new comms table or legacy missionLogs.
+ * Prefers comms table (with actor labels) if present; falls back to missionLogs.
+ */
+function buildTerminalLogs(
+  logs: MissionLog[],
+  liveDebrief: string | null,
+  liveStatus: MissionStatus,
+  initialComms: Comm[],
+): Array<{ timestamp: number; type: 'comms' | 'sitrep' | 'alert'; content: string }> {
+  const isTerminal = TERMINAL_STATUSES.includes(liveStatus);
+
+  // If we have comms from the new table, use those with actor labels
+  if (initialComms.length > 0) {
+    return initialComms.map((comm) => {
+      const prefix = ACTOR_PREFIXES[comm.actor] ?? `[${comm.actor}] `;
+      const levelType: 'comms' | 'sitrep' | 'alert' =
+        comm.level === 'error' ? 'alert' : comm.level === 'warn' ? 'sitrep' : 'comms';
+      return {
+        timestamp: comm.createdAt,
+        type: levelType,
+        content: prefix + comm.message,
+      };
+    });
+  }
+
+  // Fall back to legacy missionLogs
+  return logs
+    .filter((log) => {
+      // Hide the raw debrief text from comms — it's shown formatted below
+      if (isTerminal && liveDebrief && log.type === 'comms' && liveDebrief.startsWith(log.content.slice(0, 100))) {
+        return false;
+      }
+      return true;
+    })
+    .map((log) => ({
+      timestamp: log.timestamp,
+      type: (log.type as 'comms' | 'sitrep' | 'alert') ?? 'comms',
+      content: log.content,
+    }));
 }

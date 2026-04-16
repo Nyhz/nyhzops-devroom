@@ -3,27 +3,27 @@ import { screen, waitFor, act } from '@testing-library/react';
 import { renderWithProviders } from '@/lib/test/render';
 import { MissionActions } from '../mission-actions';
 
-// --- Mock server actions ---
+// --- Mock server actions from @/actions/mission ---
 const mockDeployMission = vi.fn();
 const mockAbandonMission = vi.fn();
 const mockContinueMission = vi.fn();
-const mockRemoveMission = vi.fn();
+const mockTacticalOverride = vi.fn();
+const mockAcceptMergeOverride = vi.fn();
+const mockAnswerEscalation = vi.fn();
 
 vi.mock('@/actions/mission', () => ({
   deployMission: (...args: unknown[]) => mockDeployMission(...args),
   abandonMission: (...args: unknown[]) => mockAbandonMission(...args),
   continueMission: (...args: unknown[]) => mockContinueMission(...args),
-  removeMission: (...args: unknown[]) => mockRemoveMission(...args),
+  tacticalOverride: (...args: unknown[]) => mockTacticalOverride(...args),
+  acceptMergeOverride: (...args: unknown[]) => mockAcceptMergeOverride(...args),
+  answerEscalation: (...args: unknown[]) => mockAnswerEscalation(...args),
 }));
 
-const mockTacticalOverride = vi.fn();
 const mockSkipMission = vi.fn();
-const mockCommanderOverride = vi.fn();
 
 vi.mock('@/actions/campaign-overrides', () => ({
-  tacticalOverride: (...args: unknown[]) => mockTacticalOverride(...args),
   skipMission: (...args: unknown[]) => mockSkipMission(...args),
-  commanderOverride: (...args: unknown[]) => mockCommanderOverride(...args),
 }));
 
 // --- Mock sonner toast ---
@@ -51,10 +51,10 @@ beforeEach(() => {
   mockDeployMission.mockResolvedValue(undefined);
   mockAbandonMission.mockResolvedValue(undefined);
   mockContinueMission.mockResolvedValue({ id: 'new-mission-1' });
-  mockRemoveMission.mockResolvedValue({ battlefieldId: 'bf-1' });
   mockTacticalOverride.mockResolvedValue(undefined);
+  mockAcceptMergeOverride.mockResolvedValue(undefined);
+  mockAnswerEscalation.mockResolvedValue(undefined);
   mockSkipMission.mockResolvedValue(undefined);
-  mockCommanderOverride.mockResolvedValue(undefined);
 });
 
 describe('MissionActions', () => {
@@ -75,6 +75,11 @@ describe('MissionActions', () => {
     it('shows ABANDON for queued status', () => {
       renderWithProviders(<MissionActions {...baseProps} status="queued" />);
       expect(screen.queryByRole('button', { name: /deploy/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /abandon/i })).toBeInTheDocument();
+    });
+
+    it('shows ABANDON for deploying status', () => {
+      renderWithProviders(<MissionActions {...baseProps} status="deploying" />);
       expect(screen.getByRole('button', { name: /abandon/i })).toBeInTheDocument();
     });
 
@@ -106,11 +111,18 @@ describe('MissionActions', () => {
       expect(screen.getByRole('button', { name: /tactical override/i })).toBeInTheDocument();
     });
 
-    it('shows APPROVE for compromised status', () => {
+    it('shows ACCEPT & MERGE for compromised status', () => {
       renderWithProviders(
         <MissionActions {...baseProps} status="compromised" />,
       );
-      expect(screen.getByRole('button', { name: /approve/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /accept & merge/i })).toBeInTheDocument();
+    });
+
+    it('does not show ACCEPT & MERGE for non-compromised status', () => {
+      renderWithProviders(
+        <MissionActions {...baseProps} status="accomplished" />,
+      );
+      expect(screen.queryByRole('button', { name: /accept & merge/i })).not.toBeInTheDocument();
     });
 
     it('shows SKIP MISSION for compromised with campaignId', () => {
@@ -137,11 +149,72 @@ describe('MissionActions', () => {
       expect(screen.queryByRole('button', { name: /tactical override/i })).not.toBeInTheDocument();
     });
 
-    it('shows ABANDON for reviewing status', () => {
+    it('does not show ABANDON for reviewing (legacy) status', () => {
+      // 'reviewing' is a legacy status — not in the new canAbandon set
       renderWithProviders(
         <MissionActions {...baseProps} status="reviewing" />,
       );
-      expect(screen.getByRole('button', { name: /abandon/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /abandon/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('escalation answer panel', () => {
+    it('shows escalation panel when compromised with escalated reason and question', () => {
+      renderWithProviders(
+        <MissionActions
+          {...baseProps}
+          status="compromised"
+          compromiseReason="escalated"
+          escalationQuestion="What should I do about the failing tests?"
+        />,
+      );
+      expect(screen.getByText(/OVERSEER ESCALATION/i)).toBeInTheDocument();
+      expect(screen.getByText(/What should I do about the failing tests/i)).toBeInTheDocument();
+    });
+
+    it('does not show escalation panel when compromiseReason is not escalated', () => {
+      renderWithProviders(
+        <MissionActions
+          {...baseProps}
+          status="compromised"
+          compromiseReason="timeout"
+          escalationQuestion="Some question"
+        />,
+      );
+      expect(screen.queryByText(/OVERSEER ESCALATION/i)).not.toBeInTheDocument();
+    });
+
+    it('calls answerEscalation when answer is submitted', async () => {
+      const { user } = renderWithProviders(
+        <MissionActions
+          {...baseProps}
+          status="compromised"
+          compromiseReason="escalated"
+          escalationQuestion="What approach should I use?"
+        />,
+      );
+
+      const textarea = screen.getByPlaceholderText(/Your answer to the Overseer/i);
+      await user.type(textarea, 'Use approach A');
+
+      await user.click(screen.getByRole('button', { name: /submit answer/i }));
+
+      await waitFor(() => {
+        expect(mockAnswerEscalation).toHaveBeenCalledWith('mission-1', 'Use approach A');
+      });
+    });
+
+    it('disables SUBMIT ANSWER button when answer is empty', () => {
+      renderWithProviders(
+        <MissionActions
+          {...baseProps}
+          status="compromised"
+          compromiseReason="escalated"
+          escalationQuestion="Some question"
+        />,
+      );
+      const submitButton = screen.getByRole('button', { name: /submit answer/i });
+      expect(submitButton).toBeDisabled();
     });
   });
 
@@ -210,24 +283,6 @@ describe('MissionActions', () => {
 
       await waitFor(() => {
         expect(mockAbandonMission).toHaveBeenCalledWith('mission-1');
-      });
-    });
-
-    it('calls removeMission when ABANDON & REMOVE is confirmed', async () => {
-      const { user } = renderWithProviders(
-        <MissionActions {...baseProps} status="standby" />,
-      );
-
-      await user.click(screen.getByRole('button', { name: /^abandon$/i }));
-
-      await waitFor(() => {
-        expect(screen.getByText('CONFIRM ABANDON')).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByRole('button', { name: /abandon & remove/i }));
-
-      await waitFor(() => {
-        expect(mockRemoveMission).toHaveBeenCalledWith('mission-1');
       });
     });
   });
@@ -324,38 +379,37 @@ describe('MissionActions', () => {
     });
   });
 
-  describe('commander override (approve)', () => {
-    it('shows confirm dialog when APPROVE is clicked', async () => {
+  describe('accept & merge', () => {
+    it('shows confirm dialog when ACCEPT & MERGE is clicked', async () => {
       const { user } = renderWithProviders(
         <MissionActions {...baseProps} status="compromised" />,
       );
 
-      await user.click(screen.getByRole('button', { name: /approve/i }));
+      await user.click(screen.getByRole('button', { name: /accept & merge/i }));
 
       await waitFor(() => {
-        expect(screen.getByText('COMMANDER OVERRIDE')).toBeInTheDocument();
+        // Dialog description text is shown
+        expect(screen.getByText(/Force-merge this mission/i)).toBeInTheDocument();
       });
     });
 
-    it('calls commanderOverride when confirmed', async () => {
+    it('calls acceptMergeOverride when confirmed', async () => {
       const { user } = renderWithProviders(
         <MissionActions {...baseProps} status="compromised" />,
       );
 
-      await user.click(screen.getByRole('button', { name: /^approve$/i }));
+      await user.click(screen.getByRole('button', { name: /^accept & merge$/i }));
 
       await waitFor(() => {
-        expect(screen.getByText('COMMANDER OVERRIDE')).toBeInTheDocument();
+        expect(screen.getByText(/Force-merge this mission/i)).toBeInTheDocument();
       });
 
-      // Click the APPROVE button in the dialog
-      const dialogButtons = screen.getAllByRole('button', { name: /^approve$/i });
-      const confirmButton = dialogButtons.find((btn) => btn.closest('[role="dialog"]'));
-      expect(confirmButton).toBeDefined();
-      await user.click(confirmButton!);
+      // After dialog opens, there are multiple "ACCEPT & MERGE" buttons — click the last one (dialog action)
+      const allButtons = screen.getAllByRole('button', { name: /^accept & merge$/i });
+      await user.click(allButtons[allButtons.length - 1]);
 
       await waitFor(() => {
-        expect(mockCommanderOverride).toHaveBeenCalledWith('mission-1');
+        expect(mockAcceptMergeOverride).toHaveBeenCalledWith('mission-1');
       });
     });
   });

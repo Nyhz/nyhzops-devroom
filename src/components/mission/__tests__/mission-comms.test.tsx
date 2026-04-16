@@ -3,6 +3,7 @@ import { screen } from '@testing-library/react';
 import { renderWithProviders } from '@/lib/test/render';
 import { MissionComms } from '../mission-comms';
 import type { MissionLog, MissionStatus } from '@/types';
+import type { Comm } from '@/lib/db/schema';
 
 // --- Mock useMissionComms hook ---
 const mockUseMissionComms = vi.fn();
@@ -31,6 +32,15 @@ vi.mock('@/components/mission/mission-actions', () => ({
   ),
 }));
 
+// --- Mock DebriefPanel ---
+vi.mock('@/components/mission/debrief-panel', () => ({
+  DebriefPanel: ({ debriefText, isSynthesized }: { debriefText: string | null; isSynthesized: boolean }) => (
+    debriefText
+      ? <div data-testid="debrief-panel" data-synthesized={isSynthesized ? 'true' : 'false'}>{debriefText}</div>
+      : null
+  ),
+}));
+
 // --- Mock react-tooltip ---
 vi.mock('react-tooltip', () => ({
   Tooltip: () => null,
@@ -41,17 +51,22 @@ const baseLogs: MissionLog[] = [
   { id: 'log-2', missionId: 'm-1', timestamp: 2000, type: 'sitrep', content: 'Connected to agent' },
 ];
 
+const baseComms: Comm[] = [];
+
 const baseProps = {
   missionId: 'm-1',
   initialLogs: baseLogs,
   initialStatus: 'in_combat' as string,
   initialDebrief: null as string | null,
+  initialStructuredDebrief: null,
   initialTokens: { input: 100, output: 50, cacheHit: 20, duration: 5000 },
   battlefieldId: 'bf-1',
   initialSessionId: null as string | null,
   campaignId: null as string | null,
   briefing: undefined as string | undefined,
   worktreeBranch: null as string | null,
+  isSynthesized: false,
+  initialComms: baseComms,
 };
 
 function setupHookReturn(overrides: Partial<ReturnType<typeof mockUseMissionComms>> = {}) {
@@ -60,6 +75,7 @@ function setupHookReturn(overrides: Partial<ReturnType<typeof mockUseMissionComm
     status: null as MissionStatus | null,
     debrief: null as string | null,
     tokens: null,
+    compromiseReason: null,
   };
   mockUseMissionComms.mockReturnValue({ ...defaults, ...overrides });
 }
@@ -101,13 +117,12 @@ describe('MissionComms', () => {
     ).toBeInTheDocument();
   });
 
-  it('does not show debrief section when no debrief', () => {
+  it('does not show debrief panel when no debrief', () => {
     renderWithProviders(<MissionComms {...baseProps} />);
-    expect(screen.queryByText('DEBRIEF')).not.toBeInTheDocument();
-    expect(screen.queryByText('SITUATION REPORT')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('debrief-panel')).not.toBeInTheDocument();
   });
 
-  it('shows DEBRIEF heading when mission is accomplished with debrief', () => {
+  it('shows debrief panel when mission is accomplished with debrief', () => {
     setupHookReturn({
       status: 'accomplished' as MissionStatus,
       debrief: '## Mission complete\n\nAll objectives met.',
@@ -115,11 +130,10 @@ describe('MissionComms', () => {
     renderWithProviders(
       <MissionComms {...baseProps} initialStatus="accomplished" />,
     );
-    expect(screen.getByText('DEBRIEF')).toBeInTheDocument();
-    expect(screen.getByTestId('markdown')).toHaveTextContent('## Mission complete');
+    expect(screen.getByTestId('debrief-panel')).toBeInTheDocument();
   });
 
-  it('shows SITUATION REPORT heading when mission is compromised', () => {
+  it('shows debrief panel when mission is compromised with debrief', () => {
     setupHookReturn({
       status: 'compromised' as MissionStatus,
       debrief: 'Failed due to timeout.',
@@ -127,8 +141,7 @@ describe('MissionComms', () => {
     renderWithProviders(
       <MissionComms {...baseProps} initialStatus="compromised" />,
     );
-    expect(screen.getByText('SITUATION REPORT')).toBeInTheDocument();
-    expect(screen.queryByText('DEBRIEF')).not.toBeInTheDocument();
+    expect(screen.getByTestId('debrief-panel')).toBeInTheDocument();
   });
 
   it('uses initialDebrief as fallback when hook returns null debrief', () => {
@@ -140,7 +153,7 @@ describe('MissionComms', () => {
         initialDebrief="Initial debrief content"
       />,
     );
-    expect(screen.getByTestId('markdown')).toHaveTextContent('Initial debrief content');
+    expect(screen.getByTestId('debrief-panel')).toHaveTextContent('Initial debrief content');
   });
 
   it('prefers live debrief over initialDebrief', () => {
@@ -155,7 +168,7 @@ describe('MissionComms', () => {
         initialDebrief="Initial debrief content"
       />,
     );
-    expect(screen.getByTestId('markdown')).toHaveTextContent('Live debrief content');
+    expect(screen.getByTestId('debrief-panel')).toHaveTextContent('Live debrief content');
   });
 
   it('appends "Debrief submitted" status line when terminal with debrief', () => {
@@ -169,12 +182,15 @@ describe('MissionComms', () => {
     expect(screen.getByText(/Debrief submitted/)).toBeInTheDocument();
   });
 
-  it('shows reviewing message when status is reviewing', () => {
-    setupHookReturn({ status: 'reviewing' as MissionStatus });
+  it('passes synthesized flag to debrief panel', () => {
+    setupHookReturn({
+      status: 'accomplished' as MissionStatus,
+      debrief: 'Report.',
+    });
     renderWithProviders(
-      <MissionComms {...baseProps} initialStatus="reviewing" />,
+      <MissionComms {...baseProps} initialStatus="accomplished" isSynthesized={true} />,
     );
-    expect(screen.getByText(/Overseer reviewing debrief/)).toBeInTheDocument();
+    expect(screen.getByTestId('debrief-panel')).toHaveAttribute('data-synthesized', 'true');
   });
 
   it('calls router.refresh when mission reaches terminal status', () => {
@@ -217,7 +233,7 @@ describe('MissionComms', () => {
     );
   });
 
-  it('filters debrief content from terminal logs when matching', () => {
+  it('filters debrief content from terminal logs when matching (legacy path)', () => {
     const debriefText = 'This is the full debrief content that should be filtered from logs.';
     const logsWithDebrief: MissionLog[] = [
       { id: 'log-1', missionId: 'm-1', timestamp: 1000, type: 'sitrep', content: 'Starting...' },
@@ -231,11 +247,22 @@ describe('MissionComms', () => {
     renderWithProviders(
       <MissionComms {...baseProps} initialStatus="accomplished" />,
     );
-    // The debrief log line should be filtered from terminal
-    // The debrief content should only appear in the markdown section
-    const markdownEl = screen.getByTestId('markdown');
-    expect(markdownEl).toHaveTextContent(debriefText);
+    // Debrief text appears in the panel
+    expect(screen.getByTestId('debrief-panel')).toHaveTextContent(debriefText);
     // "Starting..." status line should still be present
     expect(screen.getByText(/Starting\.\.\./)).toBeInTheDocument();
+  });
+
+  it('renders comms with actor labels when initialComms provided', () => {
+    const commsWithActors: Comm[] = [
+      { id: 'c-1', missionId: 'm-1', campaignId: null, battlefieldId: 'bf-1', actor: 'OPERATIVE', message: 'Running tests', level: 'info', createdAt: 1000 },
+      { id: 'c-2', missionId: 'm-1', campaignId: null, battlefieldId: 'bf-1', actor: 'CONTROL', message: 'Mission queued', level: 'info', createdAt: 2000 },
+    ];
+    renderWithProviders(
+      <MissionComms {...baseProps} initialComms={commsWithActors} />,
+    );
+    // Actor-labelled messages should appear in terminal
+    expect(screen.getByText(/Running tests/)).toBeInTheDocument();
+    expect(screen.getByText(/Mission queued/)).toBeInTheDocument();
   });
 });
