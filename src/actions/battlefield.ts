@@ -87,7 +87,7 @@ async function makeProductionSpawnAsset(): Promise<
       codename: assetRow.codename,
       model: assetRow.model ?? 'claude-sonnet-4-6',
       maxTurns: assetRow.maxTurns ?? 30,
-      effort: assetRow.effort ?? 'normal',
+      effort: assetRow.effort ?? 'medium',
       isSystem: assetRow.isSystem ?? 0,
       systemPrompt: assetRow.systemPrompt ?? '',
       skills: assetRow.skills ? (JSON.parse(assetRow.skills) as string[]) : [],

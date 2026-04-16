@@ -5,10 +5,14 @@ export function buildClaudeArgs(opts: {
   extraFlags: string[];
 }): string[] {
   const args: string[] = [];
+  args.push('--print');
   args.push('--model', opts.asset.model);
   args.push('--max-turns', String(opts.asset.maxTurns));
   args.push('--effort', opts.asset.effort);
   args.push('--output-format', opts.outputFormat);
+  if (opts.outputFormat === 'stream-json') {
+    args.push('--verbose');
+  }
 
   const sys = opts.asset.isSystem
     ? opts.asset.systemPrompt
