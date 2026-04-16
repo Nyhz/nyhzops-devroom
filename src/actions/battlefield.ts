@@ -24,17 +24,86 @@ import {
   testRuns,
   followUpSuggestions,
   intelNotes,
+  comms,
 } from '@/lib/db/schema';
 import { generateId, toKebabCase } from '@/lib/utils';
 import { config } from '@/lib/config';
 import { getNextRun } from '@/lib/scheduler/cron';
-import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
+import { emitComm } from '@/control/comms';
+import type { GateManifest, GateRunResults, RunGatesOptions } from '@/control/gates';
+import { runGates as defaultRunGates } from '@/control/gates';
+import {
+  bootstrapBattlefield,
+  type BootstrapOpts,
+} from '@/control/bootstrap/bootstrap';
+import type { SpawnAssetOpts, AssetRunResult } from '@/control/mission-runner';
 import type {
   CreateBattlefieldInput,
   UpdateBattlefieldInput,
   BattlefieldWithCounts,
   Battlefield,
 } from '@/types';
+
+// ---------------------------------------------------------------------------
+// Production spawnAsset adapter
+//
+// `bootstrapBattlefield` requires an `InjectedSpawnAsset` — a function typed
+// as `(opts: SpawnAssetOpts) => Promise<AssetRunResult>`.  The real Claude
+// subprocess launcher lives in `@/control/spawn-asset` and needs an expanded
+// `SpawnAssetExtendedOpts` (including the full `asset` definition).  To avoid
+// coupling this actions file to spawn internals at import time (and to let
+// tests inject their own stub without vi.mock gymnastics), we load the real
+// spawn lazily via a closure created once per call-site invocation.
+//
+// In production the adapter:
+//   1. Looks up the INTEL asset record from the DB.
+//   2. Forwards all base `SpawnAssetOpts` fields.
+//   3. Fills in the extended fields from the asset row.
+//
+// Tests supply their own stub via `CreateBattlefieldDeps.spawnAsset`.
+// ---------------------------------------------------------------------------
+async function makeProductionSpawnAsset(): Promise<
+  (opts: SpawnAssetOpts) => Promise<AssetRunResult>
+> {
+  // Dynamic import so the server bundle does not eagerly require the spawn
+  // subprocess chain during page render.
+  const { spawnAsset } = await import('@/control/spawn-asset');
+
+  return async (opts: SpawnAssetOpts): Promise<AssetRunResult> => {
+    const db = getDatabase();
+    const assetRow = db
+      .select()
+      .from(assets)
+      .where(eq(assets.codename, opts.assetCodename))
+      .get();
+
+    if (!assetRow) {
+      throw new Error(
+        `makeProductionSpawnAsset: asset "${opts.assetCodename}" not found`,
+      );
+    }
+
+    const asset = {
+      codename: assetRow.codename,
+      model: assetRow.model ?? 'claude-sonnet-4-6',
+      maxTurns: assetRow.maxTurns ?? 30,
+      effort: assetRow.effort ?? 'normal',
+      isSystem: assetRow.isSystem ?? 0,
+      systemPrompt: assetRow.systemPrompt ?? '',
+      skills: assetRow.skills ? (JSON.parse(assetRow.skills) as string[]) : [],
+      mcpServers: assetRow.mcpServers
+        ? (JSON.parse(assetRow.mcpServers) as unknown[])
+        : [],
+    };
+
+    // rulesOfEngagement is empty for bootstrap scaffold — no mission context.
+    return spawnAsset({
+      ...opts,
+      asset,
+      rulesOfEngagement: '',
+    });
+  };
+}
 
 // ---------------------------------------------------------------------------
 // seedMaintenanceTasks — create default maintenance tasks for a battlefield
@@ -72,44 +141,21 @@ function seedMaintenanceTasks(battlefieldId: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// createBootstrapMission — helper to create the bootstrap mission for a new battlefield
+// Dependency injection interfaces
 // ---------------------------------------------------------------------------
-function createBootstrapMission(
-  battlefieldId: string,
-  codename: string,
-  briefing: string,
-): string {
-  const db = getDatabase();
 
-  const asset = db
-    .select()
-    .from(assets)
-    .where(eq(assets.codename, 'INTEL'))
-    .get();
+export interface CreateBattlefieldDeps {
+  /** Injected bootstrap runner — defaults to the real bootstrapBattlefield.
+   *  Tests pass a stub that records calls without running the pipeline. */
+  runBootstrap?: (opts: BootstrapOpts) => Promise<void>;
+}
 
-  if (!asset) {
-    throw new Error('INTEL asset required for bootstrap — no fallback to other assets');
-  }
+export interface EstablishGatesDeps {
+  runBootstrap?: (opts: BootstrapOpts) => Promise<void>;
+}
 
-  const missionId = generateId();
-  const now = Date.now();
-
-  db.insert(missions)
-    .values({
-      id: missionId,
-      battlefieldId,
-      type: 'combat',
-      title: `Bootstrap: ${codename}`,
-      briefing,
-      priority: 'critical',
-      status: 'queued',
-      assetId: asset.id,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .run();
-
-  return missionId;
+export interface UpdateGateManifestDeps {
+  runGates?: (opts: RunGatesOptions) => Promise<GateRunResults>;
 }
 
 // ---------------------------------------------------------------------------
@@ -117,6 +163,7 @@ function createBootstrapMission(
 // ---------------------------------------------------------------------------
 export async function createBattlefield(
   data: CreateBattlefieldInput,
+  deps: CreateBattlefieldDeps = {},
 ): Promise<Battlefield> {
   const db = getDatabase();
   const id = generateId();
@@ -160,22 +207,21 @@ export async function createBattlefield(
     repoPath = data.repoPath;
   }
 
-  // Determine status and bootstrap mission
-  let status: 'initializing' | 'active' = 'active';
-  let bootstrapMissionId: string | null = null;
   let claudeMdPath: string | null = null;
   let specMdPath: string | null = null;
 
   if (data.skipBootstrap) {
-    status = 'active';
     claudeMdPath = data.claudeMdPath ?? null;
     specMdPath = data.specMdPath ?? null;
-  } else if (data.initialBriefing?.trim()) {
-    status = 'initializing';
   }
 
+  // Determine initial status: 'initializing' when bootstrap will run,
+  // 'active' when skipped.
+  const status: 'initializing' | 'active' = data.skipBootstrap ? 'active' : 'initializing';
+  const needsGateManifest: number = data.skipBootstrap ? 0 : 1;
+
   const record = db.transaction(() => {
-    const inserted = db
+    return db
       .insert(battlefields)
       .values({
         id,
@@ -190,28 +236,32 @@ export async function createBattlefield(
         claudeMdPath,
         specMdPath,
         status,
+        needsGateManifest,
         createdAt: now,
         updatedAt: now,
       })
       .returning()
       .get();
-
-    // Create bootstrap mission if not skipping and briefing provided
-    if (!data.skipBootstrap && data.initialBriefing?.trim()) {
-      bootstrapMissionId = createBootstrapMission(id, data.codename, data.initialBriefing.trim());
-
-      db.update(battlefields)
-        .set({ bootstrapMissionId, updatedAt: Date.now() })
-        .where(eq(battlefields.id, id))
-        .run();
-    }
-
-    return inserted;
   });
 
-  // Trigger orchestrator after transaction — outside DB writes
-  if (bootstrapMissionId && !data.scaffoldCommand) {
-    safeQueueMission(bootstrapMissionId);
+  emitComm({
+    battlefieldId: id,
+    actor: 'CONTROL',
+    message: `Battlefield ${data.codename} created.${data.skipBootstrap ? ' Bootstrap skipped.' : ' Bootstrap queued.'}`,
+    level: 'info',
+  });
+
+  // Fire-and-forget bootstrap unless explicitly skipped.
+  if (!data.skipBootstrap) {
+    const runBootstrap = deps.runBootstrap ?? _fireAndForgetBootstrap;
+    runBootstrap({ battlefieldId: id, spawnAsset: async (opts) => (await makeProductionSpawnAsset())(opts) }).catch(
+      (err: unknown) => {
+        console.error(
+          `[createBattlefield] background bootstrap failed for ${id}:`,
+          err,
+        );
+      },
+    );
   }
 
   // Seed default maintenance tasks
@@ -220,7 +270,13 @@ export async function createBattlefield(
   revalidatePath('/');
   revalidatePath(`/battlefields/${id}`);
 
-  return { ...record, bootstrapMissionId };
+  return record;
+}
+
+/** Internal no-op wrapper so the default bootstrap path is not imported at
+ *  module evaluation time in Next.js pages that import this actions file. */
+async function _fireAndForgetBootstrap(opts: BootstrapOpts): Promise<void> {
+  await bootstrapBattlefield(opts);
 }
 
 // ---------------------------------------------------------------------------
@@ -512,6 +568,9 @@ export async function deleteBattlefield(id: string): Promise<void> {
 
     tx.delete(commandLogs).where(eq(commandLogs.battlefieldId, id)).run();
 
+    // Comms are battlefield-scoped (no FK constraint but cleanup for hygiene).
+    tx.delete(comms).where(eq(comms.battlefieldId, id)).run();
+
     tx.delete(battlefields).where(eq(battlefields.id, id)).run();
   });
 
@@ -575,7 +634,266 @@ export async function deleteBattlefield(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// approveBootstrap — commit generated files and activate battlefield
+// establishGates — re-run bootstrap detection + scaffold for a battlefield.
+//
+// Sets needsGateManifest=1 immediately (signals UI that work is pending),
+// kicks off bootstrapBattlefield fire-and-forget, and returns.  The bootstrap
+// pipeline itself clears needsGateManifest=0 when it completes.
+// ---------------------------------------------------------------------------
+export async function establishGates(
+  battlefieldId: string,
+  deps: EstablishGatesDeps = {},
+): Promise<void> {
+  const db = getDatabase();
+
+  const bf = db
+    .select()
+    .from(battlefields)
+    .where(eq(battlefields.id, battlefieldId))
+    .get();
+
+  if (!bf) {
+    throw new Error(`establishGates: battlefield ${battlefieldId} not found`);
+  }
+
+  db.update(battlefields)
+    .set({ needsGateManifest: 1, updatedAt: Date.now() })
+    .where(eq(battlefields.id, battlefieldId))
+    .run();
+
+  emitComm({
+    battlefieldId,
+    actor: 'CONTROL',
+    message: 'Gate establishment ordered — bootstrap pipeline starting.',
+    level: 'info',
+  });
+
+  const runBootstrap = deps.runBootstrap ?? _fireAndForgetBootstrap;
+  runBootstrap({
+    battlefieldId,
+    spawnAsset: async (opts) => (await makeProductionSpawnAsset())(opts),
+  }).catch((err: unknown) => {
+    console.error(
+      `[establishGates] background bootstrap failed for ${battlefieldId}:`,
+      err,
+    );
+  });
+
+  revalidatePath(`/battlefields/${battlefieldId}`);
+}
+
+// ---------------------------------------------------------------------------
+// updateGateManifest — persist a new gate manifest, optionally verifying
+// against HEAD before saving.
+//
+// When verify=true: runs all gates; only persists if all-green.
+// When verify=false (default): persists unconditionally.
+// Returns { persisted, verifyResults? }.
+// ---------------------------------------------------------------------------
+export async function updateGateManifest(
+  battlefieldId: string,
+  manifest: GateManifest,
+  opts?: { verify?: boolean },
+  deps: UpdateGateManifestDeps = {},
+): Promise<{ persisted: boolean; verifyResults?: GateRunResults }> {
+  const db = getDatabase();
+
+  const bf = db
+    .select()
+    .from(battlefields)
+    .where(eq(battlefields.id, battlefieldId))
+    .get();
+
+  if (!bf) {
+    throw new Error(`updateGateManifest: battlefield ${battlefieldId} not found`);
+  }
+
+  const runner = deps.runGates ?? defaultRunGates;
+
+  if (opts?.verify) {
+    const verifyResults = await runner({
+      manifest,
+      workingDir: bf.repoPath,
+      perCommandTimeoutMs: 120_000,
+      suiteTimeoutMs: 300_000,
+    });
+
+    const allGreen = verifyResults.overallStatus === 'pass';
+
+    if (allGreen) {
+      db.update(battlefields)
+        .set({
+          gateManifest: JSON.stringify(manifest),
+          needsGateManifest: 0,
+          updatedAt: Date.now(),
+        })
+        .where(eq(battlefields.id, battlefieldId))
+        .run();
+
+      emitComm({
+        battlefieldId,
+        actor: 'COMMANDER',
+        message: 'Gate manifest updated and verified — all gates green on HEAD.',
+        level: 'info',
+      });
+
+      revalidatePath(`/battlefields/${battlefieldId}`);
+      return { persisted: true, verifyResults };
+    }
+
+    // One or more gates failed — do not persist.
+    const failedGates = verifyResults.results
+      .filter((r) => r.status !== 'pass' && r.status !== 'skipped')
+      .map((r) => r.gate)
+      .join(', ');
+
+    emitComm({
+      battlefieldId,
+      actor: 'COMMANDER',
+      message: `Gate manifest verify failed on: ${failedGates}. Manifest not saved.`,
+      level: 'warn',
+    });
+
+    return { persisted: false, verifyResults };
+  }
+
+  // No verify requested — force-save.
+  db.update(battlefields)
+    .set({
+      gateManifest: JSON.stringify(manifest),
+      needsGateManifest: 0,
+      updatedAt: Date.now(),
+    })
+    .where(eq(battlefields.id, battlefieldId))
+    .run();
+
+  emitComm({
+    battlefieldId,
+    actor: 'COMMANDER',
+    message: 'Gate manifest saved (no verification requested).',
+    level: 'info',
+  });
+
+  revalidatePath(`/battlefields/${battlefieldId}`);
+  return { persisted: true };
+}
+
+// ---------------------------------------------------------------------------
+// toggleMainRedOverride — enable/disable the override_main_red_guard flag.
+// ---------------------------------------------------------------------------
+export async function toggleMainRedOverride(
+  battlefieldId: string,
+  enabled: boolean,
+): Promise<void> {
+  const db = getDatabase();
+
+  const bf = db
+    .select()
+    .from(battlefields)
+    .where(eq(battlefields.id, battlefieldId))
+    .get();
+
+  if (!bf) {
+    throw new Error(
+      `toggleMainRedOverride: battlefield ${battlefieldId} not found`,
+    );
+  }
+
+  db.update(battlefields)
+    .set({
+      overrideMainRedGuard: enabled ? 1 : 0,
+      updatedAt: Date.now(),
+    })
+    .where(eq(battlefields.id, battlefieldId))
+    .run();
+
+  emitComm({
+    battlefieldId,
+    actor: 'COMMANDER',
+    message: `Main-red override ${enabled ? 'enabled' : 'disabled'}.`,
+    level: enabled ? 'warn' : 'info',
+  });
+
+  revalidatePath(`/battlefields/${battlefieldId}`);
+}
+
+// ---------------------------------------------------------------------------
+// pruneForensicBranches — delete local `forensic/*` branches older than
+// `daysOld` days.
+//
+// Uses simple-git:
+//   1. List branches matching `forensic/*`.
+//   2. Get commit date via `git log -1 --format=%ct <branch>`.
+//   3. Delete if older than cutoff.
+//
+// Returns { pruned: string[] }.
+// ---------------------------------------------------------------------------
+export async function pruneForensicBranches(
+  battlefieldId: string,
+  daysOld: number,
+): Promise<{ pruned: string[] }> {
+  const db = getDatabase();
+
+  const bf = db
+    .select()
+    .from(battlefields)
+    .where(eq(battlefields.id, battlefieldId))
+    .get();
+
+  if (!bf) {
+    throw new Error(
+      `pruneForensicBranches: battlefield ${battlefieldId} not found`,
+    );
+  }
+
+  const git = simpleGit(bf.repoPath);
+  const branches = await git.branchLocal();
+  const forensicBranches = branches.all.filter((b) =>
+    b.startsWith('forensic/'),
+  );
+
+  const cutoffMs = Date.now() - daysOld * 24 * 60 * 60 * 1000;
+  const pruned: string[] = [];
+
+  for (const branch of forensicBranches) {
+    try {
+      const output = await git.raw([
+        'log',
+        '-1',
+        '--format=%ct',
+        branch,
+      ]);
+      const commitTimestampSec = parseInt(output.trim(), 10);
+      if (isNaN(commitTimestampSec)) continue;
+
+      const commitMs = commitTimestampSec * 1000;
+      if (commitMs < cutoffMs) {
+        await git.raw(['branch', '-D', branch]);
+        pruned.push(branch);
+      }
+    } catch {
+      // Non-fatal — branch may have already been deleted; skip.
+    }
+  }
+
+  emitComm({
+    battlefieldId,
+    actor: 'COMMANDER',
+    message:
+      pruned.length > 0
+        ? `Forensic branches pruned (>${daysOld}d): ${pruned.join(', ')}.`
+        : `Forensic branch prune: no branches older than ${daysOld} days found.`,
+    level: 'info',
+  });
+
+  revalidatePath(`/battlefields/${battlefieldId}`);
+  return { pruned };
+}
+
+// ---------------------------------------------------------------------------
+// approveBootstrap — commit generated files and activate battlefield.
+//
+// No orchestrator calls; git + DB only. Kept as-is for UI compatibility.
 // ---------------------------------------------------------------------------
 export async function approveBootstrap(battlefieldId: string): Promise<void> {
   const db = getDatabase();
@@ -609,11 +927,16 @@ export async function approveBootstrap(battlefieldId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// regenerateBootstrap — delete generated files and re-run bootstrap with new briefing
+// regenerateBootstrap — delete generated files and re-run bootstrap pipeline.
+//
+// Replaces the old mission-creation flow with a direct bootstrapBattlefield
+// call.  This means no bootstrap mission is created; the CONTROL bootstrap
+// pipeline handles all detection + scaffold + verify directly.
 // ---------------------------------------------------------------------------
 export async function regenerateBootstrap(
   battlefieldId: string,
   briefing: string,
+  deps: EstablishGatesDeps = {},
 ): Promise<void> {
   const db = getDatabase();
 
@@ -631,50 +954,43 @@ export async function regenerateBootstrap(
   try { fs.unlinkSync(path.join(battlefield.repoPath, 'CLAUDE.md')); } catch { /* ignore */ }
   try { fs.unlinkSync(path.join(battlefield.repoPath, 'SPEC.md')); } catch { /* ignore */ }
 
-  // Update briefing on battlefield
+  // Update briefing and flag as needing bootstrap.
   db.update(battlefields)
-    .set({ initialBriefing: briefing, updatedAt: Date.now() })
+    .set({
+      initialBriefing: briefing,
+      needsGateManifest: 1,
+      status: 'initializing',
+      updatedAt: Date.now(),
+    })
     .where(eq(battlefields.id, battlefieldId))
     .run();
 
-  // Increment iterations on old bootstrap mission
-  if (battlefield.bootstrapMissionId) {
-    const oldMission = db
-      .select()
-      .from(missions)
-      .where(eq(missions.id, battlefield.bootstrapMissionId))
-      .get();
-
-    if (oldMission) {
-      db.update(missions)
-        .set({ iterations: (oldMission.iterations ?? 0) + 1, updatedAt: Date.now() })
-        .where(eq(missions.id, battlefield.bootstrapMissionId))
-        .run();
-    }
-  }
-
-  // Create new bootstrap mission
-  const newMissionId = createBootstrapMission(
+  emitComm({
     battlefieldId,
-    battlefield.codename,
-    briefing,
-  );
+    actor: 'CONTROL',
+    message: 'Bootstrap regeneration ordered — re-running pipeline.',
+    level: 'info',
+  });
 
-  // Update battlefield with new bootstrap mission
-  db.update(battlefields)
-    .set({ bootstrapMissionId: newMissionId, updatedAt: Date.now() })
-    .where(eq(battlefields.id, battlefieldId))
-    .run();
-
-  // Trigger orchestrator
-  safeQueueMission(newMissionId);
+  const runBootstrap = deps.runBootstrap ?? _fireAndForgetBootstrap;
+  runBootstrap({
+    battlefieldId,
+    spawnAsset: async (opts) => (await makeProductionSpawnAsset())(opts),
+  }).catch((err: unknown) => {
+    console.error(
+      `[regenerateBootstrap] background bootstrap failed for ${battlefieldId}:`,
+      err,
+    );
+  });
 
   revalidatePath(`/battlefields/${battlefieldId}`);
   revalidatePath('/');
 }
 
 // ---------------------------------------------------------------------------
-// abandonBootstrap — delete generated files and remove the battlefield
+// abandonBootstrap — delete generated files and remove the battlefield.
+//
+// No orchestrator calls. Delegates to deleteBattlefield for cascade.
 // ---------------------------------------------------------------------------
 export async function abandonBootstrap(battlefieldId: string): Promise<void> {
   const db = getDatabase();
