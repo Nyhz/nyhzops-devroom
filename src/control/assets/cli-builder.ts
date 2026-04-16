@@ -6,6 +6,7 @@ export function buildClaudeArgs(opts: {
 }): string[] {
   const args: string[] = [];
   args.push('--print');
+  args.push('--dangerously-skip-permissions');
   args.push('--model', opts.asset.model);
   args.push('--max-turns', String(opts.asset.maxTurns));
   args.push('--effort', opts.asset.effort);
