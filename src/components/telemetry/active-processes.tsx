@@ -11,7 +11,7 @@ import {
   killProcess,
   killAllProcesses,
 } from '@/actions/telemetry';
-import type { ProcessEntry, MissionStatus } from '@/types';
+import type { ProcessEntry } from '@/types';
 
 interface ActiveProcessesProps {
   battlefieldId: string;

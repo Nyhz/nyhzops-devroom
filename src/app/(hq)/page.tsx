@@ -34,23 +34,6 @@ export default function ProjectsPage() {
   const totalStandby = totalStandbyResult[0]?.value ?? 0;
   const totalAbandoned = totalAbandonedResult[0]?.value ?? 0;
 
-  // Cache hit calculation
-  const tokenSums = db.select({
-    totalCacheHit: missions.costCacheHit,
-    totalInput: missions.costInput,
-  }).from(missions).all();
-
-  let totalCacheHit = 0;
-  let totalInput = 0;
-  for (const row of tokenSums) {
-    totalCacheHit += row.totalCacheHit ?? 0;
-    totalInput += row.totalInput ?? 0;
-  }
-  const totalInputContext = totalInput + totalCacheHit;
-  const cacheHitPercent = totalInputContext > 0
-    ? `${Math.round((totalCacheHit / totalInputContext) * 100)}%`
-    : '—';
-
   // Recent missions
   const recentMissions = db.select({
     id: missions.id,
