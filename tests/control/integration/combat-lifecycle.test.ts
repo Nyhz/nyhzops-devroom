@@ -127,6 +127,7 @@ function insertMission(id: string): void {
     .run();
 }
 
+
 function cleanDb(): void {
   // Wipe mission_attempts + comms + missions + battlefields for our bf scope.
   const missionIds = db
@@ -207,11 +208,13 @@ describe('combat mission lifecycle — integration', () => {
   });
 
   afterEach(async () => {
+    // Clean DB first so parallel test files don't observe our terminal
+    // missions / battlefields and, e.g., try to sweep them as "orphans".
+    cleanDb();
     while (cleanups.length) {
       const fn = cleanups.pop();
       if (fn) await fn();
     }
-    cleanDb();
   });
 
   // -------------------------------------------------------------------------
