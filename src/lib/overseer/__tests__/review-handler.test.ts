@@ -129,7 +129,7 @@ describe('runOverseerReview — mission type × commit count enforcement', () =>
     const bf = createTestBattlefield(testDb, { repoPath: '/tmp/test-repo', defaultBranch: 'main' });
     const m = createTestMission(testDb, {
       battlefieldId: bf.id,
-      type: 'verification',
+      type: 'recon',
       status: 'reviewing',
       worktreeBranch: 'devroom/test-bf/verify1234',
       debrief: 'All checks pass. No changes made.',
@@ -149,7 +149,7 @@ describe('runOverseerReview — mission type × commit count enforcement', () =>
     const bf = createTestBattlefield(testDb, { repoPath: '/tmp/test-repo', defaultBranch: 'main' });
     const m = createTestMission(testDb, {
       battlefieldId: bf.id,
-      type: 'verification',
+      type: 'recon',
       status: 'reviewing',
       worktreeBranch: 'devroom/test-bf/verify5678',
       debrief: 'Ran tests. Also fixed a thing.',
@@ -171,7 +171,7 @@ describe('runOverseerReview — mission type × commit count enforcement', () =>
     const bf = createTestBattlefield(testDb, { repoPath: '/tmp/test-repo', defaultBranch: 'main' });
     const m = createTestMission(testDb, {
       battlefieldId: bf.id,
-      type: 'direct_action',
+      type: 'combat',
       status: 'reviewing',
       worktreeBranch: 'devroom/test-bf/action1111',
       debrief: 'I looked at the files but did not change anything.',
@@ -193,7 +193,7 @@ describe('runOverseerReview — mission type × commit count enforcement', () =>
     const bf = createTestBattlefield(testDb, { repoPath: '/tmp/test-repo', defaultBranch: 'main' });
     const m = createTestMission(testDb, {
       battlefieldId: bf.id,
-      type: 'direct_action',
+      type: 'combat',
       status: 'reviewing',
       worktreeBranch: 'devroom/test-bf/action2222',
       debrief: 'Implemented the feature. Commits made.',

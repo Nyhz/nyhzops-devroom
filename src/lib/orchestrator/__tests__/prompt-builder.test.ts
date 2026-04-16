@@ -242,13 +242,8 @@ describe('buildPrompt', () => {
 
   describe('CLAUDE.md', () => {
     it('includes CLAUDE.md content when claudeMdPath is set', () => {
-      import('fs').then((fsModule) => {
-        vi.mocked((fsModule.default ?? fsModule) as { readFileSync: ReturnType<typeof vi.fn> }).readFileSync
-          .mockReturnValue('# Project Docs');
-      });
-
       const prompt = buildPrompt(makeMission(), makeBattlefield({ claudeMdPath: '/some/path/CLAUDE.md' }), null);
-      // fs is mocked to return '# CLAUDE.md content'
+      // fs.readFileSync is mocked at module level to return '# CLAUDE.md content'
       expect(prompt).toContain('# CLAUDE.md content');
     });
 
