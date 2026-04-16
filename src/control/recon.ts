@@ -1,139 +1,72 @@
 import { eq } from 'drizzle-orm';
 import { ulid } from 'ulid';
-import { createHash } from 'node:crypto';
+import simpleGit, { type SimpleGit } from 'simple-git';
+
 import { getDatabase } from '@/lib/db';
 import { missions, missionAttempts, battlefields } from '@/lib/db/schema';
-import type { runGates, GateManifest, GateRunResults } from './gates';
 import {
   classifyExit as defaultClassifyExit,
-  type ExitContext,
   type Classification,
+  type ExitContext,
   type ClassifierDeps,
 } from './exit-classifier';
-import type {
-  createMissionWorktree,
-  resetWorktreeToHead,
-  rebaseOntoTarget,
-  autoCommitSweep,
-  removeMissionWorktree,
-} from './worktree';
 import { decideNextAction, nextInfraBackoffMs } from './retry-policy';
 import { emitComm } from './comms';
+import { parseDebrief } from './debrief/parse';
+import { getControlConfig } from './config';
+import type {
+  AssetRunResult,
+  SpawnAssetOpts,
+  OverseerConsultInput,
+  OverseerVerdict,
+} from './mission-runner';
 
 /**
- * Per-mission lifecycle state machine.
+ * Recon mission lifecycle.
  *
- * Spec §5. Drives DEPLOYING → IN_COMBAT → (auto-sweep → gates → MERGING)
- * → ACCOMPLISHED / COMPROMISED, with a deterministic retry loop (up to 3
- * attempts), OVERSEER consult at attempt 4, plus classification-based
- * branches for TIMEOUT (reset + retry), INFRASTRUCTURE (free retry with
- * backoff), RATE_LIMIT (delayed retry), and AUTH (orchestrator-level pause).
+ * Spec §7: recon produces a prose report only — no worktree, no commits, no
+ * gates, no merge. The asset runs inside the repo root itself; CONTROL
+ * verifies the working tree is clean after exit. Any write violates the
+ * read-only contract → tree is reset and the mission is flagged.
  *
- * QUARTERMASTER conflict resolution and recon-specific behavior live in
- * later tasks; this runner accepts a pre-built mergeFn that may wrap QM.
+ * Retry policy matches combat (spec §7 bullet 5) for cases where the debrief
+ * is missing or schema-invalid; OVERSEER consults on recon omit the gate
+ * stderr and final-diff blocks (spec §7 final paragraph — handled by passing
+ * null inputs through to `overseerConsult`).
  */
 
-export interface SpawnAssetOpts {
-  missionId: string;
-  worktreePath: string;
-  sessionId?: string;
-  briefing: string;
-  assetCodename: string;
-  onPid?: (pid: number) => void;
-  onStdoutLine?: (line: string) => void;
-  /** Runtime override for the L3 stdout-silence watchdog (milliseconds).
-   *  Recon uses this to raise the threshold per spec §7 step 5. */
-  stdoutSilenceMs?: number;
-}
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
-export interface AssetRunResult {
-  exitCode: number | null;
-  stderr: string;
-  stdoutResultSubtype: 'success' | 'error_max_turns' | 'error_during_execution' | null;
-  finalMessage: string | null;
-  toolUseCount: number;
-  sessionId: string | null;
-  hasDiff: boolean;
-  killedByControl: boolean;
-  pid?: number;
-  elapsedMs: number;
-  usage?: { input: number; output: number; cache: number };
-}
-
-export interface OverseerConsultInput {
-  missionId: string;
-  briefing: string;
-  attemptHistory: unknown[];
-  lastGateStderr: string;
-  finalDiff: string;
-  claudeMdExcerpt: string | null;
-}
-
-export interface OverseerVerdict {
-  verdict: 'redirect' | 'escalate';
-  reasoning: string;
-  redirect?: { newPrompt: string; focusHint: string };
-  escalate?: { question: string; options?: string[] };
-}
-
-export interface MergeOpts {
-  missionId: string;
-  repoPath: string;
-  targetBranch: string;
-  sourceBranch: string;
-  worktreePath: string;
-}
-
-export interface MergeResult {
-  status: 'clean' | 'conflict_resolved' | 'failed';
-  reason?: string;
-}
-
-export interface WorktreeDeps {
-  create: typeof createMissionWorktree;
-  reset: typeof resetWorktreeToHead;
-  rebase: typeof rebaseOntoTarget;
-  sweep: typeof autoCommitSweep;
-  remove: typeof removeMissionWorktree;
-}
-
-export interface MissionRunnerDeps {
+export interface ReconRunnerDeps {
   spawnAsset: (opts: SpawnAssetOpts) => Promise<AssetRunResult>;
-  runGatesFn: typeof runGates;
-  gateManifest: GateManifest;
   classifyExitFn: typeof defaultClassifyExit;
-  worktree: WorktreeDeps;
   overseerConsult: (input: OverseerConsultInput) => Promise<OverseerVerdict>;
-  mergeFn: (opts: MergeOpts) => Promise<MergeResult>;
   now: () => number;
-  /** Invoked with pid once the subprocess is running; Control uses this to
-   *  populate its live-pids map. */
+  /** Invoked with pid once the subprocess is running. */
   onPidAssigned?: (pid: number) => void;
-  /** Fallback classifier used when fast-path classification returns
-   *  NEEDS_COMMANDER. Optional — omission forces fast-path-only. */
+  /** Fallback classifier used when fast-path returns NEEDS_COMMANDER. */
   overseerClassifier?: ClassifierDeps['overseerClassify'];
-  /** Sleep helper used for INFRA / RATE_LIMIT backoffs. Defaults to
-   *  `setTimeout`-based wait; tests inject a no-op to stay fast. */
+  /** Resets the repo root when the recon asset wrote files. Default: real
+   *  simple-git `git reset --hard HEAD && git clean -fdx`. */
+  gitReset?: (repoPath: string) => Promise<void>;
+  /** Sleep helper for INFRA / RATE_LIMIT backoffs. Defaults to `setTimeout`. */
   sleep?: (ms: number) => Promise<void>;
-  /** Max free INFRA retries before COMPROMISED. Default per spec = 4
-   *  (30s → 2m → 10m → 30m → give up). */
+  /** Override for elevated L3 stdout-silence threshold (default: config). */
+  reconStdoutSilenceMs?: number;
   infraMaxRetries?: number;
-  /** Backoff schedule for INFRA retries. Default [30s, 2m, 10m, 30m]. */
   infraBackoffMs?: number[];
-  /** Delay for RATE_LIMIT retries (one free retry). Default 60s. */
   rateLimitBackoffMs?: number;
 }
 
-export interface RunMissionResult {
+export interface RunReconResult {
   missionId: string;
   finalStatus: 'accomplished' | 'compromised' | 'abandoned';
   attemptCount: number;
   classification?: Classification;
-  gateResults?: GateRunResults;
-  /** Set when final status = compromised because of an AUTH failure. */
   authPause?: boolean;
-  /** Set when OVERSEER consult escalated. */
-  overseerEscalation?: { question: string; options?: string[] };
+  violatedReadonly?: boolean;
 }
 
 type MissionRow = typeof missions.$inferSelect;
@@ -142,31 +75,6 @@ type BattlefieldRow = typeof battlefields.$inferSelect;
 const DEFAULT_INFRA_BACKOFF = [30_000, 120_000, 600_000, 1_800_000];
 const DEFAULT_RATE_LIMIT_BACKOFF = 60_000;
 const DEFAULT_INFRA_MAX_RETRIES = 4;
-
-function loadMission(missionId: string): { mission: MissionRow; battlefield: BattlefieldRow } {
-  const db = getDatabase();
-  const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
-  if (!mission) throw new Error(`mission-runner: mission ${missionId} not found`);
-  const bf = db
-    .select()
-    .from(battlefields)
-    .where(eq(battlefields.id, mission.battlefieldId))
-    .get();
-  if (!bf) throw new Error(`mission-runner: battlefield ${mission.battlefieldId} not found`);
-  return { mission, battlefield: bf };
-}
-
-function transitionMission(missionId: string, status: string, now: number): void {
-  const db = getDatabase();
-  db.update(missions)
-    .set({ status, updatedAt: now })
-    .where(eq(missions.id, missionId))
-    .run();
-  emitComm({
-    missionId,
-    message: `Status → ${status.toUpperCase()}`,
-  });
-}
 
 type EndReason =
   | 'clean'
@@ -178,6 +86,32 @@ type EndReason =
   | 'turn-limit'
   | 'gate-failure';
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function loadMission(missionId: string): { mission: MissionRow; battlefield: BattlefieldRow } {
+  const db = getDatabase();
+  const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
+  if (!mission) throw new Error(`recon: mission ${missionId} not found`);
+  const bf = db
+    .select()
+    .from(battlefields)
+    .where(eq(battlefields.id, mission.battlefieldId))
+    .get();
+  if (!bf) throw new Error(`recon: battlefield ${mission.battlefieldId} not found`);
+  return { mission, battlefield: bf };
+}
+
+function transitionMission(missionId: string, status: string, now: number): void {
+  const db = getDatabase();
+  db.update(missions)
+    .set({ status, updatedAt: now })
+    .where(eq(missions.id, missionId))
+    .run();
+  emitComm({ missionId, message: `Status → ${status.toUpperCase()}` });
+}
+
 function recordAttempt(opts: {
   missionId: string;
   attemptNumber: number;
@@ -185,10 +119,7 @@ function recordAttempt(opts: {
   endedAt: number;
   endReason: EndReason;
   classification?: Classification;
-  gateResults?: GateRunResults;
   sessionId?: string | null;
-  targetHeadAtStart?: string | null;
-  autoCommitted?: boolean;
 }): string {
   const db = getDatabase();
   const id = ulid();
@@ -201,10 +132,10 @@ function recordAttempt(opts: {
       endedAt: opts.endedAt,
       endReason: opts.endReason,
       classification: opts.classification ? JSON.stringify(opts.classification) : null,
-      gateResults: opts.gateResults ? JSON.stringify(opts.gateResults) : null,
-      autoCommitted: opts.autoCommitted ? 1 : 0,
+      gateResults: null,
+      autoCommitted: 0,
       sessionId: opts.sessionId ?? null,
-      targetHeadAtStart: opts.targetHeadAtStart ?? null,
+      targetHeadAtStart: null,
       durationMs: opts.endedAt - opts.startedAt,
     } as typeof missionAttempts.$inferInsert)
     .run();
@@ -220,84 +151,84 @@ function countAttempts(missionId: string): number {
     .all().length;
 }
 
-function hashDiff(s: string): string {
-  return createHash('sha1').update(s).digest('hex');
+async function defaultGitReset(repoPath: string): Promise<void> {
+  const git: SimpleGit = simpleGit(repoPath);
+  await git.reset(['--hard', 'HEAD']);
+  await git.clean('f', ['-d', '-x']);
 }
 
+async function probeWorkingTreeDirty(repoPath: string): Promise<boolean> {
+  const git = simpleGit(repoPath);
+  const status = await git.status();
+  return !status.isClean();
+}
+
+function tryReadReconSilence(): number {
+  try {
+    return getControlConfig().reconStdoutSilenceMs;
+  } catch {
+    return 600_000;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle
+// ---------------------------------------------------------------------------
 
 /**
- * Drive a mission through its lifecycle. Implements spec §5 retry loop:
- * deterministic retries 1–3, OVERSEER consult at attempt 4, plus
- * classification-specific branches for TIMEOUT, INFRASTRUCTURE, RATE_LIMIT,
- * and AUTH.
+ * Drive a recon mission through its lifecycle. Implements spec §7: spawn in
+ * repo root, enforce read-only, parse DEBRIEF, retry on missing summary with
+ * combat-style retry budget (OVERSEER consult omits gate/diff blocks).
  */
-export async function runMission(
+export async function runReconMission(
   missionId: string,
-  deps: MissionRunnerDeps,
-): Promise<RunMissionResult> {
+  deps: ReconRunnerDeps,
+): Promise<RunReconResult> {
   const { mission, battlefield } = loadMission(missionId);
 
-  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => { setTimeout(r, ms).unref?.(); }));
+  const sleep =
+    deps.sleep ?? ((ms: number) => new Promise<void>((r) => { setTimeout(r, ms).unref?.(); }));
   const infraMax = deps.infraMaxRetries ?? DEFAULT_INFRA_MAX_RETRIES;
   const infraSchedule = deps.infraBackoffMs ?? DEFAULT_INFRA_BACKOFF;
   const rateLimitDelay = deps.rateLimitBackoffMs ?? DEFAULT_RATE_LIMIT_BACKOFF;
+  const reconSilenceMs = deps.reconStdoutSilenceMs ?? tryReadReconSilence();
+  const gitReset = deps.gitReset ?? defaultGitReset;
+  const db = getDatabase();
 
   // --- DEPLOYING -----------------------------------------------------------
   transitionMission(missionId, 'deploying', deps.now());
 
-  const branch = mission.worktreeBranch ?? `devroom/${missionId}`;
-  let worktreePath: string;
-  try {
-    const wt = await deps.worktree.create({
-      repoPath: battlefield.repoPath,
-      targetBranch: battlefield.defaultBranch ?? 'main',
-      missionBranch: branch,
-    });
-    worktreePath = wt.path;
-    await deps.worktree.rebase(worktreePath, battlefield.defaultBranch ?? 'main');
-  } catch (err) {
-    transitionMission(missionId, 'compromised', deps.now());
-    emitComm({
-      missionId,
-      message: `Deployment failed: ${(err as Error).message}`,
-      level: 'error',
-    });
-    return { missionId, finalStatus: 'compromised', attemptCount: 0 };
-  }
-
   // --- IN_COMBAT -----------------------------------------------------------
   transitionMission(missionId, 'in_combat', deps.now());
 
-  // Retry-loop state.
-  let sortieAttempt = 0; // combat-asset spawns that count against 3-deterministic budget
+  let sortieAttempt = 0;
   let infraRetryCount = 0;
   let overseerConsulted = false;
   let priorDiffHash: string | null = null;
   let lastDiffHash: string | null = null;
   let lastClassification: Classification | undefined;
-  let lastGateResults: GateRunResults | undefined;
   let lastSessionId: string | null = mission.sessionId ?? null;
-  let lastGateStderr = '';
   let redirectPrompt: string | null = null;
+  let violatedReadonly = false;
 
-  const db = getDatabase();
-
-  // Loop until we land on a terminal decision.
-  // Safety cap to avoid runaway loops in pathological dep configurations.
+  // Safety cap.
   for (let guard = 0; guard < 20; guard++) {
     const attemptNumber = countAttempts(missionId) + 1;
     const spawnStart = deps.now();
-
     const briefing = redirectPrompt ?? mission.briefing;
+
     let run: AssetRunResult;
     try {
       run = await deps.spawnAsset({
         missionId,
-        worktreePath,
+        // Recon runs in the repo root, NOT a worktree (spec §7 step 3).
+        worktreePath: battlefield.repoPath,
         briefing,
         assetCodename: 'OPERATIVE',
         sessionId: lastSessionId ?? undefined,
         onPid: (pid) => deps.onPidAssigned?.(pid),
+        // Elevated L3 threshold (spec §7 step 5).
+        stdoutSilenceMs: reconSilenceMs,
       });
     } catch (err) {
       const endedAt = deps.now();
@@ -314,7 +245,47 @@ export async function runMission(
         level: 'error',
       });
       transitionMission(missionId, 'compromised', endedAt);
-      return { missionId, finalStatus: 'compromised', attemptCount: attemptNumber };
+      return {
+        missionId,
+        finalStatus: 'compromised',
+        attemptCount: attemptNumber,
+        violatedReadonly,
+      };
+    }
+
+    // --- Enforce read-only contract BEFORE classification ------------------
+    // Even on clean exits, the asset may have written files.
+    try {
+      const dirty = await probeWorkingTreeDirty(battlefield.repoPath);
+      if (dirty) {
+        violatedReadonly = true;
+        emitComm({
+          missionId,
+          actor: 'CONTROL',
+          message:
+            '⚠ READ-ONLY VIOLATION: recon asset modified the working tree. Reverting and flagging mission.',
+          level: 'warn',
+        });
+        try {
+          await gitReset(battlefield.repoPath);
+        } catch (err) {
+          emitComm({
+            missionId,
+            message: `Read-only reset failed: ${(err as Error).message}`,
+            level: 'error',
+          });
+        }
+        db.update(missions)
+          .set({ reconViolatedReadonly: 1, updatedAt: deps.now() })
+          .where(eq(missions.id, missionId))
+          .run();
+      }
+    } catch (err) {
+      emitComm({
+        missionId,
+        message: `Dirty-check failed: ${(err as Error).message}`,
+        level: 'warn',
+      });
     }
 
     const exitCtx: ExitContext = {
@@ -324,9 +295,14 @@ export async function runMission(
       killedByControl: run.killedByControl,
       elapsedMs: run.elapsedMs,
       toolUseCount: run.toolUseCount,
-      hasDiff: run.hasDiff,
+      // Recon does NOT use git diff as a signal — force false so the
+      // fast-path classifier's "fast-exit no-activity" branch behaves
+      // correctly regardless of the probe's return.
+      hasDiff: false,
     };
-    const classification = await deps.classifyExitFn(exitCtx, { overseerClassify: deps.overseerClassifier });
+    const classification = await deps.classifyExitFn(exitCtx, {
+      overseerClassify: deps.overseerClassifier,
+    });
     lastClassification = classification;
     lastSessionId = run.sessionId ?? lastSessionId;
     emitComm({
@@ -334,7 +310,7 @@ export async function runMission(
       message: `Exit classified: ${classification.category} — ${classification.reasoning}`,
     });
 
-    // ---- AUTH: orchestrator pause, mission COMPROMISED ---------------------
+    // ---- AUTH -------------------------------------------------------------
     if (classification.category === 'AUTH') {
       const endedAt = deps.now();
       recordAttempt({
@@ -358,10 +334,11 @@ export async function runMission(
         attemptCount: attemptNumber,
         classification,
         authPause: true,
+        violatedReadonly,
       };
     }
 
-    // ---- NEEDS_COMMANDER: fast fail ----------------------------------------
+    // ---- NEEDS_COMMANDER --------------------------------------------------
     if (classification.category === 'NEEDS_COMMANDER') {
       const endedAt = deps.now();
       recordAttempt({
@@ -379,11 +356,15 @@ export async function runMission(
         finalStatus: 'compromised',
         attemptCount: attemptNumber,
         classification,
+        violatedReadonly,
       };
     }
 
-    // ---- INFRASTRUCTURE / RATE_LIMIT: free retries with backoff ------------
-    if (classification.category === 'INFRASTRUCTURE' || classification.category === 'RATE_LIMIT') {
+    // ---- INFRASTRUCTURE / RATE_LIMIT --------------------------------------
+    if (
+      classification.category === 'INFRASTRUCTURE' ||
+      classification.category === 'RATE_LIMIT'
+    ) {
       const endedAt = deps.now();
       const isRate = classification.category === 'RATE_LIMIT';
       recordAttempt({
@@ -408,6 +389,7 @@ export async function runMission(
           finalStatus: 'compromised',
           attemptCount: attemptNumber,
           classification,
+          violatedReadonly,
         };
       }
 
@@ -429,22 +411,11 @@ export async function runMission(
       });
       infraRetryCount += 1;
       await sleep(delay);
-
-      // Reset worktree, fresh session.
-      try {
-        await deps.worktree.reset(worktreePath);
-      } catch (err) {
-        emitComm({
-          missionId,
-          message: `Worktree reset failed: ${(err as Error).message}`,
-          level: 'warn',
-        });
-      }
       lastSessionId = null;
       continue;
     }
 
-    // ---- TIMEOUT: reset + deterministic retry (counts against budget) ------
+    // ---- TIMEOUT ----------------------------------------------------------
     if (classification.category === 'TIMEOUT') {
       const endedAt = deps.now();
       recordAttempt({
@@ -457,15 +428,6 @@ export async function runMission(
         sessionId: run.sessionId,
       });
       sortieAttempt += 1;
-      try {
-        await deps.worktree.reset(worktreePath);
-      } catch (err) {
-        emitComm({
-          missionId,
-          message: `Worktree reset failed: ${(err as Error).message}`,
-          level: 'warn',
-        });
-      }
       lastSessionId = null;
 
       const decision = decideNextAction({
@@ -482,6 +444,7 @@ export async function runMission(
           finalStatus: 'compromised',
           attemptCount: attemptNumber,
           classification,
+          violatedReadonly,
         };
       }
       if (decision.action === 'OVERSEER_CONSULT') {
@@ -497,15 +460,16 @@ export async function runMission(
           finalStatus: 'compromised',
           attemptCount: attemptNumber,
           classification,
+          violatedReadonly,
         };
       }
       redirectPrompt = null;
       continue;
     }
 
-    // ---- CLEAN / TURN_LIMIT: auto-sweep → gates → merge --------------------
+    // ---- CLEAN / TURN_LIMIT → check for DEBRIEF --------------------------
     if (classification.category !== 'CLEAN' && classification.category !== 'TURN_LIMIT') {
-      // Defensive: should not reach here; classify fell through.
+      // Defensive fall-through.
       const endedAt = deps.now();
       recordAttempt({
         missionId,
@@ -522,115 +486,32 @@ export async function runMission(
         finalStatus: 'compromised',
         attemptCount: attemptNumber,
         classification,
+        violatedReadonly,
       };
     }
 
     sortieAttempt += 1;
 
-    // Auto-commit sweep.
-    let autoCommitted = false;
-    try {
-      const sweep = await deps.worktree.sweep(worktreePath, missionId);
-      autoCommitted = sweep.swept;
-      if (sweep.swept) {
-        emitComm({
-          missionId,
-          message: `Auto-commit: ${sweep.filesChanged} files swept (agent did not commit).`,
-        });
-      }
-    } catch (err) {
-      emitComm({
-        missionId,
-        message: `Auto-commit sweep failed: ${(err as Error).message}`,
-        level: 'warn',
-      });
-    }
+    const parsed = run.finalMessage ? parseDebrief(run.finalMessage) : null;
 
-    // Capture post-sweep diff hash for no-progress detection on retry-3.
+    // Diff-hash proxy: classification outcome + final message length. Gives
+    // the retry policy's no-progress detection something to hash against
+    // without a git diff (spec §7 omits diff context on retries).
     priorDiffHash = lastDiffHash;
-    lastDiffHash = hashDiff(`${worktreePath}:${autoCommitted}:${run.elapsedMs}:${run.toolUseCount}`);
+    lastDiffHash = `${classification.category}:${(run.finalMessage ?? '').length}:${run.toolUseCount}`;
 
-    const gateResults = await deps.runGatesFn({
-      manifest: deps.gateManifest,
-      workingDir: worktreePath,
-      perCommandTimeoutMs: 300_000,
-      suiteTimeoutMs: 900_000,
-    });
-    lastGateResults = gateResults;
-    lastGateStderr = gateResults.results.map((r) => r.stderr).join('\n').trim();
-
-    if (gateResults.overallStatus !== 'pass') {
+    if (parsed && parsed.ok) {
       const endedAt = deps.now();
-      recordAttempt({
-        missionId,
-        attemptNumber,
-        startedAt: spawnStart,
-        endedAt,
-        endReason: 'gate-failure',
-        classification,
-        gateResults,
-        sessionId: run.sessionId,
-        autoCommitted,
-      });
-      emitComm({
-        missionId,
-        message: `Gates failed on attempt ${sortieAttempt}.`,
-        level: 'warn',
-      });
-
-      const decision = decideNextAction({
-        sortieAttempt,
-        lastOutcome: 'gate-fail',
-        lastDiffHash,
-        priorDiffHash,
-        overseerConsulted,
-      });
-      if (decision.action === 'DETERMINISTIC_RETRY') {
-        // Build deterministic retry prompt — plain template for now.
-        redirectPrompt = `Gates failed. Here is the stderr:\n\n${lastGateStderr}\n\nFix it.`;
-        continue;
-      }
-      if (decision.action === 'OVERSEER_CONSULT') {
-        overseerConsulted = true;
-        const verdict = await runOverseerConsult();
-        if (verdict) {
-          redirectPrompt = verdict;
-          continue;
-        }
-        transitionMission(missionId, 'compromised', endedAt);
-        return {
-          missionId,
-          finalStatus: 'compromised',
-          attemptCount: attemptNumber,
-          classification,
-          gateResults,
-        };
-      }
-      // COMPROMISED (budget exhausted after OVERSEER redirect failed)
-      transitionMission(missionId, 'compromised', endedAt);
-      return {
-        missionId,
-        finalStatus: 'compromised',
-        attemptCount: attemptNumber,
-        classification,
-        gateResults,
-      };
-    }
-
-    // Gates pass → MERGING.
-    transitionMission(missionId, 'merging', deps.now());
-
-    let merge: MergeResult;
-    try {
-      merge = await deps.mergeFn({
-        missionId,
-        repoPath: battlefield.repoPath,
-        targetBranch: battlefield.defaultBranch ?? 'main',
-        sourceBranch: branch,
-        worktreePath,
-      });
-    } catch (err) {
-      const endedAt = deps.now();
+      db.update(missions)
+        .set({
+          debriefStructured: JSON.stringify(parsed.data),
+          debrief: parsed.data.summary,
+          sessionId: run.sessionId ?? lastSessionId,
+          completedAt: endedAt,
+          updatedAt: endedAt,
+        })
+        .where(eq(missions.id, missionId))
+        .run();
       recordAttempt({
         missionId,
         attemptNumber,
@@ -638,56 +519,75 @@ export async function runMission(
         endedAt,
         endReason: 'clean',
         classification,
-        gateResults,
         sessionId: run.sessionId,
-        autoCommitted,
       });
-      transitionMission(missionId, 'compromised', endedAt);
-      emitComm({
-        missionId,
-        message: `Merge failed: ${(err as Error).message}`,
-        level: 'error',
-      });
-      return {
-        missionId,
-        finalStatus: 'compromised',
-        attemptCount: attemptNumber,
-        classification,
-        gateResults,
-      };
-    }
-
-    const endedAt = deps.now();
-    recordAttempt({
-      missionId,
-      attemptNumber,
-      startedAt: spawnStart,
-      endedAt,
-      endReason: 'clean',
-      classification,
-      gateResults,
-      sessionId: run.sessionId,
-      autoCommitted,
-    });
-
-    if (merge.status === 'clean' || merge.status === 'conflict_resolved') {
+      // Recon transitions directly from IN_COMBAT → ACCOMPLISHED (no merge).
       transitionMission(missionId, 'accomplished', endedAt);
       return {
         missionId,
         finalStatus: 'accomplished',
         attemptCount: attemptNumber,
         classification,
-        gateResults,
+        violatedReadonly,
       };
     }
 
+    // DEBRIEF missing or invalid → treat as gate-failure-equivalent.
+    const endedAt = deps.now();
+    recordAttempt({
+      missionId,
+      attemptNumber,
+      startedAt: spawnStart,
+      endedAt,
+      endReason: 'gate-failure',
+      classification,
+      sessionId: run.sessionId,
+    });
+    const reason = parsed?.ok === false ? parsed.reason : 'no final message';
+    emitComm({
+      missionId,
+      message: `Debrief missing/invalid on attempt ${sortieAttempt}: ${reason}`,
+      level: 'warn',
+    });
+
+    const decision = decideNextAction({
+      sortieAttempt,
+      lastOutcome: 'gate-fail',
+      lastDiffHash,
+      priorDiffHash,
+      overseerConsulted,
+    });
+    if (decision.action === 'DETERMINISTIC_RETRY') {
+      redirectPrompt =
+        'Your prior attempt did not emit a parseable <DEBRIEF>{...}</DEBRIEF> block. ' +
+        'Produce your recon report and wrap the structured summary in <DEBRIEF>…</DEBRIEF> with fields ' +
+        'summary, commits, files_touched, confidence.';
+      continue;
+    }
+    if (decision.action === 'OVERSEER_CONSULT') {
+      overseerConsulted = true;
+      const verdict = await runOverseerConsult();
+      if (verdict) {
+        redirectPrompt = verdict;
+        continue;
+      }
+      transitionMission(missionId, 'compromised', endedAt);
+      return {
+        missionId,
+        finalStatus: 'compromised',
+        attemptCount: attemptNumber,
+        classification,
+        violatedReadonly,
+      };
+    }
+    // COMPROMISED.
     transitionMission(missionId, 'compromised', endedAt);
     return {
       missionId,
       finalStatus: 'compromised',
       attemptCount: attemptNumber,
       classification,
-      gateResults,
+      violatedReadonly,
     };
   }
 
@@ -698,19 +598,21 @@ export async function runMission(
     finalStatus: 'compromised',
     attemptCount: countAttempts(missionId),
     classification: lastClassification,
-    gateResults: lastGateResults,
+    violatedReadonly,
   };
 
   // -------------------------------------------------------------------------
-  // OVERSEER consult helper (closure over loop state).
   async function runOverseerConsult(): Promise<string | null> {
     try {
       const verdict = await deps.overseerConsult({
         missionId,
         briefing: mission.briefing,
         attemptHistory: [],
-        lastGateStderr,
-        finalDiff: lastDiffHash ?? '',
+        // Recon OVERSEER consult: gate/diff blocks omitted — use empty
+        // strings here (the consult prompt builder switches on null; callers
+        // that adapt this signature to the prompt builder map "" → null).
+        lastGateStderr: '',
+        finalDiff: '',
         claudeMdExcerpt: null,
       });
       emitComm({
@@ -720,11 +622,6 @@ export async function runMission(
       if (verdict.verdict === 'redirect' && verdict.redirect) {
         return verdict.redirect.newPrompt;
       }
-      // escalate: mark the final result so caller can surface the question.
-      // Fallthrough caller transitions COMPROMISED; we stash details by throwing
-      // a tagged object would complicate types — instead attach via mission-level
-      // note: we simply return null and the caller will compromise. Escalation
-      // details are logged in the comms line above.
       return null;
     } catch (err) {
       emitComm({
