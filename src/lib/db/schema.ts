@@ -19,6 +19,10 @@ export const battlefields = sqliteTable('battlefields', {
   autoStartDevServer: integer('auto_start_dev_server').default(0),
   status: text('status').default('initializing'),
   bootstrapMissionId: text('bootstrap_mission_id'),
+  gateManifest: text('gate_manifest'), // JSON: { build, test, lint, typecheck }
+  needsGateManifest: integer('needs_gate_manifest').notNull().default(0),
+  mainIsRed: integer('main_is_red').notNull().default(0),
+  overrideMainRedGuard: integer('override_main_red_guard').notNull().default(0),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });
@@ -31,7 +35,7 @@ export const missions = sqliteTable('missions', {
   battlefieldId: text('battlefield_id').notNull().references(() => battlefields.id),
   campaignId: text('campaign_id').references(() => campaigns.id),
   phaseId: text('phase_id').references(() => phases.id),
-  type: text('type').default('direct_action'),
+  type: text('type', { enum: ['combat', 'recon'] }).notNull().default('combat'),
   title: text('title').notNull(),
   briefing: text('briefing').notNull(),
   status: text('status').default('standby'),
@@ -42,12 +46,17 @@ export const missions = sqliteTable('missions', {
   dependsOn: text('depends_on'),
   sessionId: text('session_id'),
   debrief: text('debrief'),
+  debriefStructured: text('debrief_structured'), // JSON
   iterations: integer('iterations').default(0),
   costInput: integer('cost_input').default(0),
   costOutput: integer('cost_output').default(0),
   costCacheHit: integer('cost_cache_hit').default(0),
   reviewAttempts: integer('review_attempts').default(0),
   compromiseReason: text('compromise_reason'),
+  nextAttemptAt: integer('next_attempt_at'),
+  infrastructureRetryCount: integer('infrastructure_retry_count').notNull().default(0),
+  reconViolatedReadonly: integer('recon_violated_readonly').notNull().default(0),
+  currentSortieAttempts: integer('current_sortie_attempts').notNull().default(0),
   mergeRetryAt: integer('merge_retry_at'),
   mergeResult: text('merge_result'),           // 'clean' | 'conflict_resolved' | 'failed' | null
   mergeConflictFiles: text('merge_conflict_files'), // JSON array of file paths

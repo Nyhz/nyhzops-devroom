@@ -114,10 +114,9 @@ export async function runOverseerReview(missionId: string): Promise<void> {
     }
   }
 
+  // Map new schema type values ('combat'|'recon') to legacy reviewer type labels
   const missionType: 'direct_action' | 'verification' | 'bootstrap' =
-    mission.type === 'verification' ? 'verification'
-    : mission.type === 'bootstrap' ? 'bootstrap'
-    : 'direct_action';
+    mission.type === 'recon' ? 'verification' : 'direct_action';
 
   // Run the overseer review
   let review: OverseerReview;
@@ -327,42 +326,10 @@ export async function runOverseerReview(missionId: string): Promise<void> {
       return;
     }
 
-    if (missionType === 'bootstrap') {
-      // Bootstrap missions run directly in the repo without a worktree — no merge needed.
-      // Go straight to accomplished.
-      const completedAt = Date.now();
-      db.update(missions).set({
-        status: 'accomplished',
-        completedAt,
-        updatedAt: completedAt,
-      }).where(eq(missions.id, missionId)).run();
+    // Note: 'bootstrap' type no longer exists in the new schema (missions are 'combat' | 'recon').
+    // The old bootstrap path is removed. CONTROL handles this via the new architecture.
 
-      emitStatusChange('mission', missionId, 'accomplished');
-      emitMissionLog(missionId, '[Overseer] Bootstrap mission approved. No merge required.');
-
-      if (review.concerns.length > 0) {
-        await escalate({
-          level: 'info',
-          title: `Debrief Note: ${mission.title}`,
-          detail: review.concerns.join('. '),
-          entityType: 'mission',
-          entityId: mission.id,
-          battlefieldId: mission.battlefieldId,
-        });
-      }
-
-      if (mission.campaignId) {
-        const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
-        if (executor) {
-          executor.onCampaignMissionComplete(missionId).catch(err => {
-            console.error(`[Overseer] Campaign notification failed:`, err);
-          });
-        }
-      }
-      return;
-    }
-
-    // Standard direct_action path: Overseer approves → set approved, hand off to Quartermaster.
+    // Standard combat path: Overseer approves → set approved, hand off to Quartermaster.
     db.update(missions).set({
       status: 'approved',
       updatedAt: Date.now(),

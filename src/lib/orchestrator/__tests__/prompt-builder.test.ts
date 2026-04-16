@@ -43,20 +43,20 @@ function makeMission(overrides: Partial<Mission> = {}): Mission {
     briefing: 'Execute the test plan.',
     status: 'standby',
     priority: 'routine',
-    type: 'direct_action',
+    type: 'combat',
     campaignId: null,
     phaseId: null,
     assetId: null,
     worktreeBranch: null,
     useWorktree: 0,
     debrief: null,
+    debriefStructured: null,
     compromiseReason: null,
+    nextAttemptAt: null,
+    infrastructureRetryCount: 0,
+    reconViolatedReadonly: 0,
+    currentSortieAttempts: 0,
     mergeResult: null,
-    overseerVerdict: null,
-    overseerConcerns: null,
-    retryCount: 0,
-    parentMissionId: null,
-    dossierVariables: null,
     createdAt: Date.now(),
     completedAt: null,
     ...overrides,
@@ -227,7 +227,7 @@ describe('buildPrompt', () => {
   describe('bootstrap missions', () => {
     it('does not include memory section for bootstrap missions', () => {
       const asset = makeAsset({ memory: JSON.stringify(['Should not appear.']) });
-      const mission = makeMission({ type: 'bootstrap' });
+      const mission = makeMission({ type: 'combat' });
       const battlefield = makeBattlefield({ initialBriefing: 'Bootstrap briefing text.' });
 
       const prompt = buildPrompt(mission, battlefield, asset);

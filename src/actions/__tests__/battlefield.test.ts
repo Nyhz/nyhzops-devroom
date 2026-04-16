@@ -484,7 +484,7 @@ describe('battlefield actions', () => {
       // Create existing bootstrap mission
       const oldMission = createTestMission(testDb, {
         battlefieldId: bf.id,
-        type: 'bootstrap',
+        type: 'combat',
       });
 
       // Update battlefield with bootstrap mission id

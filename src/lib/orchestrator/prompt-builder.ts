@@ -217,10 +217,9 @@ export function buildPrompt(
   battlefield: Battlefield,
   asset: Asset | null,
 ): string {
-  if (mission.type === 'bootstrap') {
-    return buildBootstrapPrompt(mission, battlefield);
-  }
-
+  // Note: 'bootstrap' type no longer exists — bootstrap missions use type='combat'.
+  // The old orchestrator is being replaced by CONTROL; this branch is preserved for
+  // historical reference but will never match the new schema.
   if (mission.campaignId) {
     return buildCampaignMissionPrompt(mission, battlefield, asset);
   }

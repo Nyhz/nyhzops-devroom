@@ -98,7 +98,7 @@ function createBootstrapMission(
     .values({
       id: missionId,
       battlefieldId,
-      type: 'bootstrap',
+      type: 'combat',
       title: `Bootstrap: ${codename}`,
       briefing,
       priority: 'critical',

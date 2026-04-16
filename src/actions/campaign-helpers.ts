@@ -164,7 +164,7 @@ export function insertPlanFromJSON(
         battlefieldId,
         campaignId,
         phaseId,
-        type: planMission.type === 'verification' ? 'verification' : 'direct_action',
+        type: planMission.type === 'recon' ? 'recon' : 'combat',
         title: planMission.title,
         briefing: planMission.briefing,
         status: 'standby',

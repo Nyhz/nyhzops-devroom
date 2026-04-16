@@ -176,6 +176,13 @@
       "when": 1776361736122,
       "tag": "0024_milky_unus",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1776362123661,
+      "tag": "0025_slippery_toad_men",
+      "breakpoints": true
     }
   ]
 }

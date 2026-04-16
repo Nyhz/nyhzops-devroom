@@ -48,8 +48,9 @@ async function main() {
     }
   }
 
+  // Legacy type mapping: new schema uses 'combat' | 'recon'; treat 'recon' as verification
   const missionType: 'direct_action' | 'verification' =
-    mission.type === 'verification' ? 'verification' : 'direct_action';
+    mission.type === 'recon' ? 'verification' : 'direct_action';
 
   console.log(`Reviewing mission: ${mission.title}`);
   console.log(`Mission type: ${missionType}`);

@@ -153,7 +153,7 @@ export async function executeMission(
     // Worktree setup (all missions except bootstrap)
     workingDirectory = battlefield.repoPath;
 
-    if (mission.type !== 'bootstrap') {
+    if (mission.type !== 'recon') {
       // Check if mission already has a worktree (e.g., continued from compromised)
       if (worktreeBranch) {
         // Reuse existing worktree

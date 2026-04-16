@@ -39,7 +39,7 @@ export default async function MissionDetailPage({
 
   const status = mission.status ?? 'standby';
   const isTerminal = status === 'accomplished' || status === 'compromised';
-  const missionType = mission.type === 'verification' ? 'verification' : 'direct_action';
+  const missionType = mission.type === 'recon' ? 'verification' : 'direct_action';
 
   return (
     <PageWrapper
