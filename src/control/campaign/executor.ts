@@ -12,7 +12,7 @@
  *               approved | merging | accomplished | compromised | abandoned
  */
 
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import simpleGit from 'simple-git';
 
 import { getDatabase } from '@/lib/db';
@@ -140,7 +140,6 @@ export function launchCampaign(campaignId: string): void {
 // ---------------------------------------------------------------------------
 
 export function onMissionTerminal(missionId: string): void {
-  const db = getDatabase();
   const mission = loadMission(missionId);
   if (!TERMINAL_STATES.has(mission.status ?? '')) {
     throw new Error(
