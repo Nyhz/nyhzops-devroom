@@ -1,0 +1,7 @@
+{
+  "events": [
+    { "type": "assistant", "text": "{\"category\":\"INFRASTRUCTURE\",\"reasoning\":\"network flake\"}", "delayMs": 5 },
+    { "type": "result", "subtype": "success" }
+  ],
+  "exitCode": 0
+}

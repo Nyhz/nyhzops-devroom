@@ -1,0 +1,7 @@
+{
+  "events": [
+    { "type": "assistant", "text": "Oh no", "delayMs": 10 }
+  ],
+  "exitCode": 1,
+  "stderr": "something went wrong"
+}

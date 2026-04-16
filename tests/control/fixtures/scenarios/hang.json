@@ -1,0 +1,8 @@
+{
+  "events": [
+    { "type": "assistant", "text": "Starting", "delayMs": 20 },
+    { "type": "assistant", "text": "...still working", "delayMs": 5000 },
+    { "type": "result", "subtype": "success" }
+  ],
+  "exitCode": 0
+}
