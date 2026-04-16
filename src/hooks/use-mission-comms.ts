@@ -19,6 +19,7 @@ interface UseMissionCommsReturn {
   status: MissionStatus | null;
   debrief: string | null;
   tokens: MissionTokens | null;
+  compromiseReason: string | null;
 }
 
 export function useMissionComms(
@@ -32,6 +33,7 @@ export function useMissionComms(
   const [status, setStatus] = useState<MissionStatus | null>(initialStatus as MissionStatus);
   const [debrief, setDebrief] = useState<string | null>(null);
   const [tokens, setTokens] = useState<MissionTokens | null>(null);
+  const [compromiseReason, setCompromiseReason] = useState<string | null>(null);
   const logIdCounter = useRef(0);
 
   useEffect(() => {
@@ -57,9 +59,10 @@ export function useMissionComms(
       });
     };
 
-    const handleStatus = (data: { missionId: string; status: string }) => {
+    const handleStatus = (data: { missionId: string; status: string; compromiseReason?: string }) => {
       if (data.missionId !== missionId) return;
       setStatus(data.status as MissionStatus);
+      if (data.compromiseReason) setCompromiseReason(data.compromiseReason);
     };
 
     const handleDebrief = (data: { missionId: string; debrief: string }) => {
@@ -95,5 +98,5 @@ export function useMissionComms(
     };
   }, [socket, missionId, reconnectKey]);
 
-  return { logs, status, debrief, tokens };
+  return { logs, status, debrief, tokens, compromiseReason };
 }

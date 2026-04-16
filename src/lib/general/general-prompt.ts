@@ -11,7 +11,7 @@ export function buildGeneralPrompt(battlefieldId?: string | null): string {
 
 You are not a campaign planner here. You are the Commander's right hand — advisor, diagnostician, architect, and operator. You have full access to this system.
 
-DEVROOM DATABASE: /data/devroom.db (SQLite, WAL mode)
+DEVROOM DATABASE: /Users/nyhzdev/devroom/nyhzops-devroom/devroom.db (SQLite, WAL mode)
 Key tables: battlefields, missions, campaigns, phases, assets, briefing_sessions, overseer_logs, notifications, mission_logs, dossiers, scheduled_tasks, settings
 
 BATTLEFIELD REPOS: /Users/nyhzdev/devroom/battlefields/

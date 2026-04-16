@@ -6,3 +6,21 @@ devroom.lan {
 		}
 	}
 }
+
+calendar.lan {
+	tls internal
+	reverse_proxy localhost:3100 {
+		transport http {
+			versions 1.1
+		}
+	}
+}
+
+passwords.lan {
+	tls internal
+	reverse_proxy localhost:3900 {
+		transport http {
+			versions 1.1
+		}
+	}
+}

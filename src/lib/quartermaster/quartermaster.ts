@@ -334,7 +334,7 @@ export async function triggerQuartermaster(missionId: string): Promise<void> {
       .where(eq(missions.id, missionId))
       .run();
 
-    emitStatusChange('mission', missionId, 'compromised');
+    emitStatusChange('mission', missionId, 'compromised', { compromiseReason: 'merge-failed' });
 
     await escalate({
       level: 'critical',

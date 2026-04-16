@@ -179,6 +179,7 @@ export async function executeMission(
           const updated = db.select({ worktreeBranch: missions.worktreeBranch })
             .from(missions).where(eq(missions.id, mission.id)).get();
           worktreeBranch = updated?.worktreeBranch || null;
+          storeLog('sitrep', `Worktree created: ${worktreeBranch} → ${worktreePath}`);
         } catch (wtErr) {
           console.warn(`[Executor] Worktree creation failed for mission ${mission.id}, falling back to repo root:`, wtErr);
           storeLog('sitrep', `Worktree creation failed: ${wtErr}. Running on repo root.`);

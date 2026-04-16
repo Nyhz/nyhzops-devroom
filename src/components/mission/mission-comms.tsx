@@ -44,7 +44,7 @@ export function MissionComms({
   compromiseReason,
 }: MissionCommsProps) {
   const router = useRouter();
-  const { logs, status, debrief, tokens } = useMissionComms(
+  const { logs, status, debrief, tokens, compromiseReason: liveCompromiseReason } = useMissionComms(
     missionId,
     initialLogs,
     initialStatus,
@@ -169,7 +169,7 @@ export function MissionComms({
         briefing={briefing}
         worktreeBranch={worktreeBranch}
         debrief={liveDebrief}
-        compromiseReason={compromiseReason}
+        compromiseReason={liveCompromiseReason ?? compromiseReason}
       />
     </div>
   );

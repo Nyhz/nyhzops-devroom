@@ -30,7 +30,42 @@ if [ -f "$MODE_FILE" ]; then
   MODE=$(cat "$MODE_FILE" | tr -d '[:space:]')
 fi
 
-echo "[DEVROOM] Starting in ${MODE} mode..."
+PORT="${DEVROOM_PORT:-7777}"
+
+# Pre-start cleanup — kill any process still holding our port from a previous
+# run. launchd's SIGKILL bypasses our SIGTERM trap, leaving orphan servers
+# (and 10+GB of leaked turbopack cache) behind. Belt-and-braces: lsof by port,
+# then pkill by command pattern under our working directory.
+kill_port() {
+  local port="$1"
+  local pids
+  pids=$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+  if [ -n "$pids" ]; then
+    echo "[DEVROOM] Port ${port} held by PIDs: ${pids} — sending SIGTERM"
+    kill $pids 2>/dev/null || true
+    # Give them 5s to exit gracefully, then SIGKILL survivors
+    for _ in 1 2 3 4 5; do
+      pids=$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+      [ -z "$pids" ] && break
+      sleep 1
+    done
+    if [ -n "$pids" ]; then
+      echo "[DEVROOM] Port ${port} still held — sending SIGKILL to ${pids}"
+      kill -9 $pids 2>/dev/null || true
+      sleep 1
+    fi
+  fi
+}
+
+kill_port "$PORT"
+
+# Also sweep any stray devroom server processes that may have lost their port
+# binding but still hold memory (e.g. crashed next-server workers).
+pkill -f "tsx server.ts" 2>/dev/null || true
+pkill -f "next-server.*${DEVROOM_DIR}" 2>/dev/null || true
+sleep 1
+
+echo "[DEVROOM] Starting in ${MODE} mode on port ${PORT}..."
 
 # Ensure ALL child processes (pnpm → tsx → node) die when this script is killed.
 # Without this, launchctl kickstart -k kills only this bash process and the

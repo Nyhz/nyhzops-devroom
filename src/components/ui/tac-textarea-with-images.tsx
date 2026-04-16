@@ -8,6 +8,8 @@ interface TacTextareaWithImagesProps
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  /** Hide the "Paste or drop images" hint below the textarea */
+  hideHint?: boolean;
 }
 
 export function TacTextareaWithImages({
@@ -15,6 +17,7 @@ export function TacTextareaWithImages({
   onChange,
   className,
   disabled,
+  hideHint,
   ...props
 }: TacTextareaWithImagesProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -109,7 +112,7 @@ export function TacTextareaWithImages({
   }, []);
 
   return (
-    <div className="relative">
+    <div className="relative flex-1 min-w-0">
       <textarea
         ref={textareaRef}
         value={value}
@@ -129,16 +132,18 @@ export function TacTextareaWithImages({
         )}
         {...props}
       />
-      <div className="flex items-center justify-between mt-1">
-        <span className="text-dr-muted font-tactical text-xs tracking-wider">
-          Paste or drop images
-        </span>
-        {imageAdded && (
-          <span className="text-dr-green font-tactical text-xs tracking-wider animate-pulse">
-            Image added
+      {!hideHint && (
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-dr-muted font-tactical text-xs tracking-wider">
+            Paste or drop images
           </span>
-        )}
-      </div>
+          {imageAdded && (
+            <span className="text-dr-green font-tactical text-xs tracking-wider animate-pulse">
+              Image added
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

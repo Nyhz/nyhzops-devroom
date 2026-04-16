@@ -151,7 +151,7 @@ export async function sendBriefingMessage(
     '--output-format', 'stream-json',
     '--include-partial-messages',
     '--dangerously-skip-permissions',
-    '--max-turns', '3',
+    '--max-turns', '10',
     '--append-system-prompt', composedSystemPrompt,
     ...filteredAssetArgs,
   ];

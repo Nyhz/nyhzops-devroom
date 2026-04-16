@@ -15,6 +15,15 @@ import {
   missionLogs,
   scheduledTasks,
   commandLogs,
+  briefingSessions,
+  briefingMessages,
+  overseerLogs,
+  notifications,
+  generalSessions,
+  generalMessages,
+  testRuns,
+  followUpSuggestions,
+  intelNotes,
 } from '@/lib/db/schema';
 import { generateId, toKebabCase } from '@/lib/utils';
 import { config } from '@/lib/config';
@@ -128,7 +137,9 @@ export async function createBattlefield(
     }
 
     fs.mkdirSync(dirPath, { recursive: true });
-    await simpleGit(dirPath).init();
+    const git = simpleGit(dirPath);
+    await git.init();
+    await git.raw(['branch', '-m', defaultBranch]);
     repoPath = dirPath;
 
     if (data.scaffoldCommand) {
@@ -342,60 +353,223 @@ export async function archiveBattlefield(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// deleteBattlefield
+// deleteBattlefield — obliterate every trace of a battlefield.
+//
+// Order of operations:
+//   1. Abort running missions and campaigns so no child process is still
+//      writing to the worktree/repo while we tear it down.
+//   2. Stop the battlefield's dev server if DEVROOM launched one.
+//   3. DB cascade delete (descendants first — see schema.ts for FK graph).
+//   4. Filesystem cleanup — worktrees, generated docs, and (for new-project
+//      flow) the repo directory itself.
 // ---------------------------------------------------------------------------
 export async function deleteBattlefield(id: string): Promise<void> {
   const db = getDatabase();
 
-  // Wrap everything in a transaction for FK-safe deletion order
+  // Snapshot what we need from the row before the cascade removes it.
+  const battlefield = db
+    .select()
+    .from(battlefields)
+    .where(eq(battlefields.id, id))
+    .get();
+
+  // --- Step 1: abort in-flight work ---------------------------------------
+  if (battlefield) {
+    const orchestrator = globalThis.orchestrator;
+    if (orchestrator) {
+      const ACTIVE_MISSION_STATUSES = ['queued', 'deploying', 'in_combat', 'reviewing', 'approved', 'merging'] as const;
+      const activeMissions = db
+        .select({ id: missions.id })
+        .from(missions)
+        .where(and(eq(missions.battlefieldId, id), inArray(missions.status, [...ACTIVE_MISSION_STATUSES])))
+        .all();
+      for (const m of activeMissions) {
+        try { await orchestrator.onMissionAbort(m.id); } catch (err) {
+          console.error(`[deleteBattlefield] Failed to abort mission ${m.id}:`, err);
+        }
+      }
+
+      const ACTIVE_CAMPAIGN_STATUSES = ['planning', 'active', 'paused'] as const;
+      const activeCampaigns = db
+        .select({ id: campaigns.id })
+        .from(campaigns)
+        .where(and(eq(campaigns.battlefieldId, id), inArray(campaigns.status, [...ACTIVE_CAMPAIGN_STATUSES])))
+        .all();
+      for (const c of activeCampaigns) {
+        try { await orchestrator.abortCampaign(c.id); } catch (err) {
+          console.error(`[deleteBattlefield] Failed to abort campaign ${c.id}:`, err);
+        }
+      }
+    }
+
+    // --- Step 2: stop dev server ------------------------------------------
+    try { globalThis.devServerManager?.stop(id); } catch (err) {
+      console.error(`[deleteBattlefield] Failed to stop dev server for ${id}:`, err);
+    }
+  }
+
+  // --- Step 3: DB cascade -------------------------------------------------
+  // Wrap everything in a transaction for FK-safe deletion order.
+  // Order: descendants before ancestors. See schema.ts for the FK graph.
   db.transaction((tx) => {
-    // 1. Get all mission IDs for this battlefield
-    const missionRows = tx
+    // Gather ids we'll need for cascades
+    const missionIds = tx
       .select({ id: missions.id })
       .from(missions)
       .where(eq(missions.battlefieldId, id))
-      .all();
+      .all()
+      .map((r) => r.id);
 
-    const missionIds = missionRows.map((r) => r.id);
+    const campaignIds = tx
+      .select({ id: campaigns.id })
+      .from(campaigns)
+      .where(eq(campaigns.battlefieldId, id))
+      .all()
+      .map((r) => r.id);
 
-    // 2. Delete mission logs
+    const briefingIds =
+      campaignIds.length > 0
+        ? tx
+            .select({ id: briefingSessions.id })
+            .from(briefingSessions)
+            .where(inArray(briefingSessions.campaignId, campaignIds))
+            .all()
+            .map((r) => r.id)
+        : [];
+
+    const generalSessionIds = tx
+      .select({ id: generalSessions.id })
+      .from(generalSessions)
+      .where(eq(generalSessions.battlefieldId, id))
+      .all()
+      .map((r) => r.id);
+
+    // Deepest leaves first ---------------------------------------------------
+    if (briefingIds.length > 0) {
+      tx.delete(briefingMessages)
+        .where(inArray(briefingMessages.briefingId, briefingIds))
+        .run();
+    }
+
+    if (generalSessionIds.length > 0) {
+      tx.delete(generalMessages)
+        .where(inArray(generalMessages.sessionId, generalSessionIds))
+        .run();
+    }
+
     if (missionIds.length > 0) {
       tx.delete(missionLogs)
         .where(inArray(missionLogs.missionId, missionIds))
         .run();
     }
 
-    // 3. Delete missions
+    // Tables that reference missions/campaigns/intel_notes/battlefield ------
+    // follow_up_suggestions references intel_notes, so it goes first.
+    tx.delete(followUpSuggestions)
+      .where(eq(followUpSuggestions.battlefieldId, id))
+      .run();
+
+    tx.delete(overseerLogs)
+      .where(eq(overseerLogs.battlefieldId, id))
+      .run();
+
+    tx.delete(intelNotes).where(eq(intelNotes.battlefieldId, id)).run();
+
+    tx.delete(testRuns).where(eq(testRuns.battlefieldId, id)).run();
+
+    if (briefingIds.length > 0) {
+      tx.delete(briefingSessions)
+        .where(inArray(briefingSessions.id, briefingIds))
+        .run();
+    }
+
+    if (generalSessionIds.length > 0) {
+      tx.delete(generalSessions)
+        .where(inArray(generalSessions.id, generalSessionIds))
+        .run();
+    }
+
+    // notifications.battlefieldId has no FK, but still scope-delete for hygiene
+    tx.delete(notifications)
+      .where(eq(notifications.battlefieldId, id))
+      .run();
+
+    // Missions reference phases via phase_id — drop missions before phases.
+    // Missions also reference campaigns via campaign_id — so missions first,
+    // then phases, then campaigns.
     tx.delete(missions).where(eq(missions.battlefieldId, id)).run();
 
-    // 4. Get all campaign IDs for this battlefield
-    const campaignRows = tx
-      .select({ id: campaigns.id })
-      .from(campaigns)
-      .where(eq(campaigns.battlefieldId, id))
-      .all();
-
-    const campaignIds = campaignRows.map((r) => r.id);
-
-    // 5. Delete phases
     if (campaignIds.length > 0) {
       tx.delete(phases).where(inArray(phases.campaignId, campaignIds)).run();
     }
 
-    // 6. Delete campaigns
-    tx.delete(campaigns).where(eq(campaigns.battlefieldId, id)).run();
-
-    // 7. Delete scheduled tasks
+    // scheduled_tasks.campaign_id references campaigns — drop tasks first.
     tx.delete(scheduledTasks)
       .where(eq(scheduledTasks.battlefieldId, id))
       .run();
 
-    // 8. Delete command logs
+    tx.delete(campaigns).where(eq(campaigns.battlefieldId, id)).run();
+
     tx.delete(commandLogs).where(eq(commandLogs.battlefieldId, id)).run();
 
-    // 9. Delete the battlefield
     tx.delete(battlefields).where(eq(battlefields.id, id)).run();
   });
+
+  // --- Step 4: filesystem obliteration ------------------------------------
+  if (battlefield?.repoPath) {
+    const repoPath = battlefield.repoPath;
+    const devBase = path.resolve(config.devBasePath);
+    const resolvedRepo = path.resolve(repoPath);
+    const isDevroomOwned =
+      resolvedRepo === devBase ? false : resolvedRepo.startsWith(`${devBase}${path.sep}`);
+
+    if (isDevroomOwned) {
+      // New-project flow: DEVROOM created this directory — nuke the whole repo.
+      try {
+        if (fs.existsSync(repoPath)) {
+          fs.rmSync(repoPath, { recursive: true, force: true });
+        }
+      } catch (err) {
+        console.error(`[deleteBattlefield] Failed to remove repo ${repoPath}:`, err);
+      }
+    } else {
+      // Linked flow: user owns the repo. Only remove DEVROOM artifacts.
+      const worktreesDir = path.join(repoPath, '.worktrees');
+      try {
+        if (fs.existsSync(worktreesDir)) {
+          fs.rmSync(worktreesDir, { recursive: true, force: true });
+        }
+      } catch (err) {
+        console.error(`[deleteBattlefield] Failed to remove ${worktreesDir}:`, err);
+      }
+
+      // Tell git the worktrees are gone, then delete every branch that was
+      // tracked by one. Names are generated as `mission/<id>` / `campaign/<id>`
+      // by createWorktree, so scoped prefix deletion is safe.
+      try {
+        if (fs.existsSync(path.join(repoPath, '.git'))) {
+          const git = simpleGit(repoPath);
+          await git.raw(['worktree', 'prune']);
+          const branches = await git.branchLocal();
+          for (const name of branches.all) {
+            if (name.startsWith('mission/') || name.startsWith('campaign/')) {
+              try { await git.raw(['branch', '-D', name]); } catch { /* ignore */ }
+            }
+          }
+        }
+      } catch (err) {
+        console.error(`[deleteBattlefield] Git cleanup failed for ${repoPath}:`, err);
+      }
+
+      // Remove bootstrap-generated docs if they were produced by DEVROOM.
+      if (battlefield.claudeMdPath) {
+        try { fs.unlinkSync(battlefield.claudeMdPath); } catch { /* ignore */ }
+      }
+      if (battlefield.specMdPath) {
+        try { fs.unlinkSync(battlefield.specMdPath); } catch { /* ignore */ }
+      }
+    }
+  }
 
   revalidatePath('/');
 }

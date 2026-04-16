@@ -136,6 +136,7 @@ export async function getMission(
       costOutput: missions.costOutput,
       costCacheHit: missions.costCacheHit,
       durationMs: missions.durationMs,
+      compromiseReason: missions.compromiseReason,
       startedAt: missions.startedAt,
       completedAt: missions.completedAt,
       createdAt: missions.createdAt,

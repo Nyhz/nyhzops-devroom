@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useBriefing } from '@/hooks/use-briefing';
 import { TacButton } from '@/components/ui/tac-button';
 import { ChatMessage, ChatThinking } from '@/components/ui/chat-message';
+import { TacTextareaWithImages } from '@/components/ui/tac-textarea-with-images';
 import { cn } from '@/lib/utils';
 
 interface BriefingChatProps {
@@ -98,17 +99,18 @@ export function BriefingChat({ campaignId, initialMessages }: BriefingChatProps)
       {/* Input */}
       <div className="border-t border-dr-border shrink-0 bg-dr-surface sticky bottom-0">
         <div className="flex items-end">
-          <textarea
+          <TacTextareaWithImages
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={setInput}
             onKeyDown={handleKeyDown}
             placeholder="Brief the STRATEGIST..."
             rows={1}
             disabled={isLoading}
+            hideHint
             className={cn(
-              'flex-1 bg-transparent text-dr-text font-mono text-sm',
-              'px-3 py-3 md:px-4 placeholder:text-dr-dim resize-none',
-              'focus:outline-none',
+              'flex-1 bg-transparent border-0 text-dr-text font-mono text-sm',
+              'px-3 py-3 md:px-4 placeholder:text-dr-dim resize-none min-h-0',
+              'focus:outline-none focus:border-0',
               'disabled:opacity-50 disabled:cursor-not-allowed',
             )}
           />
