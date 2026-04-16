@@ -15,12 +15,3 @@ calendar.lan {
 		}
 	}
 }
-
-passwords.lan {
-	tls internal
-	reverse_proxy localhost:3900 {
-		transport http {
-			versions 1.1
-		}
-	}
-}
