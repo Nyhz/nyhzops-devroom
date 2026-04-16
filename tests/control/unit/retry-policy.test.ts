@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decideNextAction, nextInfraBackoffMs, RetryState } from '@/control/retry-policy';
+import { decideNextAction, nextInfraBackoffMs } from '@/control/retry-policy';
 
 describe('decideNextAction', () => {
   it('attempt 1 gate pass → COMPLETE', () => {
