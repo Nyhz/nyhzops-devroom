@@ -34,12 +34,6 @@ const ACTIVE_STATUSES: MissionStatus[] = [
   'merging',
 ];
 
-const DONE_STATUSES: MissionStatus[] = [
-  'accomplished',
-  'compromised',
-  'abandoned',
-];
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

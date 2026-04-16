@@ -6,7 +6,7 @@ import { runCommand } from '@/lib/process/command-runner';
 import simpleGit from 'simple-git';
 
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;

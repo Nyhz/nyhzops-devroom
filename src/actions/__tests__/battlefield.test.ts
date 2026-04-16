@@ -122,7 +122,7 @@ describe('battlefield actions', () => {
     });
 
     it('creates battlefield with initialBriefing and starts bootstrap', async () => {
-      const _asset = createTestAsset(testDb, { codename: 'INTEL' });
+      createTestAsset(testDb, { codename: 'INTEL' });
       const mockBootstrap = vi.fn().mockResolvedValue(undefined);
 
       const result = await createBattlefield(
@@ -308,11 +308,11 @@ describe('battlefield actions', () => {
   // -------------------------------------------------------------------------
   describe('listBattlefields', () => {
     it('returns battlefields ordered by updatedAt desc', async () => {
-      const _older = createTestBattlefield(testDb, {
+      createTestBattlefield(testDb, {
         name: 'Older',
         updatedAt: 1000,
       });
-      const _newer = createTestBattlefield(testDb, {
+      createTestBattlefield(testDb, {
         name: 'Newer',
         updatedAt: 2000,
       });
@@ -486,7 +486,7 @@ describe('battlefield actions', () => {
   // -------------------------------------------------------------------------
   describe('regenerateBootstrap', () => {
     it('deletes files, updates briefing, and fires bootstrap pipeline', async () => {
-      const _asset = createTestAsset(testDb, { codename: 'INTEL' });
+      createTestAsset(testDb, { codename: 'INTEL' });
       const bf = createTestBattlefield(testDb, {
         status: 'initializing',
         repoPath: '/tmp/regen-repo',

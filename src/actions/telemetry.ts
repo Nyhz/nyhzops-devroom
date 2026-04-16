@@ -5,7 +5,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { eq, and, desc, inArray, sql, gte, like } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
-import { missions, battlefields, scheduledTasks, overseerLogs, notifications, assets, missionLogs } from '@/lib/db/schema';
+import { missions, scheduledTasks, overseerLogs, notifications, assets, missionLogs } from '@/lib/db/schema';
 import { getRepoPath } from '@/actions/_helpers';
 import { config } from '@/lib/config';
 import type {

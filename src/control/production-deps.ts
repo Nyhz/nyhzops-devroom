@@ -28,7 +28,6 @@ import { spawnAsset, spawnClaudeOneShot } from './spawn-asset';
 import type { SpawnAssetOpts, AssetRunResult, MissionRunnerDeps, OverseerConsultInput, OverseerVerdict, MergeOpts, MergeResult } from './mission-runner';
 import { buildOverseerClassificationPrompt, buildOverseerConsultPrompt } from './prompt-builder';
 import { getRulesOfEngagement } from '@/lib/settings/rules-of-engagement';
-import { emitComm } from './comms';
 import type { AssetDefinition } from './spawn-asset';
 
 // ---------------------------------------------------------------------------
