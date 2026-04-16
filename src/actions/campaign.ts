@@ -319,51 +319,80 @@ export async function abandonCampaign(id: string): Promise<void> {
 
   const campaign = getOrThrow(campaigns, id, 'abandonCampaign');
 
-  // Abandon all non-terminal missions via executor (emits comms, cascades deps)
+  // Abandon non-terminal missions via executor (emits comms, cascades deps).
+  // Exclude 'merging' (let in-flight merges finish) and 'compromised' (already
+  // terminal-awaiting-Commander — overwriting compromiseReason/completedAt would
+  // destroy audit information per spec §3).
   const nonTerminalMissions = db
     .select({ id: missions.id })
     .from(missions)
     .where(
       and(
         eq(missions.campaignId, id),
-        inArray(missions.status, ['standby', 'queued', 'deploying', 'in_combat', 'merging', 'compromised']),
+        inArray(missions.status, ['standby', 'queued', 'deploying', 'in_combat']),
       ),
     )
     .all();
 
+  // Each executorAbandonMission call has its own internal transaction. Wrap
+  // individual calls in try/catch so a single failure does not halt the rest.
   for (const m of nonTerminalMissions) {
-    executorAbandonMission(m.id, { reason: 'campaign-abandoned' });
+    try {
+      executorAbandonMission(m.id, { reason: 'campaign-abandoned' });
+    } catch (err) {
+      emitComm({
+        campaignId: id,
+        battlefieldId: campaign.battlefieldId,
+        actor: 'CONTROL',
+        level: 'warn',
+        message: `abandonCampaign: failed to abandon mission ${m.id} — ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
   }
 
   const now = Date.now();
 
-  // Set all non-terminal phases to compromised
-  const campaignPhases = db
-    .select({ id: phases.id })
-    .from(phases)
-    .where(eq(phases.campaignId, id))
-    .all();
+  // Wrap phase + campaign updates in a single transaction for atomicity.
+  db.transaction(() => {
+    // Set all non-terminal phases to compromised
+    const campaignPhases = db
+      .select({ id: phases.id })
+      .from(phases)
+      .where(eq(phases.campaignId, id))
+      .all();
 
-  const phaseIds = campaignPhases.map((p) => p.id);
-  if (phaseIds.length > 0) {
-    db.update(phases)
-      .set({ status: 'compromised' })
+    const phaseIds = campaignPhases.map((p) => p.id);
+    if (phaseIds.length > 0) {
+      db.update(phases)
+        .set({ status: 'compromised' })
+        .where(
+          and(
+            inArray(phases.id, phaseIds),
+            inArray(phases.status, ['standby', 'active']),
+          ),
+        )
+        .run();
+    }
+
+    // Only update campaign when it is in a non-terminal status. Include
+    // 'compromised' because the executor's settleCampaign may have set it
+    // to compromised during the mission-abandon loop above — that
+    // executor-issued compromised is superseded by the Commander's explicit
+    // abandon. The only statuses we must NOT overwrite are 'accomplished'
+    // and 'abandoned' (already done by a previous Commander action).
+    db.update(campaigns)
+      .set({
+        status: 'abandoned',
+        updatedAt: now,
+      })
       .where(
         and(
-          inArray(phases.id, phaseIds),
-          inArray(phases.status, ['standby', 'active']),
+          eq(campaigns.id, id),
+          inArray(campaigns.status, ['draft', 'planning', 'active', 'paused', 'compromised']),
         ),
       )
       .run();
-  }
-
-  db.update(campaigns)
-    .set({
-      status: 'abandoned',
-      updatedAt: now,
-    })
-    .where(eq(campaigns.id, id))
-    .run();
+  });
 
   emitComm({
     campaignId: id,

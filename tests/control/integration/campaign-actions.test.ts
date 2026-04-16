@@ -23,6 +23,8 @@ import {
   abandonCampaign,
   acceptCampaign,
   completeCampaign,
+  redeployCampaign,
+  resumeCampaign,
 } from '@/actions/campaign';
 
 // ---------------------------------------------------------------------------
@@ -142,7 +144,7 @@ function seedCampaignWithPlan(
           useWorktree: 0,
           createdAt: now,
           updatedAt: now,
-        } as typeof missions.$inferInsert)
+        })
         .run();
     }
   }
@@ -330,6 +332,141 @@ describe('campaign-actions integration — Phase 8.2', () => {
     it('throws when campaign not found', async () => {
       await expect(abandonCampaign('nonexistent-campaign')).rejects.toThrow('not found');
     });
+
+    it('leaves merging and compromised missions untouched', async () => {
+      const campaignId = 'abandon-merging-comp';
+      const now = Date.now();
+
+      db.insert(campaigns)
+        .values({
+          id: campaignId,
+          battlefieldId: BF_ID,
+          name: 'merging-comp-test',
+          objective: 'test',
+          status: 'active',
+          currentPhase: 0,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      const phaseId = `${campaignId}-p1`;
+      db.insert(phases)
+        .values({
+          id: phaseId,
+          campaignId,
+          phaseNumber: 1,
+          name: 'Phase 1',
+          status: 'active',
+          createdAt: now,
+        })
+        .run();
+
+      const mergingId = `${campaignId}-merging`;
+      const compromisedId = `${campaignId}-compromised`;
+      const queuedId = `${campaignId}-queued`;
+
+      for (const [mId, mStatus] of [
+        [mergingId, 'merging'],
+        [compromisedId, 'compromised'],
+        [queuedId, 'queued'],
+      ] as const) {
+        db.insert(missions)
+          .values({
+            id: mId,
+            battlefieldId: BF_ID,
+            campaignId,
+            phaseId,
+            title: `mission-${mStatus}`,
+            briefing: 'briefing',
+            type: 'combat',
+            status: mStatus,
+            dependsOn: null,
+            useWorktree: 0,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
+      }
+
+      await abandonCampaign(campaignId);
+
+      const all = getMissionsForCampaign(campaignId);
+      expect(all.find((m) => m.id === mergingId)?.status).toBe('merging');
+      expect(all.find((m) => m.id === compromisedId)?.status).toBe('compromised');
+      expect(all.find((m) => m.id === queuedId)?.status).toBe('abandoned');
+
+      const row = getCampaignById(campaignId);
+      expect(row?.status).toBe('abandoned');
+    });
+
+    // NOTE: 'continues after a single mission failure' is deliberately omitted.
+    // The try/catch around executorAbandonMission was audited manually in the
+    // source. Triggering a mid-loop throw in an integration test requires either
+    // (a) a vi.mock of the executor — which would break the real-executor
+    //     launchCampaign tests in this same file, or
+    // (b) deleting a mission row between the SELECT and the loop — impossible
+    //     from outside a single synchronous function call.
+    // Per spec guidance ("if stubbing is ugly, skip this test and note it in the
+    // report"), this case is covered by code review only.
+
+    it('no-ops on already-terminal campaign', async () => {
+      // Seed with an accomplished campaign whose missions are already in
+      // terminal states — the executor abandon loop will have nothing to do,
+      // so settleCampaign is never triggered and the status guard is the
+      // sole line of defence.
+      const campaignId = 'abandon-terminal';
+      const now = Date.now();
+
+      db.insert(campaigns)
+        .values({
+          id: campaignId,
+          battlefieldId: BF_ID,
+          name: 'terminal-test',
+          objective: 'test',
+          status: 'accomplished',
+          currentPhase: 0,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      const phaseId = `${campaignId}-p1`;
+      db.insert(phases)
+        .values({
+          id: phaseId,
+          campaignId,
+          phaseNumber: 1,
+          name: 'Phase 1',
+          status: 'secured',
+          createdAt: now,
+        })
+        .run();
+
+      // All missions already accomplished — no non-terminal missions for the loop
+      db.insert(missions)
+        .values({
+          id: `${campaignId}-m1`,
+          battlefieldId: BF_ID,
+          campaignId,
+          phaseId,
+          title: 'done-mission',
+          briefing: 'briefing',
+          type: 'combat',
+          status: 'accomplished',
+          dependsOn: null,
+          useWorktree: 0,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      await abandonCampaign(campaignId);
+
+      const row = getCampaignById(campaignId);
+      // Status must remain accomplished — the guard in the .where() prevents overwrite
+      expect(row?.status).toBe('accomplished');
+    });
   });
 
   // =========================================================================
@@ -392,15 +529,11 @@ describe('campaign-actions integration — Phase 8.2', () => {
   // =========================================================================
   describe('deprecated stub actions', () => {
     it('redeployCampaign throws deprecation error', async () => {
-      await expect(
-        (await import('@/actions/campaign')).redeployCampaign('any-id'),
-      ).rejects.toThrow('Deprecated');
+      await expect(redeployCampaign('any-id')).rejects.toThrow('Deprecated');
     });
 
     it('resumeCampaign throws deprecation error', async () => {
-      await expect(
-        (await import('@/actions/campaign')).resumeCampaign('any-id'),
-      ).rejects.toThrow('Deprecated');
+      await expect(resumeCampaign('any-id')).rejects.toThrow('Deprecated');
     });
   });
 });
