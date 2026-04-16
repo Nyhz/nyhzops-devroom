@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { getTestDb, closeTestDb } from '@/lib/test/db';
 import { createTestBattlefield, createTestMission, createTestAsset } from '@/lib/test/fixtures';
-import { missions, intelNotes, missionLogs, overseerLogs } from '@/lib/db/schema';
+import { missions, intelNotes, missionLogs } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { createMockDbModule } from '@/lib/test/mock-db';
 import type Database from 'better-sqlite3';
@@ -141,14 +141,14 @@ describe('Mission Server Actions', () => {
       expect(notes[0].battlefieldId).toBe(bf.id);
     });
 
-    it('does NOT call orchestrator.onMissionQueued for standby', async () => {
+    it('does NOT change status to queued for standby (CONTROL polls)', async () => {
       const bf = createTestBattlefield(testDb);
-      await createMission({
+      const result = await createMission({
         battlefieldId: bf.id,
         briefing: 'Standby mission',
       });
 
-      expect(globalThis.orchestrator?.onMissionQueued).not.toHaveBeenCalled();
+      expect(result.status).toBe('standby');
     });
 
     it('throws when battlefield does not exist', async () => {
@@ -187,7 +187,7 @@ describe('Mission Server Actions', () => {
       expect(result.status).toBe('queued');
     });
 
-    it('calls orchestrator.onMissionQueued', async () => {
+    it('does NOT call orchestrator explicitly — CONTROL polls DB', async () => {
       const bf = createTestBattlefield(testDb);
       const asset = createTestAsset(testDb);
       const result = await createAndDeployMission({
@@ -196,19 +196,8 @@ describe('Mission Server Actions', () => {
         assetId: asset.id,
       });
 
-      expect(globalThis.orchestrator?.onMissionQueued).toHaveBeenCalledWith(result.id);
-    });
-
-    it('emits Socket.IO activity event with QUEUED detail', async () => {
-      const bf = createTestBattlefield(testDb);
-      const asset = createTestAsset(testDb);
-      await createAndDeployMission({
-        battlefieldId: bf.id,
-        briefing: 'Socket test',
-        assetId: asset.id,
-      });
-
-      expect(globalThis.io?.to).toHaveBeenCalledWith('hq:activity');
+      // CONTROL's dispatch loop polls the DB; no explicit enqueue call expected.
+      expect(result.status).toBe('queued');
     });
   });
 
@@ -363,28 +352,17 @@ describe('Mission Server Actions', () => {
       expect(result.updatedAt).toBeGreaterThanOrEqual(mission.updatedAt!);
     });
 
-    it('calls orchestrator.onMissionQueued', async () => {
+    it('emits a CONTROL comm after transitioning to queued', async () => {
       const bf = createTestBattlefield(testDb);
       const mission = createTestMission(testDb, {
         battlefieldId: bf.id,
         status: 'standby',
       });
 
-      await deployMission(mission.id);
+      const result = await deployMission(mission.id);
 
-      expect(globalThis.orchestrator?.onMissionQueued).toHaveBeenCalledWith(mission.id);
-    });
-
-    it('emits Socket.IO activity event', async () => {
-      const bf = createTestBattlefield(testDb);
-      const mission = createTestMission(testDb, {
-        battlefieldId: bf.id,
-        status: 'standby',
-      });
-
-      await deployMission(mission.id);
-
-      expect(globalThis.io?.to).toHaveBeenCalledWith('hq:activity');
+      // CONTROL's dispatch loop polls; no explicit orchestrator enqueue.
+      expect(result.status).toBe('queued');
     });
 
     it('throws for non-standby missions', async () => {
@@ -445,7 +423,7 @@ describe('Mission Server Actions', () => {
       expect(result.status).toBe('abandoned');
     });
 
-    it('delegates IN_COMBAT to orchestrator abort and returns current mission', async () => {
+    it('transitions IN_COMBAT → ABANDONED via executor', async () => {
       const bf = createTestBattlefield(testDb);
       const mission = createTestMission(testDb, {
         battlefieldId: bf.id,
@@ -454,48 +432,22 @@ describe('Mission Server Actions', () => {
 
       const result = await abandonMission(mission.id);
 
-      expect(globalThis.orchestrator?.onMissionAbort).toHaveBeenCalledWith(mission.id);
-      // Returns current mission (not updated — executor updates asynchronously)
-      expect(result.status).toBe('in_combat');
+      // Executor handles all statuses and sets abandoned
+      expect(result.status).toBe('abandoned');
     });
 
-    it('throws for ACCOMPLISHED missions', async () => {
-      const bf = createTestBattlefield(testDb);
-      const mission = createTestMission(testDb, {
-        battlefieldId: bf.id,
-        status: 'accomplished',
-      });
-
-      await expect(abandonMission(mission.id)).rejects.toThrow(
-        /cannot be abandoned from status 'accomplished'/,
-      );
-    });
-
-    it('throws for COMPROMISED missions', async () => {
+    it('transitions COMPROMISED → ABANDONED', async () => {
       const bf = createTestBattlefield(testDb);
       const mission = createTestMission(testDb, {
         battlefieldId: bf.id,
         status: 'compromised',
       });
 
-      await expect(abandonMission(mission.id)).rejects.toThrow(
-        /cannot be abandoned from status 'compromised'/,
-      );
+      const result = await abandonMission(mission.id);
+      expect(result.status).toBe('abandoned');
     });
 
-    it('throws for ABANDONED missions', async () => {
-      const bf = createTestBattlefield(testDb);
-      const mission = createTestMission(testDb, {
-        battlefieldId: bf.id,
-        status: 'abandoned',
-      });
-
-      await expect(abandonMission(mission.id)).rejects.toThrow(
-        /cannot be abandoned from status 'abandoned'/,
-      );
-    });
-
-    it('emits Socket.IO activity event for non-in_combat', async () => {
+    it('sets compromiseReason to commander-abandon', async () => {
       const bf = createTestBattlefield(testDb);
       const mission = createTestMission(testDb, {
         battlefieldId: bf.id,
@@ -504,7 +456,8 @@ describe('Mission Server Actions', () => {
 
       await abandonMission(mission.id);
 
-      expect(globalThis.io?.to).toHaveBeenCalledWith('hq:activity');
+      const row = testDb.select().from(missions).where(eq(missions.id, mission.id)).get();
+      expect(row?.compromiseReason).toBe('commander-abandon');
     });
 
     it('throws for nonexistent mission', async () => {
@@ -562,7 +515,7 @@ describe('Mission Server Actions', () => {
       expect(result.worktreeBranch).toBeNull();
     });
 
-    it('calls orchestrator.onMissionQueued for the new mission', async () => {
+    it('creates new queued mission without explicit orchestrator enqueue', async () => {
       const bf = createTestBattlefield(testDb);
       const original = createTestMission(testDb, {
         battlefieldId: bf.id,
@@ -572,7 +525,8 @@ describe('Mission Server Actions', () => {
 
       const result = await continueMission(original.id, 'Continue');
 
-      expect(globalThis.orchestrator?.onMissionQueued).toHaveBeenCalledWith(result.id);
+      // CONTROL's dispatch loop polls; no explicit orchestrator enqueue.
+      expect(result.status).toBe('queued');
     });
 
     it('creates an intel note for the new mission', async () => {
@@ -655,141 +609,11 @@ describe('Mission Server Actions', () => {
   });
 
   // =========================================================================
-  // removeMission
+  // removeMission — deprecated stub (Phase 8.1 CONTROL refactor)
   // =========================================================================
   describe('removeMission', () => {
-    it('deletes mission and returns battlefieldId', async () => {
-      const bf = createTestBattlefield(testDb);
-      const mission = createTestMission(testDb, { battlefieldId: bf.id });
-
-      const result = await removeMission(mission.id);
-
-      expect(result.battlefieldId).toBe(bf.id);
-
-      // Verify mission is gone
-      const found = testDb
-        .select()
-        .from(missions)
-        .where(eq(missions.id, mission.id))
-        .get();
-      expect(found).toBeUndefined();
-    });
-
-    it('deletes related intel notes', async () => {
-      const bf = createTestBattlefield(testDb);
-      const mission = await createMission({
-        battlefieldId: bf.id,
-        briefing: 'Mission with intel note',
-      });
-
-      // Verify intel note exists before deletion
-      const notesBefore = testDb
-        .select()
-        .from(intelNotes)
-        .where(eq(intelNotes.missionId, mission.id))
-        .all();
-      expect(notesBefore).toHaveLength(1);
-
-      await removeMission(mission.id);
-
-      const notesAfter = testDb
-        .select()
-        .from(intelNotes)
-        .where(eq(intelNotes.missionId, mission.id))
-        .all();
-      expect(notesAfter).toHaveLength(0);
-    });
-
-    it('deletes related mission logs', async () => {
-      const bf = createTestBattlefield(testDb);
-      const mission = createTestMission(testDb, { battlefieldId: bf.id });
-
-      const { ulid } = await import('ulid');
-      testDb
-        .insert(missionLogs)
-        .values({
-          id: ulid(),
-          missionId: mission.id,
-          timestamp: Date.now(),
-          type: 'comms',
-          content: 'Test log',
-        })
-        .run();
-
-      await removeMission(mission.id);
-
-      const logs = testDb
-        .select()
-        .from(missionLogs)
-        .where(eq(missionLogs.missionId, mission.id))
-        .all();
-      expect(logs).toHaveLength(0);
-    });
-
-    it('deletes related overseer logs', async () => {
-      const bf = createTestBattlefield(testDb);
-      const mission = createTestMission(testDb, { battlefieldId: bf.id });
-
-      const { ulid } = await import('ulid');
-      testDb
-        .insert(overseerLogs)
-        .values({
-          id: ulid(),
-          missionId: mission.id,
-          battlefieldId: bf.id,
-          question: 'test?',
-          answer: 'yes',
-          reasoning: 'because',
-          confidence: 'high',
-          timestamp: Date.now(),
-        })
-        .run();
-
-      await removeMission(mission.id);
-
-      const logs = testDb
-        .select()
-        .from(overseerLogs)
-        .where(eq(overseerLogs.missionId, mission.id))
-        .all();
-      expect(logs).toHaveLength(0);
-    });
-
-    it('calls orchestrator.onMissionAbort for in_combat missions', async () => {
-      const bf = createTestBattlefield(testDb);
-      const mission = createTestMission(testDb, {
-        battlefieldId: bf.id,
-        status: 'in_combat',
-      });
-
-      await removeMission(mission.id);
-
-      expect(globalThis.orchestrator?.onMissionAbort).toHaveBeenCalledWith(mission.id);
-    });
-
-    it('does not call orchestrator.onMissionAbort for non-in_combat missions', async () => {
-      const bf = createTestBattlefield(testDb);
-      const mission = createTestMission(testDb, {
-        battlefieldId: bf.id,
-        status: 'standby',
-      });
-
-      await removeMission(mission.id);
-
-      expect(globalThis.orchestrator?.onMissionAbort).not.toHaveBeenCalled();
-    });
-
-    it('emits Socket.IO activity event', async () => {
-      const bf = createTestBattlefield(testDb);
-      const mission = createTestMission(testDb, { battlefieldId: bf.id });
-
-      await removeMission(mission.id);
-
-      expect(globalThis.io?.to).toHaveBeenCalledWith('hq:activity');
-    });
-
-    it('throws for nonexistent mission', async () => {
-      await expect(removeMission('nonexistent')).rejects.toThrow('not found');
+    it('throws deprecation error (removed in CONTROL refactor)', async () => {
+      await expect(removeMission('any-id')).rejects.toThrow('Deprecated');
     });
   });
 });

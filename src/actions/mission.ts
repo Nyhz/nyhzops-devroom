@@ -3,10 +3,17 @@
 import { revalidatePath } from 'next/cache';
 import { eq, desc, count, like, sql, and } from 'drizzle-orm';
 import { getDatabase, getOrThrow } from '@/lib/db/index';
-import { missions, assets, battlefields, missionLogs, overseerLogs, intelNotes } from '@/lib/db/schema';
+import { missions, assets, battlefields, missionLogs, intelNotes } from '@/lib/db/schema';
 import { generateId } from '@/lib/utils';
 import { emitStatusChange } from '@/lib/socket/emit';
-import { safeQueueMission } from '@/lib/orchestrator/safe-queue';
+import { emitComm } from '@/control/comms';
+import {
+  tacticalOverride as executorTacticalOverride,
+  abandonMission as executorAbandonMission,
+  acceptAndMerge,
+} from '@/control/campaign/executor';
+import { removeMissionWorktree, sanitizeBranchForPath } from '@/control/worktree';
+import path from 'node:path';
 import type {
   Mission,
   CreateMissionInput,
@@ -78,9 +85,14 @@ async function _createMission(
 
   emitStatusChange('mission', id, status);
 
-  if (status === 'queued') {
-    safeQueueMission(record.id);
-  }
+  // CONTROL's dispatch loop polls the DB — no explicit enqueue needed.
+  emitComm({
+    missionId: id,
+    battlefieldId: data.battlefieldId,
+    actor: 'CONTROL',
+    message: status === 'queued' ? 'Mission queued — CONTROL dispatch will pick up' : 'Mission created (standby)',
+    level: 'info',
+  });
 
   return record;
 }
@@ -233,7 +245,7 @@ export async function listMissions(
 }
 
 // ---------------------------------------------------------------------------
-// deployMission — move a standby mission to queued so the orchestrator picks it up
+// deployMission — move a standby mission to queued so CONTROL picks it up
 // ---------------------------------------------------------------------------
 export async function deployMission(id: string): Promise<Mission> {
   const db = getDatabase();
@@ -263,56 +275,144 @@ export async function deployMission(id: string): Promise<Mission> {
 
   emitStatusChange('mission', id, 'queued');
 
-  // Notify the orchestrator to pick up the mission
-  safeQueueMission(updated.id);
+  // CONTROL's dispatch loop polls the DB — no explicit enqueue needed.
+  emitComm({
+    missionId: id,
+    battlefieldId: mission.battlefieldId,
+    actor: 'CONTROL',
+    message: 'Mission queued — CONTROL dispatch will pick up',
+    level: 'info',
+  });
+
+  revalidatePath(`/battlefields/${mission.battlefieldId}`);
 
   return updated;
 }
 
 // ---------------------------------------------------------------------------
-// abandonMission
+// abandonMission — thin wrapper over executor; also handles worktree cleanup
 // ---------------------------------------------------------------------------
 export async function abandonMission(id: string): Promise<Mission> {
   const db = getDatabase();
   const mission = getOrThrow(missions, id, 'abandonMission');
 
-  if (!['standby', 'queued', 'in_combat'].includes(mission.status!)) {
-    throw new Error(
-      `abandonMission: mission ${id} cannot be abandoned from status '${mission.status}' — only standby, queued, or in_combat missions can be abandoned`,
-    );
+  // Delegate to executor: sets status→abandoned, emits comm, cascades.
+  executorAbandonMission(id, { reason: 'commander-abandon' });
+
+  // Best-effort worktree cleanup
+  if (mission.worktreeBranch) {
+    const battlefield = db
+      .select({ repoPath: battlefields.repoPath })
+      .from(battlefields)
+      .where(eq(battlefields.id, mission.battlefieldId))
+      .get();
+    if (battlefield) {
+      const worktreePath = path.join(
+        battlefield.repoPath,
+        '.worktrees',
+        sanitizeBranchForPath(mission.worktreeBranch),
+      );
+      removeMissionWorktree({
+        repoPath: battlefield.repoPath,
+        worktreePath,
+        branch: mission.worktreeBranch,
+        deleteBranch: false,
+      }).catch(() => {
+        // best-effort — ignore errors
+      });
+    }
   }
 
-  // For in_combat missions, delegate to the executor via abort
-  if (mission.status === 'in_combat') {
-    globalThis.orchestrator?.onMissionAbort(id);
-    // Return current mission — the executor will update status asynchronously
-    return mission as Mission;
-  }
+  revalidatePath(`/battlefields/${mission.battlefieldId}`);
 
-  const now = Date.now();
-
+  // Return the updated mission state
   const updated = db
-    .update(missions)
-    .set({
-      status: 'abandoned',
-      completedAt: now,
-      updatedAt: now,
-    })
+    .select()
+    .from(missions)
     .where(eq(missions.id, id))
-    .returning()
     .get();
 
-  if (!updated) {
-    throw new Error(`abandonMission: update failed for mission ${id}`);
-  }
-
-  emitStatusChange('mission', id, 'abandoned');
-
-  return updated;
+  return (updated ?? mission) as Mission;
 }
 
 // ---------------------------------------------------------------------------
-// continueMission
+// tacticalOverride — thin revalidatePath wrapper over executor.tacticalOverride
+// ---------------------------------------------------------------------------
+export async function tacticalOverride(
+  missionId: string,
+  newBriefing: string,
+): Promise<void> {
+  const db = getDatabase();
+  const mission = getOrThrow(missions, missionId, 'tacticalOverride');
+
+  executorTacticalOverride(missionId, newBriefing);
+
+  revalidatePath(`/battlefields/${mission.battlefieldId}`);
+  revalidatePath(`/battlefields/${mission.battlefieldId}/missions/${missionId}`);
+}
+
+// ---------------------------------------------------------------------------
+// acceptMergeOverride — Commander force-merges a COMPROMISED mission
+// ---------------------------------------------------------------------------
+export async function acceptMergeOverride(missionId: string): Promise<void> {
+  const db = getDatabase();
+  const mission = getOrThrow(missions, missionId, 'acceptMergeOverride');
+
+  if (mission.status !== 'compromised') {
+    throw new Error(
+      `acceptMergeOverride: mission ${missionId} is not compromised (status=${mission.status})`,
+    );
+  }
+
+  await acceptAndMerge(missionId);
+
+  revalidatePath(`/battlefields/${mission.battlefieldId}`);
+  revalidatePath(`/battlefields/${mission.battlefieldId}/missions/${missionId}`);
+}
+
+// ---------------------------------------------------------------------------
+// answerEscalation — inject Commander answer into next retry attempt
+// ---------------------------------------------------------------------------
+export async function answerEscalation(
+  missionId: string,
+  answer: string,
+): Promise<void> {
+  const db = getDatabase();
+  const mission = getOrThrow(missions, missionId, 'answerEscalation');
+
+  const guidanceSection =
+    `\n\n---\n\n## Commander Guidance (escalation answer)\n\n${answer}`;
+  const updatedBriefing = (mission.briefing ?? '') + guidanceSection;
+  const now = Date.now();
+
+  db.transaction(() => {
+    db.update(missions)
+      .set({
+        briefing: updatedBriefing,
+        currentSortieAttempts: 0,
+        compromiseReason: null,
+        status: 'queued',
+        updatedAt: now,
+      })
+      .where(eq(missions.id, missionId))
+      .run();
+  });
+
+  emitComm({
+    missionId,
+    campaignId: mission.campaignId ?? undefined,
+    battlefieldId: mission.battlefieldId,
+    actor: 'COMMANDER',
+    message: `Escalation answered — mission re-queued. Answer excerpt: ${answer.slice(0, 120)}`,
+    level: 'info',
+  });
+
+  revalidatePath(`/battlefields/${mission.battlefieldId}`);
+  revalidatePath(`/battlefields/${mission.battlefieldId}/missions/${missionId}`);
+}
+
+// ---------------------------------------------------------------------------
+// continueMission — create new mission reusing sessionId
 // ---------------------------------------------------------------------------
 export async function continueMission(
   missionId: string,
@@ -376,277 +476,37 @@ export async function continueMission(
 
   emitStatusChange('mission', id, 'queued');
 
-  // Trigger orchestrator
-  safeQueueMission(id);
+  // CONTROL's dispatch loop polls the DB — no explicit enqueue needed.
+  emitComm({
+    missionId: id,
+    battlefieldId: original.battlefieldId,
+    actor: 'CONTROL',
+    message: `Continued mission queued (continues session from ${missionId})`,
+    level: 'info',
+  });
+
+  revalidatePath(`/battlefields/${original.battlefieldId}`);
 
   return db.select().from(missions).where(eq(missions.id, id)).get() as Mission;
 }
 
 // ---------------------------------------------------------------------------
-// removeMission — permanently delete a mission and all related records
+// DEPRECATED STUBS — removed in CONTROL refactor. Will be deleted in Phase 10.
+// UI callers will be updated in Tasks 8.4/8.7.
 // ---------------------------------------------------------------------------
-export async function removeMission(id: string): Promise<{ battlefieldId: string }> {
-  const db = getDatabase();
-  const mission = getOrThrow(missions, id, 'removeMission');
 
-  // If in_combat, abort first
-  if (mission.status === 'in_combat') {
-    globalThis.orchestrator?.onMissionAbort(id);
-  }
-
-  const battlefieldId = mission.battlefieldId;
-
-  // Delete related records and the mission in a single transaction
-  db.transaction(() => {
-    db.delete(intelNotes).where(eq(intelNotes.missionId, id)).run();
-    db.delete(missionLogs).where(eq(missionLogs.missionId, id)).run();
-    db.delete(overseerLogs).where(eq(overseerLogs.missionId, id)).run();
-    db.delete(missions).where(eq(missions.id, id)).run();
-  });
-
-  // Get battlefield codename for activity event
-  const battlefield = db
-    .select({ codename: battlefields.codename })
-    .from(battlefields)
-    .where(eq(battlefields.id, battlefieldId))
-    .get();
-
-  if (globalThis.io && battlefield) {
-    globalThis.io.to('hq:activity').emit('activity:event', {
-      type: 'mission:removed',
-      battlefieldCodename: battlefield.codename,
-      missionTitle: mission.title,
-      timestamp: Date.now(),
-    });
-  }
-
-  revalidatePath(`/battlefields/${battlefieldId}`);
-
-  return { battlefieldId };
+export async function removeMission(_id: string): Promise<{ battlefieldId: string }> {
+  throw new Error('Deprecated: removeMission removed in CONTROL refactor, see Phase 8.4/8.7');
 }
 
-/**
- * Retry merging a mission's worktree branch by spawning an agent.
- * The agent checks out the target branch, merges the mission branch,
- * resolves any conflicts intelligently, runs tests, and commits.
- * Only works on compromised/abandoned missions with a preserved worktree branch.
- */
-export async function retryMerge(missionId: string): Promise<void> {
-  const db = getDatabase();
-  const mission = db.select().from(missions).where(eq(missions.id, missionId)).get();
-  if (!mission) throw new Error('Mission not found');
-  if (mission.status !== 'compromised' && mission.status !== 'abandoned') {
-    throw new Error('Mission must be compromised or abandoned to retry merge');
-  }
-  if (!mission.worktreeBranch) throw new Error('No worktree branch to merge');
-
-  const battlefield = db.select().from(battlefields)
-    .where(eq(battlefields.id, mission.battlefieldId)).get();
-  if (!battlefield) throw new Error('Battlefield not found');
-
-  const { removeWorktree } = await import('@/lib/orchestrator/worktree');
-  const { runClaudePrint } = await import('@/lib/process/claude-print');
-  const path = await import('path');
-  const fs = await import('fs');
-
-  const targetBranch = battlefield.defaultBranch || 'main';
-
-  // Update status to reviewing while merge agent works
-  db.update(missions).set({ status: 'reviewing', updatedAt: Date.now() })
-    .where(eq(missions.id, missionId)).run();
-  emitStatusChange('mission', missionId, 'reviewing');
-
-  const emitLog = (content: string) => {
-    db.insert(missionLogs).values({
-      id: generateId(),
-      missionId,
-      timestamp: Date.now(),
-      type: 'sitrep',
-      content,
-    }).run();
-    globalThis.io?.to(`mission:${missionId}`).emit('mission:log', {
-      missionId,
-      timestamp: Date.now(),
-      type: 'sitrep',
-      content: content + '\n',
-    });
-  };
-
-  emitLog(`[REINTEGRATE] Spawning agent to merge \`${mission.worktreeBranch}\` into \`${targetBranch}\`...`);
-
-  // Read CLAUDE.md for context
-  let claudeMdContext = '';
-  if (battlefield.claudeMdPath) {
-    try {
-      claudeMdContext = fs.readFileSync(battlefield.claudeMdPath, 'utf-8');
-    } catch { /* skip */ }
-  }
-
-  const prompt = [
-    claudeMdContext ? claudeMdContext : '',
-    '## Merge Mission',
-    '',
-    `Merge branch \`${mission.worktreeBranch}\` into \`${targetBranch}\`.`,
-    '',
-    '### Mission Context',
-    `**Title**: ${mission.title}`,
-    mission.debrief ? `**Debrief**: ${mission.debrief.slice(0, 2000)}` : '',
-    '',
-    '### Orders',
-    '',
-    `1. You are on the \`${targetBranch}\` branch.`,
-    `2. Run: \`git merge ${mission.worktreeBranch} --no-ff\``,
-    '3. If there are conflicts:',
-    '   - Read both sides of each conflicted file carefully.',
-    '   - Understand what each branch intended.',
-    '   - Merge them intelligently — keep both sides\' contributions.',
-    '   - If files are duplicates (both branches created the same file independently), combine the best of both.',
-    '   - Do NOT just pick one side. Integrate both.',
-    '4. After resolving, stage all files and commit.',
-    '5. If there is a test command available, run the tests to verify nothing is broken.',
-    '6. Report what you did.',
-  ].filter(Boolean).join('\n');
-
-  try {
-    await runClaudePrint(prompt, {
-      maxTurns: 30,
-      cwd: battlefield.repoPath,
-    });
-
-    // Verify the merge actually happened — check if the branch is an ancestor of HEAD
-    const simpleGit = (await import('simple-git')).default;
-    const git = simpleGit(battlefield.repoPath);
-    const currentBranch = (await git.branch()).current;
-
-    if (currentBranch !== targetBranch) {
-      // Agent left us on wrong branch — switch back
-      await git.checkout(targetBranch);
-    }
-
-    // Check if the mission branch was merged
-    try {
-      await git.raw(['merge-base', '--is-ancestor', mission.worktreeBranch, 'HEAD']);
-      // Branch is merged — clean up
-      const worktreePath = path.join(
-        battlefield.repoPath, '.worktrees',
-        mission.worktreeBranch.replace(/\//g, '-'),
-      );
-      try {
-        await removeWorktree(battlefield.repoPath, worktreePath, mission.worktreeBranch);
-      } catch { /* best effort */ }
-
-      try {
-        fs.rmSync(`/tmp/claude-config/${missionId}`, { recursive: true, force: true });
-      } catch { /* best effort */ }
-
-      db.update(missions).set({
-        status: 'accomplished',
-        compromiseReason: null,
-        completedAt: Date.now(),
-        updatedAt: Date.now(),
-      }).where(eq(missions.id, missionId)).run();
-      emitStatusChange('mission', missionId, 'accomplished');
-
-      emitLog(`[REINTEGRATE] Agent successfully merged \`${mission.worktreeBranch}\` into \`${targetBranch}\`. Worktree cleaned up.`);
-
-      // Notify Commander of successful completion
-      const { escalate } = await import('@/lib/overseer/escalation');
-      await escalate({
-        level: 'info',
-        title: `Mission Accomplished — ${mission.title}`,
-        detail: `Branch \`${mission.worktreeBranch}\` merged into \`${targetBranch}\`.`,
-        entityType: 'mission',
-        entityId: missionId,
-        battlefieldId: mission.battlefieldId,
-      });
-
-      // Notify campaign executor if applicable
-      if (mission.campaignId) {
-        const executor = globalThis.orchestrator?.activeCampaigns.get(mission.campaignId);
-        if (executor) {
-          executor.onCampaignMissionComplete(missionId).catch(() => {});
-        }
-      }
-    } catch {
-      // Branch not merged — agent failed
-      db.update(missions).set({
-        status: 'compromised',
-        updatedAt: Date.now(),
-      }).where(eq(missions.id, missionId)).run();
-      emitStatusChange('mission', missionId, 'compromised');
-
-      emitLog(`[REINTEGRATE] Agent finished but branch was not merged. Branch preserved.`);
-    }
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    db.update(missions).set({
-      status: 'compromised',
-      debrief: (mission.debrief || '') + `\n\n---\n\nREINTEGRATE AGENT FAILED: ${errorMsg}\nBranch \`${mission.worktreeBranch}\` preserved.`,
-      updatedAt: Date.now(),
-    }).where(eq(missions.id, missionId)).run();
-    emitStatusChange('mission', missionId, 'compromised');
-
-    emitLog(`[REINTEGRATE] Agent failed: ${errorMsg}`);
-  }
-
-  revalidatePath(`/battlefields/${mission.battlefieldId}/missions/${missionId}`);
+export async function retryMerge(_missionId: string): Promise<void> {
+  throw new Error('Deprecated: retryMerge removed in CONTROL refactor, see Phase 8.4/8.7');
 }
 
-// ---------------------------------------------------------------------------
-// retryReview — Re-run the Overseer review for a mission that failed at review
-// ---------------------------------------------------------------------------
-export async function retryReview(missionId: string): Promise<void> {
-  const db = getDatabase();
-  const mission = getOrThrow(missions, missionId, 'retryReview');
-
-  if (mission.status !== 'compromised') {
-    throw new Error('Can only retry review on compromised missions');
-  }
-  if (mission.compromiseReason !== 'escalated' && mission.compromiseReason !== 'review-failed') {
-    throw new Error('Mission did not fail at the review step');
-  }
-  if (!mission.debrief) {
-    throw new Error('Mission has no debrief to review');
-  }
-
-  // Reset to reviewing status
-  db.update(missions).set({
-    status: 'reviewing',
-    compromiseReason: null,
-    updatedAt: Date.now(),
-  }).where(eq(missions.id, missionId)).run();
-
-  emitStatusChange('mission', missionId, 'reviewing');
-  revalidatePath(`/battlefields/${mission.battlefieldId}/missions/${missionId}`);
-
-  // Re-run the Overseer review (async — don't await in the action)
-  const { runOverseerReview } = await import('@/lib/overseer/review-handler');
-  runOverseerReview(missionId).catch((err) => {
-    console.error(`[retryReview] Overseer review failed for ${missionId}:`, err);
-  });
+export async function retryReview(_missionId: string): Promise<void> {
+  throw new Error('Deprecated: retryReview removed in CONTROL refactor, see Phase 8.4/8.7');
 }
 
-// ---------------------------------------------------------------------------
-// overrideApprove — Commander override: mark a compromised mission as approved
-// ---------------------------------------------------------------------------
-export async function overrideApprove(missionId: string): Promise<void> {
-  const db = getDatabase();
-  const mission = getOrThrow(missions, missionId, 'overrideApprove');
-
-  if (mission.status !== 'compromised') {
-    throw new Error('Can only override-approve compromised missions');
-  }
-
-  db.update(missions).set({
-    status: 'approved',
-    compromiseReason: null,
-    updatedAt: Date.now(),
-  }).where(eq(missions.id, missionId)).run();
-
-  emitStatusChange('mission', missionId, 'approved');
-
-  const { triggerQuartermaster } = await import('@/lib/quartermaster/quartermaster');
-  triggerQuartermaster(missionId);
-
-  revalidatePath(`/battlefields/${mission.battlefieldId}`);
+export async function overrideApprove(_missionId: string): Promise<void> {
+  throw new Error('Deprecated: overrideApprove removed in CONTROL refactor, see Phase 8.4/8.7');
 }
