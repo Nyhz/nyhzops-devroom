@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import simpleGit from 'simple-git';
@@ -47,10 +47,16 @@ describe('sweepStaleMissions', () => {
   let repo: MaterializedRepo;
 
   beforeEach(async () => {
-    db.delete(missionAttempts).run();
-    db.delete(comms).run();
-    db.delete(missions).run();
-    db.delete(battlefields).run();
+    // Scope cleanup to this file's battlefield ids so we don't nuke rows
+    // owned by other test files running in parallel (e.g. integration tests).
+    const WATCHDOG_BF_IDS = ['bf-1'];
+    const WATCHDOG_MISSION_IDS = [
+      'm1', 'm2', 'm3', 'm-live', 'm-fresh', 'm-done', 'm-aband', 'm-clean',
+    ];
+    db.delete(missionAttempts).where(inArray(missionAttempts.missionId, WATCHDOG_MISSION_IDS)).run();
+    db.delete(comms).where(inArray(comms.missionId, WATCHDOG_MISSION_IDS)).run();
+    db.delete(missions).where(inArray(missions.id, WATCHDOG_MISSION_IDS)).run();
+    db.delete(battlefields).where(inArray(battlefields.id, WATCHDOG_BF_IDS)).run();
     repo = await materializeRepo('ts-with-tests');
   });
 

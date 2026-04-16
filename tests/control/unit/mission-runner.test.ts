@@ -178,6 +178,10 @@ describe('runMission (scaffold)', () => {
         category: 'INFRASTRUCTURE' as const,
         reasoning: 'boom',
       })) as unknown as MissionRunnerDeps['classifyExitFn'],
+      // Skip backoff waits and disable infra retries so the loop terminates
+      // deterministically with COMPROMISED on first INFRA classification.
+      sleep: async () => {},
+      infraMaxRetries: 0,
     });
 
     const res = await runMission('mr-infra', deps);

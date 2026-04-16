@@ -46,7 +46,12 @@ export async function rebaseOntoTarget(
 ): Promise<{ rebased: boolean; conflict: boolean }> {
   const git = simpleGit(worktreePath);
   try {
-    await git.fetch();
+    // Fetch is best-effort — local fixture repos have no remote.
+    try {
+      await git.fetch();
+    } catch {
+      // ignore — proceed with local refs
+    }
     const before = (await git.revparse(['HEAD'])).trim();
     await git.rebase([targetBranch]);
     const after = (await git.revparse(['HEAD'])).trim();
