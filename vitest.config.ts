@@ -12,7 +12,7 @@ export default defineConfig({
           name: 'node',
           environment: 'node',
           setupFiles: ['./src/lib/test/setup.ts'],
-          include: ['src/**/*.test.ts'],
+          include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
           exclude: ['src/hooks/__tests__/**'],
         },
       }),

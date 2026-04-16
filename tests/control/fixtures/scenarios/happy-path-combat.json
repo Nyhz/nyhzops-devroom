@@ -1,0 +1,10 @@
+{
+  "events": [
+    { "type": "assistant", "text": "Starting task", "delayMs": 50 },
+    { "type": "tool_use", "name": "Read", "delayMs": 100 },
+    { "type": "tool_use", "name": "Edit", "delayMs": 100 },
+    { "type": "assistant", "text": "Done. <DEBRIEF>{\"summary\":\"ok\",\"commits\":[],\"files_touched\":[],\"confidence\":\"high\"}</DEBRIEF>", "delayMs": 50 },
+    { "type": "result", "subtype": "success", "duration_ms": 300, "num_turns": 2, "total_cost_usd": 0.001, "usage": { "input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 900 } }
+  ],
+  "exitCode": 0
+}
