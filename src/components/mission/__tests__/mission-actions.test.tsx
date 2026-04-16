@@ -204,6 +204,61 @@ describe('MissionActions', () => {
       });
     });
 
+    it('hides escalation panel optimistically after successful submit', async () => {
+      const { user } = renderWithProviders(
+        <MissionActions
+          {...baseProps}
+          status="compromised"
+          compromiseReason="escalated"
+          escalationQuestion="What approach should I use?"
+        />,
+      );
+
+      const textarea = screen.getByPlaceholderText(/Your answer to the Overseer/i);
+      await user.type(textarea, 'Use approach A');
+      await user.click(screen.getByRole('button', { name: /submit answer/i }));
+
+      await waitFor(() => {
+        expect(mockAnswerEscalation).toHaveBeenCalled();
+      });
+
+      // Panel should be hidden after successful submission
+      await waitFor(() => {
+        expect(screen.queryByText(/OVERSEER ESCALATION/i)).not.toBeInTheDocument();
+      });
+    });
+
+    it('does not re-submit if button is clicked again before response', async () => {
+      let resolveFirst: () => void;
+      mockAnswerEscalation.mockImplementation(
+        () => new Promise<void>((r) => { resolveFirst = r; }),
+      );
+
+      const { user } = renderWithProviders(
+        <MissionActions
+          {...baseProps}
+          status="compromised"
+          compromiseReason="escalated"
+          escalationQuestion="Question here?"
+        />,
+      );
+
+      const textarea = screen.getByPlaceholderText(/Your answer to the Overseer/i);
+      await user.type(textarea, 'My answer');
+
+      await user.click(screen.getByRole('button', { name: /submit answer/i }));
+
+      // Panel should be gone already (optimistic hide)
+      await waitFor(() => {
+        expect(screen.queryByText(/OVERSEER ESCALATION/i)).not.toBeInTheDocument();
+      });
+
+      // Resolve to let the async call finish
+      await act(async () => { resolveFirst!(); });
+
+      expect(mockAnswerEscalation).toHaveBeenCalledTimes(1);
+    });
+
     it('disables SUBMIT ANSWER button when answer is empty', () => {
       renderWithProviders(
         <MissionActions

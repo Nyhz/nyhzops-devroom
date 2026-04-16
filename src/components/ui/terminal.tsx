@@ -3,10 +3,13 @@
 import { useRef, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
+export type LogActor = 'CONTROL' | 'OPERATIVE' | 'OVERSEER' | 'COMMANDER';
+
 interface LogEntry {
   timestamp: number;
   type: 'comms' | 'sitrep' | 'alert';
   content: string;
+  actor?: LogActor;
 }
 
 interface TerminalProps {
@@ -18,6 +21,7 @@ interface DisplayEntry {
   timestamp: number;
   type: 'comms' | 'sitrep' | 'alert';
   content: string;
+  actor?: LogActor;
   count: number;
 }
 
@@ -26,6 +30,14 @@ const typeStyles = {
   sitrep: 'text-dr-green',
   alert: 'text-dr-red',
 } as const;
+
+/** Tailwind color classes for actor labels. */
+const actorStyles: Record<LogActor, string> = {
+  CONTROL: 'text-dr-dim',
+  OPERATIVE: 'text-dr-green',
+  OVERSEER: 'text-dr-teal',
+  COMMANDER: 'text-dr-amber',
+};
 
 const TOOL_PATTERN = /^Tool: \w+/;
 
@@ -49,7 +61,8 @@ function groupLogs(logs: LogEntry[]): DisplayEntry[] {
       isToolCall &&
       prev &&
       prev.content.trim() === trimmed &&
-      prev.type === entry.type
+      prev.type === entry.type &&
+      prev.actor === entry.actor
     ) {
       // Collapse repeated identical tool calls
       prev.count++;
@@ -59,9 +72,10 @@ function groupLogs(logs: LogEntry[]): DisplayEntry[] {
       entry.type === 'comms' &&
       prev &&
       prev.type === 'comms' &&
+      prev.actor === entry.actor &&
       !TOOL_PATTERN.test(prev.content.trim())
     ) {
-      // Coalesce consecutive text lines into one entry
+      // Coalesce consecutive text lines into one entry (same actor only)
       prev.content = prev.content.trimEnd() + ' ' + trimmed;
       prev.timestamp = entry.timestamp;
     } else {
@@ -99,6 +113,14 @@ export function Terminal({ logs, className }: TerminalProps) {
               {formatTimestamp(entry.timestamp)}
             </span>
             <span className={cn(typeStyles[entry.type], 'whitespace-pre-wrap break-all')}>
+              {entry.actor && (
+                <span
+                  className={cn(actorStyles[entry.actor], 'mr-1 select-none font-tactical')}
+                  data-actor={entry.actor}
+                >
+                  [{entry.actor}]
+                </span>
+              )}
               {entry.content}
               {entry.count > 1 && (
                 <span className="text-dr-dim ml-1.5">({entry.count})</span>

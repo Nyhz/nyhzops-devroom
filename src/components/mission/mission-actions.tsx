@@ -24,8 +24,6 @@ interface MissionActionsProps {
   sessionId: string | null;
   campaignId?: string | null;
   briefing?: string;
-  worktreeBranch?: string | null;
-  debrief?: string | null;
   compromiseReason?: string | null;
   escalationQuestion?: string | null;
 }
@@ -47,6 +45,7 @@ export function MissionActions({
   const [showOverride, setShowOverride] = useState(false);
   const [overrideBriefing, setOverrideBriefing] = useState('');
   const [escalationAnswer, setEscalationAnswer] = useState('');
+  const [escalationSubmitted, setEscalationSubmitted] = useState(false);
   const [confirm, ConfirmDialog] = useConfirm();
 
   const canDeploy = status === 'standby';
@@ -119,7 +118,8 @@ export function MissionActions({
   };
 
   const handleAnswerEscalation = async () => {
-    if (!escalationAnswer.trim()) return;
+    if (!escalationAnswer.trim() || escalationSubmitted) return;
+    setEscalationSubmitted(true);
     setIsPending(true);
     try {
       await answerEscalation(missionId, escalationAnswer.trim());
@@ -127,6 +127,8 @@ export function MissionActions({
       setEscalationAnswer('');
       router.refresh();
     } catch (err) {
+      // On error, allow re-submit
+      setEscalationSubmitted(false);
       toast.error(err instanceof Error ? err.message : 'Failed to submit answer');
     } finally {
       setIsPending(false);
@@ -136,8 +138,8 @@ export function MissionActions({
   return (
     <>
       <div className="space-y-4">
-        {/* Escalation answer panel */}
-        {isEscalated && (
+        {/* Escalation answer panel — hidden optimistically once submitted */}
+        {isEscalated && !escalationSubmitted && (
           <div className="border border-dr-amber/40 bg-dr-amber/5 p-3 sm:p-4 space-y-3">
             <div className="flex items-center gap-2">
               <span aria-hidden="true" className="text-dr-amber text-sm">⚠</span>
@@ -149,6 +151,7 @@ export function MissionActions({
               {escalationQuestion}
             </p>
             <TacTextarea
+              aria-label="Answer to Overseer escalation question"
               placeholder="Your answer to the Overseer's question..."
               value={escalationAnswer}
               onChange={(e) => setEscalationAnswer(e.target.value)}
@@ -278,6 +281,7 @@ export function MissionActions({
               CONTINUE MISSION
             </h3>
             <TacTextarea
+              aria-label="Follow-up mission briefing"
               placeholder="Describe what to do next..."
               value={continueBriefing}
               onChange={(e) => setContinueBriefing(e.target.value)}
@@ -315,6 +319,7 @@ export function MissionActions({
               Edit the briefing below. The agent will receive this updated briefing with its previous session context preserved.
             </p>
             <TacTextarea
+              aria-label="Tactical override briefing"
               value={overrideBriefing}
               onChange={(e) => setOverrideBriefing(e.target.value)}
               rows={8}

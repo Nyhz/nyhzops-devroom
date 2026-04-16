@@ -56,7 +56,7 @@ const baseComms: Comm[] = [];
 const baseProps = {
   missionId: 'm-1',
   initialLogs: baseLogs,
-  initialStatus: 'in_combat' as string,
+  initialStatus: 'in_combat' as MissionStatus,
   initialDebrief: null as string | null,
   initialStructuredDebrief: null,
   initialTokens: { input: 100, output: 50, cacheHit: 20, duration: 5000 },
@@ -64,7 +64,6 @@ const baseProps = {
   initialSessionId: null as string | null,
   campaignId: null as string | null,
   briefing: undefined as string | undefined,
-  worktreeBranch: null as string | null,
   isSynthesized: false,
   initialComms: baseComms,
 };
@@ -100,7 +99,7 @@ describe('MissionComms', () => {
   it('shows pre-deploy message when status is standby', () => {
     setupHookReturn({ status: 'standby' as MissionStatus });
     renderWithProviders(
-      <MissionComms {...baseProps} initialStatus="standby" />,
+      <MissionComms {...baseProps} initialStatus={'standby' as MissionStatus} />,
     );
     expect(
       screen.getByText(/Awaiting deployment/),
@@ -110,7 +109,7 @@ describe('MissionComms', () => {
   it('shows pre-deploy message when status is queued', () => {
     setupHookReturn({ status: 'queued' as MissionStatus });
     renderWithProviders(
-      <MissionComms {...baseProps} initialStatus="queued" />,
+      <MissionComms {...baseProps} initialStatus={'queued' as MissionStatus} />,
     );
     expect(
       screen.getByText(/Awaiting deployment/),
@@ -128,7 +127,7 @@ describe('MissionComms', () => {
       debrief: '## Mission complete\n\nAll objectives met.',
     });
     renderWithProviders(
-      <MissionComms {...baseProps} initialStatus="accomplished" />,
+      <MissionComms {...baseProps} initialStatus={'accomplished' as MissionStatus} />,
     );
     expect(screen.getByTestId('debrief-panel')).toBeInTheDocument();
   });
@@ -139,7 +138,7 @@ describe('MissionComms', () => {
       debrief: 'Failed due to timeout.',
     });
     renderWithProviders(
-      <MissionComms {...baseProps} initialStatus="compromised" />,
+      <MissionComms {...baseProps} initialStatus={'compromised' as MissionStatus} />,
     );
     expect(screen.getByTestId('debrief-panel')).toBeInTheDocument();
   });
@@ -149,7 +148,7 @@ describe('MissionComms', () => {
     renderWithProviders(
       <MissionComms
         {...baseProps}
-        initialStatus="accomplished"
+        initialStatus={'accomplished' as MissionStatus}
         initialDebrief="Initial debrief content"
       />,
     );
@@ -164,7 +163,7 @@ describe('MissionComms', () => {
     renderWithProviders(
       <MissionComms
         {...baseProps}
-        initialStatus="accomplished"
+        initialStatus={'accomplished' as MissionStatus}
         initialDebrief="Initial debrief content"
       />,
     );
@@ -177,7 +176,7 @@ describe('MissionComms', () => {
       debrief: 'Final report.',
     });
     renderWithProviders(
-      <MissionComms {...baseProps} initialStatus="accomplished" />,
+      <MissionComms {...baseProps} initialStatus={'accomplished' as MissionStatus} />,
     );
     expect(screen.getByText(/Debrief submitted/)).toBeInTheDocument();
   });
@@ -188,7 +187,7 @@ describe('MissionComms', () => {
       debrief: 'Report.',
     });
     renderWithProviders(
-      <MissionComms {...baseProps} initialStatus="accomplished" isSynthesized={true} />,
+      <MissionComms {...baseProps} initialStatus={'accomplished' as MissionStatus} isSynthesized={true} />,
     );
     expect(screen.getByTestId('debrief-panel')).toHaveAttribute('data-synthesized', 'true');
   });
@@ -196,7 +195,7 @@ describe('MissionComms', () => {
   it('calls router.refresh when mission reaches terminal status', () => {
     setupHookReturn({ status: 'accomplished' as MissionStatus });
     renderWithProviders(
-      <MissionComms {...baseProps} initialStatus="accomplished" />,
+      <MissionComms {...baseProps} initialStatus={'accomplished' as MissionStatus} />,
     );
     expect(mockRefresh).toHaveBeenCalledOnce();
   });
@@ -204,7 +203,7 @@ describe('MissionComms', () => {
   it('does not call router.refresh for non-terminal statuses', () => {
     setupHookReturn({ status: 'in_combat' as MissionStatus });
     renderWithProviders(
-      <MissionComms {...baseProps} initialStatus="in_combat" />,
+      <MissionComms {...baseProps} initialStatus={'in_combat' as MissionStatus} />,
     );
     expect(mockRefresh).not.toHaveBeenCalled();
   });
@@ -217,7 +216,6 @@ describe('MissionComms', () => {
         initialSessionId="session-1"
         campaignId="campaign-1"
         briefing="Test briefing"
-        worktreeBranch="feature/test"
       />,
     );
     const actions = screen.getByTestId('mission-actions');
@@ -264,5 +262,25 @@ describe('MissionComms', () => {
     // Actor-labelled messages should appear in terminal
     expect(screen.getByText(/Running tests/)).toBeInTheDocument();
     expect(screen.getByText(/Mission queued/)).toBeInTheDocument();
+  });
+
+  it('does not emit raw ANSI escape codes in comms content', () => {
+    const commsWithActors: Comm[] = [
+      { id: 'c-1', missionId: 'm-1', campaignId: null, battlefieldId: 'bf-1', actor: 'CONTROL', message: 'Checking status', level: 'info', createdAt: 1000 },
+      { id: 'c-2', missionId: 'm-1', campaignId: null, battlefieldId: 'bf-1', actor: 'OPERATIVE', message: 'Task running', level: 'info', createdAt: 2000 },
+    ];
+    // Verify the content strings passed to terminal contain no ANSI escape codes
+    // The messages should be plain text; actor label is a separate UI element
+    commsWithActors.forEach((comm) => {
+      expect(comm.message).not.toMatch(/\x1b\[/);
+    });
+    renderWithProviders(
+      <MissionComms {...baseProps} initialComms={commsWithActors} />,
+    );
+    // The rendered text should not contain ESC sequences
+    const terminal = document.querySelector('[class*="space-y"]');
+    if (terminal) {
+      expect(terminal.textContent).not.toMatch(/\x1b\[/);
+    }
   });
 });

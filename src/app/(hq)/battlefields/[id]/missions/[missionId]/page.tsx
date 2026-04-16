@@ -15,6 +15,7 @@ import { Markdown } from '@/components/ui/markdown';
 import { formatRelativeTime } from '@/lib/utils';
 import { DebriefSchema } from '@/control/debrief/schema';
 import type { Debrief } from '@/control/debrief/schema';
+import type { MissionStatus } from '@/types';
 
 export default async function MissionDetailPage({
   params,
@@ -95,7 +96,7 @@ export default async function MissionDetailPage({
   const overseerLogEntries = await getOverseerLogs({ missionId });
   const suggestions = await getSuggestions({ missionId });
 
-  const status = mission.status ?? 'standby';
+  const status = (mission.status ?? 'standby') as MissionStatus;
   const isTerminal = status === 'accomplished' || status === 'compromised' || status === 'abandoned';
   const missionType = mission.type === 'recon' ? 'verification' : 'direct_action';
 
@@ -142,7 +143,6 @@ export default async function MissionDetailPage({
             <div className="space-y-1 flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-dr-dim group-open:hidden" aria-hidden="true">▶</span>
-                <span className="text-dr-dim group-open:hidden" aria-hidden="true" style={{ display: 'none' }} />
                 <h2 className="text-sm font-tactical text-dr-amber tracking-wider">
                   BRIEFING
                 </h2>
@@ -215,7 +215,6 @@ export default async function MissionDetailPage({
         initialSessionId={mission.sessionId || null}
         campaignId={mission.campaignId}
         briefing={mission.briefing}
-        worktreeBranch={mission.worktreeBranch}
         compromiseReason={mission.compromiseReason}
         escalationQuestion={escalationQuestion}
         isSynthesized={isSynthesized}

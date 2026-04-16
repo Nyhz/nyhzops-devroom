@@ -7,13 +7,14 @@ import { Terminal } from '@/components/ui/terminal';
 import { MissionActions } from '@/components/mission/mission-actions';
 import { DebriefPanel } from '@/components/mission/debrief-panel';
 import type { MissionLog, MissionStatus } from '@/types';
+import type { LogActor } from '@/components/ui/terminal';
 import type { Debrief } from '@/control/debrief/schema';
 import type { Comm } from '@/lib/db/schema';
 
 interface MissionCommsProps {
   missionId: string;
   initialLogs: MissionLog[];
-  initialStatus: string;
+  initialStatus: MissionStatus;
   initialDebrief: string | null;
   initialStructuredDebrief: Debrief | null;
   initialTokens: {
@@ -26,7 +27,6 @@ interface MissionCommsProps {
   initialSessionId: string | null;
   campaignId?: string | null;
   briefing?: string;
-  worktreeBranch?: string | null;
   compromiseReason?: string | null;
   escalationQuestion?: string | null;
   isSynthesized: boolean;
@@ -34,15 +34,10 @@ interface MissionCommsProps {
 }
 
 const TERMINAL_STATUSES: MissionStatus[] = ['accomplished', 'compromised', 'abandoned'];
-const PRE_DEPLOY_STATUSES = ['standby', 'queued'];
+const PRE_DEPLOY_STATUSES: MissionStatus[] = ['standby', 'queued'];
 
-// Actor label colors: CONTROL=dim gray, OPERATIVE=green, OVERSEER=cyan, COMMANDER=amber
-const ACTOR_PREFIXES: Record<string, string> = {
-  CONTROL: '\x1b[2m[CONTROL]\x1b[0m ',
-  OPERATIVE: '\x1b[32m[OPERATIVE]\x1b[0m ',
-  OVERSEER: '\x1b[36m[OVERSEER]\x1b[0m ',
-  COMMANDER: '\x1b[33m[COMMANDER]\x1b[0m ',
-};
+/** Known actor names that map to styled labels in the Terminal. */
+const KNOWN_ACTORS = new Set<LogActor>(['CONTROL', 'OPERATIVE', 'OVERSEER', 'COMMANDER']);
 
 export function MissionComms({
   missionId,
@@ -54,7 +49,6 @@ export function MissionComms({
   initialSessionId,
   campaignId,
   briefing,
-  worktreeBranch,
   compromiseReason,
   escalationQuestion,
   isSynthesized,
@@ -68,7 +62,7 @@ export function MissionComms({
   );
   const hasRefreshed = useRef(false);
 
-  const liveStatus = status ?? (initialStatus as MissionStatus);
+  const liveStatus = status ?? initialStatus;
   const liveDebrief = debrief ?? initialDebrief;
 
   // Refresh server data when mission reaches terminal state
@@ -138,8 +132,6 @@ export function MissionComms({
         sessionId={initialSessionId}
         campaignId={campaignId}
         briefing={briefing}
-        worktreeBranch={worktreeBranch}
-        debrief={liveDebrief}
         compromiseReason={liveCompromise}
         escalationQuestion={escalationQuestion}
       />
@@ -156,24 +148,27 @@ function buildTerminalLogs(
   liveDebrief: string | null,
   liveStatus: MissionStatus,
   initialComms: Comm[],
-): Array<{ timestamp: number; type: 'comms' | 'sitrep' | 'alert'; content: string }> {
+): Array<{ timestamp: number; type: 'comms' | 'sitrep' | 'alert'; content: string; actor?: LogActor }> {
   const isTerminal = TERMINAL_STATUSES.includes(liveStatus);
 
-  // If we have comms from the new table, use those with actor labels
+  // If we have comms from the new table, use those with actor field for styled labels
   if (initialComms.length > 0) {
     return initialComms.map((comm) => {
-      const prefix = ACTOR_PREFIXES[comm.actor] ?? `[${comm.actor}] `;
+      const actor = KNOWN_ACTORS.has(comm.actor as LogActor)
+        ? (comm.actor as LogActor)
+        : undefined;
       const levelType: 'comms' | 'sitrep' | 'alert' =
         comm.level === 'error' ? 'alert' : comm.level === 'warn' ? 'sitrep' : 'comms';
       return {
         timestamp: comm.createdAt,
         type: levelType,
-        content: prefix + comm.message,
+        content: comm.message,
+        actor,
       };
     });
   }
 
-  // Fall back to legacy missionLogs
+  // Fall back to legacy missionLogs (no actor field)
   return logs
     .filter((log) => {
       // Hide the raw debrief text from comms — it's shown formatted below
