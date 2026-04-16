@@ -317,3 +317,30 @@ export const settings = sqliteTable('settings', {
   value: text('value').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// Mission Attempts (per-attempt lifecycle audit — CONTROL reliability layer)
+// ---------------------------------------------------------------------------
+export const missionAttempts = sqliteTable('mission_attempts', {
+  id: text('id').primaryKey(),
+  missionId: text('mission_id').notNull().references(() => missions.id),
+  attemptNumber: integer('attempt_number').notNull(),
+  startedAt: integer('started_at').notNull(),
+  endedAt: integer('ended_at'),
+  endReason: text('end_reason', {
+    enum: ['clean', 'timeout', 'silence-kill', 'infrastructure', 'rate-limit', 'auth', 'turn-limit', 'gate-failure'],
+  }),
+  classification: text('classification'), // JSON
+  gateResults: text('gate_results'), // JSON
+  debriefSynthesized: integer('debrief_synthesized').notNull().default(0),
+  autoCommitted: integer('auto_committed').notNull().default(0),
+  tokensInput: integer('tokens_input').notNull().default(0),
+  tokensOutput: integer('tokens_output').notNull().default(0),
+  tokensCache: integer('tokens_cache').notNull().default(0),
+  durationMs: integer('duration_ms'),
+  sessionId: text('session_id'),
+  targetHeadAtStart: text('target_head_at_start'),
+});
+
+export type MissionAttempt = typeof missionAttempts.$inferSelect;
+export type NewMissionAttempt = typeof missionAttempts.$inferInsert;
