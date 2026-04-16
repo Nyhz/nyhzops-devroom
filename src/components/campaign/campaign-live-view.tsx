@@ -33,6 +33,8 @@ interface CampaignLiveViewProps {
       costOutput: number | null;
       compromiseReason?: string | null;
       mergeRetryAt?: number | null;
+      debriefStructured?: string | null;
+      debrief?: string | null;
     }>;
   }>;
   battlefieldId: string;
@@ -160,7 +162,7 @@ export function CampaignLiveView({
       )}
       {status === 'compromised' && (
         <div className="bg-dr-surface border border-dr-red/30 px-4 py-2 font-tactical text-sm text-dr-red">
-          COMPROMISED — Awaiting Commander orders
+          COMPROMISED — Review the failed mission below and resolve before proceeding
         </div>
       )}
 

@@ -8,6 +8,7 @@ import { useConfirm } from '@/hooks/use-confirm';
 import {
   launchCampaign,
   abandonCampaign,
+  acceptCampaign,
   completeCampaign,
   deleteCampaign,
 } from '@/actions/campaign';
@@ -76,6 +77,16 @@ export function CampaignControls({
     await run('complete', () => completeCampaign(campaignId), 'Campaign accomplished');
   }
 
+  async function handleAccept() {
+    const result = await confirm({
+      title: 'ACCEPT CAMPAIGN',
+      description: 'Force-accomplish this campaign. All resolved missions will be marked done.',
+      actions: [{ label: 'ACCEPT', variant: 'primary' }],
+    });
+    if (result !== 0) return;
+    await run('accept', () => acceptCampaign(campaignId), 'Campaign accepted — mission accomplished');
+  }
+
   async function handleDelete() {
     const result = await confirm({
       title: 'DELETE CAMPAIGN',
@@ -137,18 +148,35 @@ export function CampaignControls({
           </>
         )}
 
-        {/* COMPROMISED: ABANDON */}
+        {/* PAUSED: ACCEPT CAMPAIGN, ABANDON */}
+        {status === 'paused' && (
+          <>
+            <TacButton onClick={handleAccept} disabled={disabled} variant="success">
+              {loading === 'accept' ? 'ACCEPTING...' : 'ACCEPT CAMPAIGN'}
+            </TacButton>
+            <TacButton onClick={handleAbandon} disabled={disabled} variant="danger">
+              {loading === 'abandon' ? 'ABANDONING...' : 'ABANDON'}
+            </TacButton>
+          </>
+        )}
+
+        {/* COMPROMISED: ACCEPT CAMPAIGN, ABANDON */}
         {status === 'compromised' && (
-          <TacButton onClick={handleAbandon} disabled={disabled} variant="danger">
-            {loading === 'abandon' ? 'ABANDONING...' : 'ABANDON'}
-          </TacButton>
+          <>
+            <TacButton onClick={handleAccept} disabled={disabled} variant="success">
+              {loading === 'accept' ? 'ACCEPTING...' : 'ACCEPT CAMPAIGN'}
+            </TacButton>
+            <TacButton onClick={handleAbandon} disabled={disabled} variant="danger">
+              {loading === 'abandon' ? 'ABANDONING...' : 'ABANDON'}
+            </TacButton>
+          </>
         )}
       </div>
 
       {/* COMPROMISED guidance */}
       {status === 'compromised' && (
         <div className="mt-3 font-tactical text-xs text-dr-amber">
-          Commander, review the compromised mission below. Use TACTICAL OVERRIDE or SKIP on the failed mission to proceed.
+          Commander, review the compromised mission below and navigate to the mission detail page to resolve it.
         </div>
       )}
 

@@ -6,6 +6,7 @@ import { CampaignControls } from '../campaign-controls';
 // Mock campaign actions
 const mockLaunchCampaign = vi.fn().mockResolvedValue(undefined);
 const mockAbandonCampaign = vi.fn().mockResolvedValue(undefined);
+const mockAcceptCampaign = vi.fn().mockResolvedValue(undefined);
 const mockCompleteCampaign = vi.fn().mockResolvedValue(undefined);
 const mockDeleteCampaign = vi.fn().mockResolvedValue(undefined);
 const mockBackToDraft = vi.fn().mockResolvedValue(undefined);
@@ -13,6 +14,7 @@ const mockBackToDraft = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/actions/campaign', () => ({
   launchCampaign: (...args: unknown[]) => mockLaunchCampaign(...args),
   abandonCampaign: (...args: unknown[]) => mockAbandonCampaign(...args),
+  acceptCampaign: (...args: unknown[]) => mockAcceptCampaign(...args),
   completeCampaign: (...args: unknown[]) => mockCompleteCampaign(...args),
   deleteCampaign: (...args: unknown[]) => mockDeleteCampaign(...args),
 }));
@@ -47,6 +49,7 @@ const baseProps = {
 beforeEach(() => {
   vi.clearAllMocks();
   confirmResult = 0;
+  mockAcceptCampaign.mockResolvedValue(undefined);
 });
 
 describe('CampaignControls', () => {
@@ -128,11 +131,50 @@ describe('CampaignControls', () => {
     });
   });
 
-  describe('compromised status', () => {
-    it('renders ABANDON button and guidance message', () => {
-      renderWithProviders(<CampaignControls {...baseProps} status="compromised" />);
+  describe('paused status', () => {
+    it('renders ACCEPT CAMPAIGN and ABANDON buttons', () => {
+      renderWithProviders(<CampaignControls {...baseProps} status="paused" />);
+      expect(screen.getByRole('button', { name: 'ACCEPT CAMPAIGN' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'ABANDON' })).toBeInTheDocument();
-      expect(screen.getByText(/TACTICAL OVERRIDE/)).toBeInTheDocument();
+    });
+
+    it('calls acceptCampaign on accept', async () => {
+      const { user } = renderWithProviders(
+        <CampaignControls {...baseProps} status="paused" />,
+      );
+      await user.click(screen.getByRole('button', { name: 'ACCEPT CAMPAIGN' }));
+      await waitFor(() => {
+        expect(mockAcceptCampaign).toHaveBeenCalledWith('camp-1');
+      });
+    });
+
+    it('calls abandonCampaign on abandon', async () => {
+      const { user } = renderWithProviders(
+        <CampaignControls {...baseProps} status="paused" />,
+      );
+      await user.click(screen.getByRole('button', { name: 'ABANDON' }));
+      await waitFor(() => {
+        expect(mockAbandonCampaign).toHaveBeenCalledWith('camp-1');
+      });
+    });
+  });
+
+  describe('compromised status', () => {
+    it('renders ACCEPT CAMPAIGN and ABANDON buttons and guidance message', () => {
+      renderWithProviders(<CampaignControls {...baseProps} status="compromised" />);
+      expect(screen.getByRole('button', { name: 'ACCEPT CAMPAIGN' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'ABANDON' })).toBeInTheDocument();
+      expect(screen.getByText(/mission detail page/)).toBeInTheDocument();
+    });
+
+    it('calls acceptCampaign on accept', async () => {
+      const { user } = renderWithProviders(
+        <CampaignControls {...baseProps} status="compromised" />,
+      );
+      await user.click(screen.getByRole('button', { name: 'ACCEPT CAMPAIGN' }));
+      await waitFor(() => {
+        expect(mockAcceptCampaign).toHaveBeenCalledWith('camp-1');
+      });
     });
 
     it('does not render GREEN LIGHT or MISSION ACCOMPLISHED', () => {

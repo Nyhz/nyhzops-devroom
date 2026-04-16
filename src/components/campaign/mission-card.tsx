@@ -7,6 +7,9 @@ import { TacBadge } from '@/components/ui/tac-badge';
 import { InlineErrorPanel } from '@/components/ui/inline-error-panel';
 import { MergeCountdown } from '@/components/mission/merge-countdown';
 import { MissionSkillPanel } from '@/components/campaign/mission-skill-panel';
+import { DebriefPanel } from '@/components/mission/debrief-panel';
+import { DebriefSchema } from '@/control/debrief/schema';
+import type { Debrief } from '@/control/debrief/schema';
 
 interface CampaignMissionCardProps {
   missionId?: string;
@@ -21,6 +24,10 @@ interface CampaignMissionCardProps {
   mergeRetryAt?: number | null;
   battlefieldId?: string | null;
   className?: string;
+  /** Structured debrief JSON string from missions.debrief_structured */
+  debriefStructured?: string | null;
+  /** Plain prose debrief text from missions.debrief */
+  debriefText?: string | null;
   // Skill override props — only used when campaign is in planning/draft status
   campaignStatus?: string | null;
   assetSkills?: string | null;
@@ -61,6 +68,8 @@ export function CampaignMissionCard({
   mergeRetryAt,
   battlefieldId,
   className,
+  debriefStructured,
+  debriefText,
   campaignStatus,
   assetSkills,
   assetMcpServers,
@@ -76,7 +85,21 @@ export function CampaignMissionCard({
   const isCompromised = normalizedStatus === 'compromised';
   const isMerging = normalizedStatus === 'merging';
 
+  // Parse structured debrief JSON if present
+  let parsedDebrief: Debrief | null = null;
+  if (debriefStructured) {
+    try {
+      const raw: unknown = JSON.parse(debriefStructured);
+      const result = DebriefSchema.safeParse(raw);
+      if (result.success) parsedDebrief = result.data;
+    } catch {
+      // invalid JSON — fall through to prose debrief
+    }
+  }
+  const hasDebrief = parsedDebrief !== null || (debriefText != null && debriefText.length > 0);
+
   const [skillPanelOpen, setSkillPanelOpen] = useState(false);
+  const [debriefOpen, setDebriefOpen] = useState(false);
 
   const canOverride =
     missionId != null &&
@@ -197,6 +220,35 @@ export function CampaignMissionCard({
           discoveredMcps={discoveredMcps!}
           onClose={() => setSkillPanelOpen(false)}
         />
+      )}
+
+      {/* Debrief toggle */}
+      {hasDebrief && (
+        <div className="pl-4 mt-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDebriefOpen((prev) => !prev);
+            }}
+            className="font-tactical text-xs text-dr-muted hover:text-dr-text transition-colors cursor-pointer"
+          >
+            {debriefOpen ? '▲ HIDE DEBRIEF' : '▼ DEBRIEF'}
+          </button>
+        </div>
+      )}
+
+      {/* Expandable debrief panel */}
+      {hasDebrief && debriefOpen && (
+        <div className="mt-2 border-t border-dr-border pt-2">
+          <DebriefPanel
+            debrief={parsedDebrief}
+            debriefText={debriefText ?? null}
+            isSynthesized={false}
+            isCompromised={isCompromised}
+          />
+        </div>
       )}
     </div>
   );
