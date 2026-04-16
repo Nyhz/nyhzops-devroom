@@ -21,6 +21,7 @@ import { emitComm } from '@/control/comms';
 import { findTransitiveDependents } from '@/control/campaign/dependency-graph';
 import { composePhaseDebrief } from '@/control/campaign/debrief';
 import type { Debrief } from '@/control/debrief/schema';
+import type { EscalationQuestion } from '@/lib/telegram/notifier';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -380,6 +381,17 @@ function settleCampaign(campaignId: string): void {
     message: `Campaign → ${nextStatus.toUpperCase()}`,
     level: nextStatus === 'accomplished' ? 'info' : 'error',
   });
+
+  // Notify Commander via Telegram (fire-and-forget; failure must not break CONTROL).
+  if (nextStatus === 'accomplished') {
+    import('@/lib/telegram/notifier')
+      .then(({ notifyCampaignAccomplished }) => notifyCampaignAccomplished(campaignId))
+      .catch((err) => console.error('[CONTROL] notifyCampaignAccomplished failed:', err));
+  } else {
+    import('@/lib/telegram/notifier')
+      .then(({ notifyCampaignCompromised }) => notifyCampaignCompromised(campaignId))
+      .catch((err) => console.error('[CONTROL] notifyCampaignCompromised failed:', err));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -395,7 +407,10 @@ function settleCampaign(campaignId: string): void {
  *
  * Pure dependency-waiting (deps still running) keeps the campaign ACTIVE.
  */
-export function onMissionCompromisedAwaitingCommander(missionId: string): void {
+export function onMissionCompromisedAwaitingCommander(
+  missionId: string,
+  escalationQuestion?: EscalationQuestion,
+): void {
   const db = getDatabase();
   const mission = loadMission(missionId);
   if (!mission.campaignId) return;
@@ -463,6 +478,13 @@ export function onMissionCompromisedAwaitingCommander(missionId: string): void {
     message: 'Campaign → COMPROMISED — Commander input required',
     level: 'error',
   });
+
+  // Notify Commander via Telegram (fire-and-forget; failure must not break CONTROL).
+  import('@/lib/telegram/notifier')
+    .then(({ notifyMissionCompromised }) =>
+      notifyMissionCompromised(missionId, escalationQuestion),
+    )
+    .catch((err) => console.error('[CONTROL] notifyMissionCompromised failed:', err));
 }
 
 // ---------------------------------------------------------------------------

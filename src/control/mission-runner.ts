@@ -352,6 +352,12 @@ export async function runMission(
         level: 'error',
       });
       transitionMission(missionId, 'compromised', endedAt);
+
+      // Notify Commander via Telegram (fire-and-forget; failure must not break CONTROL).
+      import('@/lib/telegram/notifier')
+        .then(({ notifyAuthPause }) => notifyAuthPause())
+        .catch((err) => console.error('[CONTROL] notifyAuthPause failed:', err));
+
       return {
         missionId,
         finalStatus: 'compromised',
