@@ -342,7 +342,6 @@ export async function tacticalOverride(
   missionId: string,
   newBriefing: string,
 ): Promise<void> {
-  const db = getDatabase();
   const mission = getOrThrow(missions, missionId, 'tacticalOverride');
 
   executorTacticalOverride(missionId, newBriefing);
@@ -355,7 +354,6 @@ export async function tacticalOverride(
 // acceptMergeOverride — Commander force-merges a COMPROMISED mission
 // ---------------------------------------------------------------------------
 export async function acceptMergeOverride(missionId: string): Promise<void> {
-  const db = getDatabase();
   const mission = getOrThrow(missions, missionId, 'acceptMergeOverride');
 
   if (mission.status !== 'compromised') {
