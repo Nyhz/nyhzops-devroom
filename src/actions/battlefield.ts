@@ -256,10 +256,17 @@ export async function createBattlefield(
     const runBootstrap = deps.runBootstrap ?? _fireAndForgetBootstrap;
     runBootstrap({ battlefieldId: id, spawnAsset: async (opts) => (await makeProductionSpawnAsset())(opts) }).catch(
       (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
         console.error(
           `[createBattlefield] background bootstrap failed for ${id}:`,
           err,
         );
+        emitComm({
+          battlefieldId: id,
+          actor: 'CONTROL',
+          level: 'error',
+          message: `Bootstrap failed: ${msg}`,
+        });
       },
     );
   }
@@ -673,10 +680,17 @@ export async function establishGates(
     battlefieldId,
     spawnAsset: async (opts) => (await makeProductionSpawnAsset())(opts),
   }).catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
     console.error(
       `[establishGates] background bootstrap failed for ${battlefieldId}:`,
       err,
     );
+    emitComm({
+      battlefieldId,
+      actor: 'CONTROL',
+      level: 'error',
+      message: `Gate scaffold/detection failed: ${msg}`,
+    });
   });
 
   revalidatePath(`/battlefields/${battlefieldId}`);
@@ -851,11 +865,17 @@ export async function pruneForensicBranches(
   const forensicBranches = branches.all.filter((b) =>
     b.startsWith('forensic/'),
   );
+  const currentBranch = branches.current;
 
   const cutoffMs = Date.now() - daysOld * 24 * 60 * 60 * 1000;
   const pruned: string[] = [];
+  const skipped: string[] = [];
 
   for (const branch of forensicBranches) {
+    if (branch === currentBranch) {
+      skipped.push(branch);
+      continue;
+    }
     try {
       const output = await git.raw([
         'log',
@@ -868,12 +888,32 @@ export async function pruneForensicBranches(
 
       const commitMs = commitTimestampSec * 1000;
       if (commitMs < cutoffMs) {
-        await git.raw(['branch', '-D', branch]);
-        pruned.push(branch);
+        try {
+          await git.raw(['branch', '-D', branch]);
+          pruned.push(branch);
+        } catch (err) {
+          console.error(
+            `[pruneForensicBranches] Failed to delete ${branch}:`,
+            err,
+          );
+          skipped.push(branch);
+        }
       }
-    } catch {
-      // Non-fatal — branch may have already been deleted; skip.
+    } catch (err) {
+      console.error(
+        `[pruneForensicBranches] Failed to read commit date for ${branch}:`,
+        err,
+      );
     }
+  }
+
+  if (skipped.length > 0) {
+    emitComm({
+      battlefieldId,
+      actor: 'CONTROL',
+      message: `Forensic prune skipped branch(es): ${skipped.join(', ')} (checked out or delete failed).`,
+      level: 'warn',
+    });
   }
 
   emitComm({
@@ -977,10 +1017,17 @@ export async function regenerateBootstrap(
     battlefieldId,
     spawnAsset: async (opts) => (await makeProductionSpawnAsset())(opts),
   }).catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
     console.error(
       `[regenerateBootstrap] background bootstrap failed for ${battlefieldId}:`,
       err,
     );
+    emitComm({
+      battlefieldId,
+      actor: 'CONTROL',
+      level: 'error',
+      message: `Bootstrap regeneration failed: ${msg}`,
+    });
   });
 
   revalidatePath(`/battlefields/${battlefieldId}`);
