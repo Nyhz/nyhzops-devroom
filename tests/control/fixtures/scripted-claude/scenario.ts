@@ -14,6 +14,12 @@ export interface Scenario {
    *  scripted-claude writes files the "agent" would have edited. Paths are
    *  resolved relative to the subprocess cwd. */
   writeFiles?: Array<{ path: string; contents: string }>;
+  /** Optional shell commands to run (sequentially) after `writeFiles` but
+   *  before emitting events. Used by the QUARTERMASTER integration tests to
+   *  simulate the real CLI's `git add` / `git commit` tool calls — scripted
+   *  claude otherwise only writes files. `cwd` defaults to the subprocess
+   *  cwd. Each command is run via `/bin/sh -c`. */
+  shellCommands?: Array<{ cmd: string; cwd?: string }>;
 }
 
 export type ScenarioEvent =

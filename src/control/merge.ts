@@ -28,6 +28,11 @@ export interface QuartermasterInput {
 export interface QuartermasterResult {
   resolved: boolean;
   stderr?: string;
+  /** Short reason code when `resolved: false` (e.g. 'unresolved-conflict',
+   *  'timeout', 'no-commit'). */
+  reason?: string;
+  /** SHA of the commit QUARTERMASTER produced when `resolved: true`. */
+  commitSha?: string;
 }
 
 export type QuartermasterCallback = (
@@ -141,7 +146,9 @@ export async function runMerge(
     const rebase = await rebaseOntoTarget(opts.worktreePath, opts.targetBranch);
 
     if (rebase.conflict) {
-      if (!opts.onQuartermaster) {
+      const onQuartermaster =
+        opts.onQuartermaster ?? (await resolveDefaultQuartermaster());
+      if (!onQuartermaster) {
         return { status: 'compromised', reason: 'merge-conflict' };
       }
       const conflictDiff = await safeCollectConflictDiff(opts.worktreePath);
@@ -153,7 +160,7 @@ export async function runMerge(
         opts.repoPath,
         `${opts.sourceBranch}..${opts.targetBranch}`,
       );
-      const qm = await opts.onQuartermaster({
+      const qm = await onQuartermaster({
         worktreePath: opts.worktreePath,
         repoPath: opts.repoPath,
         sourceBranch: opts.sourceBranch,
@@ -205,6 +212,24 @@ async function safeCollectConflictDiff(worktreePath: string): Promise<string> {
     return await git.raw(['status', '--porcelain']);
   } catch {
     return '';
+  }
+}
+
+/**
+ * Lazy-load the real QUARTERMASTER spawn. We import dynamically so that:
+ *   - `merge.ts` remains usable in pure-unit contexts that never touch the DB,
+ *   - the import cycle between `merge.ts` and `merge/quartermaster.ts` (the
+ *     callee imports `QuartermasterInput` / `QuartermasterResult` from here)
+ *     stays resolvable.
+ * Returns `null` if the module fails to load — callers fall back to the
+ * legacy 'merge-conflict' compromise.
+ */
+async function resolveDefaultQuartermaster(): Promise<QuartermasterCallback | null> {
+  try {
+    const mod = await import('./merge/quartermaster');
+    return (input: QuartermasterInput) => mod.spawnQuartermaster(input);
+  } catch {
+    return null;
   }
 }
 

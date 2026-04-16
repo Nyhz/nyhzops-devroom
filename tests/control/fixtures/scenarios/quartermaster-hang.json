@@ -1,0 +1,7 @@
+{
+  "hangMs": 10000,
+  "events": [
+    { "type": "result", "subtype": "success" }
+  ],
+  "exitCode": 0
+}

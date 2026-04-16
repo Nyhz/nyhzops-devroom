@@ -1,0 +1,10 @@
+{
+  "shellCommands": [
+    { "cmd": "git -c user.email=qm@local -c user.name=Quartermaster rebase -X theirs ${QM_TARGET_BRANCH}" }
+  ],
+  "events": [
+    { "type": "assistant", "text": "Resolved conflict in src/index.ts. <DEBRIEF>{\"summary\":\"merged add() — preserved additive intent\",\"commits\":[\"resolve merge conflict\"],\"files_touched\":[\"src/index.ts\"],\"confidence\":\"high\"}</DEBRIEF>", "delayMs": 10 },
+    { "type": "result", "subtype": "success", "duration_ms": 100, "num_turns": 2, "total_cost_usd": 0.001, "usage": { "input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 800 } }
+  ],
+  "exitCode": 0
+}

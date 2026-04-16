@@ -1,0 +1,13 @@
+{
+  "writeFiles": [
+    {
+      "path": "src/index.ts",
+      "contents": "export function add(a: number, b: number): number {\n  // QM wrote a file but did not resolve / commit.\n  return a + b;\n}\n"
+    }
+  ],
+  "events": [
+    { "type": "assistant", "text": "I could not decide — escalating to Commander.", "delayMs": 10 },
+    { "type": "result", "subtype": "success", "duration_ms": 50, "num_turns": 1, "total_cost_usd": 0.0005, "usage": { "input_tokens": 80, "output_tokens": 20, "cache_read_input_tokens": 500 } }
+  ],
+  "exitCode": 0
+}
