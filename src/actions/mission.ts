@@ -488,23 +488,3 @@ export async function continueMission(
   return db.select().from(missions).where(eq(missions.id, id)).get() as Mission;
 }
 
-// ---------------------------------------------------------------------------
-// DEPRECATED STUBS — removed in CONTROL refactor. Will be deleted in Phase 10.
-// UI callers will be updated in Tasks 8.4/8.7.
-// ---------------------------------------------------------------------------
-
-export async function removeMission(_id: string): Promise<{ battlefieldId: string }> {
-  throw new Error('Deprecated: removeMission removed in CONTROL refactor, see Phase 8.4/8.7');
-}
-
-export async function retryMerge(_missionId: string): Promise<void> {
-  throw new Error('Deprecated: retryMerge removed in CONTROL refactor, see Phase 8.4/8.7');
-}
-
-export async function retryReview(_missionId: string): Promise<void> {
-  throw new Error('Deprecated: retryReview removed in CONTROL refactor, see Phase 8.4/8.7');
-}
-
-export async function overrideApprove(_missionId: string): Promise<void> {
-  throw new Error('Deprecated: overrideApprove removed in CONTROL refactor, see Phase 8.4/8.7');
-}

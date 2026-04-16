@@ -32,8 +32,8 @@ const {
   deployMission,
   abandonMission,
   continueMission,
-  removeMission,
 } = await import('@/actions/mission');
+const missionModule = (await import('@/actions/mission')) as Record<string, unknown>;
 
 // ---------------------------------------------------------------------------
 // Test suite
@@ -609,11 +609,11 @@ describe('Mission Server Actions', () => {
   });
 
   // =========================================================================
-  // removeMission — deprecated stub (Phase 8.1 CONTROL refactor)
+  // removeMission — deleted in Phase 10 CONTROL cutover
   // =========================================================================
   describe('removeMission', () => {
-    it('throws deprecation error (removed in CONTROL refactor)', async () => {
-      await expect(removeMission('any-id')).rejects.toThrow('Deprecated');
+    it('is no longer exported (deleted in CONTROL cutover)', () => {
+      expect(missionModule.removeMission).toBeUndefined();
     });
   });
 });

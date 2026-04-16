@@ -506,31 +506,27 @@ describe('mission-actions integration — Phase 8.1', () => {
   });
 
   // =========================================================================
-  // Deprecated stubs — should throw
+  // Removed stubs — deleted in Phase 10 cutover
   // =========================================================================
-  describe('deprecated stub actions', () => {
-    it('removeMission throws deprecation error', async () => {
-      await expect(
-        (await import('@/actions/mission')).removeMission('any-id'),
-      ).rejects.toThrow('Deprecated');
+  describe('removed stub actions', () => {
+    it('removeMission is no longer exported', async () => {
+      const mod = await import('@/actions/mission');
+      expect((mod as Record<string, unknown>).removeMission).toBeUndefined();
     });
 
-    it('retryMerge throws deprecation error', async () => {
-      await expect(
-        (await import('@/actions/mission')).retryMerge('any-id'),
-      ).rejects.toThrow('Deprecated');
+    it('retryMerge is no longer exported', async () => {
+      const mod = await import('@/actions/mission');
+      expect((mod as Record<string, unknown>).retryMerge).toBeUndefined();
     });
 
-    it('retryReview throws deprecation error', async () => {
-      await expect(
-        (await import('@/actions/mission')).retryReview('any-id'),
-      ).rejects.toThrow('Deprecated');
+    it('retryReview is no longer exported', async () => {
+      const mod = await import('@/actions/mission');
+      expect((mod as Record<string, unknown>).retryReview).toBeUndefined();
     });
 
-    it('overrideApprove throws deprecation error', async () => {
-      await expect(
-        (await import('@/actions/mission')).overrideApprove('any-id'),
-      ).rejects.toThrow('Deprecated');
+    it('overrideApprove is no longer exported', async () => {
+      const mod = await import('@/actions/mission');
+      expect((mod as Record<string, unknown>).overrideApprove).toBeUndefined();
     });
   });
 });
