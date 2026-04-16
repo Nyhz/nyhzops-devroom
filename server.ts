@@ -13,7 +13,10 @@ import { config } from './src/lib/config';
 import { Orchestrator } from './src/lib/orchestrator/orchestrator';
 import { DevServerManager } from './src/lib/process/dev-server';
 import { Scheduler } from './src/lib/scheduler/scheduler';
-import { isEnabled as telegramIsEnabled, startPolling as startTelegramPolling, stopPolling as stopTelegramPolling } from './src/lib/telegram/telegram';
+import { telegramBot } from './src/lib/telegram/bot';
+import { attachCallbackHandler } from './src/lib/telegram/notifier';
+// Legacy telegram module kept for backwards-compatibility shim (isEnabled check).
+import { isEnabled as telegramIsEnabled } from './src/lib/telegram/telegram';
 import { handleTelegramCallback } from './src/lib/overseer/escalation';
 import { setBootTimestamp, stopMetricsEmitter } from './src/lib/system-metrics';
 
@@ -114,15 +117,25 @@ async function start() {
   scheduler.start();
 
 
-  // 5h. Telegram polling
+  // 5h. Telegram bot + callback handler
+  // Wire the callback handler once (idempotent) so escalation replies route
+  // through answerEscalation. Start the long-polling loop fire-and-forget.
+  attachCallbackHandler();
+  // Legacy callback fallback for overseer escalation (kept until full cutover).
   if (telegramIsEnabled()) {
-    startTelegramPolling((callbackData, messageId) => {
-      handleTelegramCallback(callbackData, messageId).catch((err) => {
-        console.error('[DEVROOM] Telegram callback error:', err);
-      });
+    telegramBot.on('callback_query', (payload) => {
+      const cq = payload as { data?: string; message?: { message_id?: number } };
+      if (cq.data) {
+        handleTelegramCallback(cq.data, cq.message?.message_id ?? 0).catch((err) => {
+          console.error('[DEVROOM] Telegram callback error:', err);
+        });
+      }
     });
-    console.log('[DEVROOM] Telegram bot polling active');
   }
+  telegramBot.start().catch((err) => {
+    console.error('[DEVROOM] Telegram bot polling failed:', err);
+  });
+  console.log('[DEVROOM] Telegram bot polling active');
 
   // 6. Detect local IP
   const localIP = getLocalIP();
@@ -148,7 +161,7 @@ async function start() {
 
     console.log('\n[DEVROOM] STANDING DOWN...');
     stopMetricsEmitter();
-    stopTelegramPolling();
+    telegramBot.stop();
     scheduler.stop();
     devServerManager.stopAll();
     await orchestrator.shutdown();

@@ -1,3 +1,10 @@
+/**
+ * @deprecated Use `@/lib/telegram/bot` (TelegramBot) and
+ * `@/lib/telegram/notifier` for new code.
+ * This file is kept for `isEnabled()`, `sendMessage()`, `sendEscalation()`,
+ * and `editMessage()` used by `src/lib/overseer/escalation.ts` until full
+ * cutover (Phase 10).
+ */
 import { config } from '@/lib/config';
 
 // ---------------------------------------------------------------------------
