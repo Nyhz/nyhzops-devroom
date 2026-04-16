@@ -35,7 +35,7 @@ import { getDatabase } from '@/lib/db';
 import { battlefields, comms, missions, missionAttempts } from '@/lib/db/schema';
 import { bootstrapBattlefield } from '@/control/bootstrap/bootstrap';
 import type { SpawnAssetOpts, AssetRunResult } from '@/control/mission-runner';
-import { materializeRepo, type MaterializedRepo } from '@/../tests/control/fixtures/repos/materialize';
+import { materializeRepo } from '@/../tests/control/fixtures/repos/materialize';
 
 const db = getDatabase();
 const BF_ID = 'bf-bootstrap-test';
