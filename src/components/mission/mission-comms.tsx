@@ -50,7 +50,6 @@ export function MissionComms({
   initialStatus,
   initialDebrief,
   initialStructuredDebrief,
-  initialTokens,
   battlefieldId,
   initialSessionId,
   campaignId,
@@ -62,7 +61,7 @@ export function MissionComms({
   initialComms,
 }: MissionCommsProps) {
   const router = useRouter();
-  const { logs, status, debrief, tokens, compromiseReason: liveCompromiseReason } = useMissionComms(
+  const { logs, status, debrief, compromiseReason: liveCompromiseReason } = useMissionComms(
     missionId,
     initialLogs,
     initialStatus,
@@ -83,17 +82,6 @@ export function MissionComms({
       router.refresh();
     }
   }, [liveStatus, router]);
-
-  // Token display values — prefer live data, fall back to initial
-  const displayInput = tokens?.input ?? initialTokens.input;
-  const _displayOutput = tokens?.output ?? initialTokens.output;
-  const displayCacheHit = tokens?.cacheHit ?? initialTokens.cacheHit;
-  const _displayDuration = initialTokens.duration;
-  const _displayCostUsd = tokens?.costUsd ?? null;
-
-  const totalInputContext = displayInput + displayCacheHit;
-  const _cachePercent =
-    totalInputContext > 0 ? Math.round((displayCacheHit / totalInputContext) * 100) : 0;
 
   // Build terminal logs — prefer structured comms table if available, else fall back to missionLogs
   const isPreDeploy = PRE_DEPLOY_STATUSES.includes(liveStatus);
