@@ -92,6 +92,21 @@ ${PLANNING_RULES}
 
 ${MISSION_TYPE_RULES}`;
 
+/**
+ * Minimal system prompt used only on GENERATE PLAN invocations.
+ *
+ * The conversation-mode BRIEFING_CONTRACT advertises Read/Glob/Grep as
+ * available recon tools. On GENERATE PLAN we pass `--tools ""` (no tools)
+ * and `--max-turns 1` — if the system prompt still claims tools exist, the
+ * model hallucinates `<tool_call>` markup instead of emitting the JSON plan.
+ * Keeping this prompt short and tool-free eliminates that failure mode.
+ */
+export const GENERATE_PLAN_SYSTEM_PROMPT = `You are STRATEGIST emitting a single JSON campaign plan.
+
+You have NO tools available in this invocation — do not attempt to call, invoke, or reference any tool. Do not emit <tool_call>, <tool_result>, \`\`\`tool_code, or similar markup. You have already gathered everything you need during the briefing conversation; now you are committing the plan to JSON.
+
+The user message contains the conversation summary and the exact output contract. Follow it literally.`;
+
 export const GENERATE_PLAN_CONTRACT = `The Commander has issued GENERATE PLAN.
 
 ${MISSION_TYPE_RULES}

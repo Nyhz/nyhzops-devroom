@@ -8,6 +8,7 @@ import { MissionActions } from '@/components/mission/mission-actions';
 import { DebriefPanel } from '@/components/mission/debrief-panel';
 import type { MissionLog, MissionStatus } from '@/types';
 import type { LogActor } from '@/components/ui/terminal';
+import type { LiveMissionLog } from '@/hooks/use-mission-comms';
 import type { Debrief } from '@/control/debrief/schema';
 import type { Comm } from '@/lib/db/schema';
 
@@ -144,7 +145,7 @@ export function MissionComms({
  * Prefers comms table (with actor labels) if present; falls back to missionLogs.
  */
 function buildTerminalLogs(
-  logs: MissionLog[],
+  logs: LiveMissionLog[],
   liveDebrief: string | null,
   liveStatus: MissionStatus,
   initialComms: Comm[],
@@ -171,6 +172,9 @@ function buildTerminalLogs(
       timestamp: log.timestamp,
       type: (log.type as 'comms' | 'sitrep' | 'alert') ?? 'comms',
       content: log.content,
+      actor: log.actor && KNOWN_ACTORS.has(log.actor as LogActor)
+        ? (log.actor as LogActor)
+        : undefined,
     }));
     return [...staticEntries, ...liveEntries];
   }

@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { TacCard } from '@/components/ui/tac-card';
 import { useActivityFeed, type ActivityEvent } from '@/hooks/use-activity-feed';
@@ -61,11 +60,6 @@ function ActivityEntry({ event }: { event: ActivityEvent }) {
 
 export function ActivityFeed({ className, initialEvents }: ActivityFeedProps) {
   const events = useActivityFeed(initialEvents);
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [events.length]);
 
   return (
     <div className={cn('flex flex-col', className)}>
@@ -82,7 +76,6 @@ export function ActivityFeed({ className, initialEvents }: ActivityFeedProps) {
             {events.map((event, i) => (
               <ActivityEntry key={`${event.timestamp}-${i}`} event={event} />
             ))}
-            <div ref={bottomRef} />
           </div>
         )}
       </TacCard>

@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useSocket, useReconnectKey } from '@/hooks/use-socket';
 import type { MissionLog, MissionStatus } from '@/types';
 
+export type LiveMissionLog = MissionLog & { actor?: string };
+
 const MAX_LOGS = 1000;
 
 interface MissionTokens {
@@ -15,7 +17,7 @@ interface MissionTokens {
 }
 
 interface UseMissionCommsReturn {
-  logs: MissionLog[];
+  logs: LiveMissionLog[];
   status: MissionStatus | null;
   debrief: string | null;
   tokens: MissionTokens | null;
@@ -29,7 +31,7 @@ export function useMissionComms(
 ): UseMissionCommsReturn {
   const socket = useSocket();
   const reconnectKey = useReconnectKey();
-  const [logs, setLogs] = useState<MissionLog[]>(initialLogs);
+  const [logs, setLogs] = useState<LiveMissionLog[]>(initialLogs);
   const [status, setStatus] = useState<MissionStatus | null>(initialStatus as MissionStatus);
   const [debrief, setDebrief] = useState<string | null>(null);
   const [tokens, setTokens] = useState<MissionTokens | null>(null);
@@ -59,6 +61,7 @@ export function useMissionComms(
           timestamp: data.createdAt,
           type: levelTypeMap[data.level] ?? 'comms',
           content: data.message,
+          actor: data.actor,
         }];
         if (next.length > MAX_LOGS) {
           return next.slice(next.length - MAX_LOGS);

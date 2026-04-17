@@ -39,13 +39,10 @@ export function formatCommsEvent(ev: StreamJsonEvent): string[] {
           if (t) out.push(t.length > 400 ? `${t.slice(0, 400)}…` : t);
         } else if (ptype === 'tool_use') {
           const name = typeof p.name === 'string' ? p.name : 'tool';
-          const summary = summarizeToolInput(name, p.input);
-          out.push(summary ? `⚙ ${name}: ${summary}` : `⚙ ${name}`);
-        } else if (ptype === 'tool_result') {
-          const preview = summarizeToolResult(p.content);
-          const glyph = p.is_error === true ? '✗' : '✓';
-          out.push(preview ? `${glyph} result: ${preview}` : `${glyph} result`);
+          out.push(`⚙ ${name}`);
         }
+        // tool_result intentionally dropped — the asset's narration conveys intent;
+        // raw tool output is noise in the comms stream.
       }
       return out;
     }
@@ -60,63 +57,13 @@ export function formatCommsEvent(ev: StreamJsonEvent): string[] {
     }
     case 'tool_use': {
       const name = typeof ev.name === 'string' ? ev.name : 'tool';
-      const input = (ev as { input?: unknown }).input;
-      const summary = summarizeToolInput(name, input);
-      return [summary ? `⚙ ${name}: ${summary}` : `⚙ ${name}`];
+      return [`⚙ ${name}`];
     }
-    case 'tool_result': {
-      const content = (ev as { content?: unknown }).content;
-      const preview = summarizeToolResult(content);
-      const isError = (ev as { is_error?: boolean }).is_error === true;
-      const glyph = isError ? '✗' : '✓';
-      return [preview ? `${glyph} result: ${preview}` : `${glyph} result`];
-    }
+    case 'tool_result':
+      return [];
     default:
       return [];
   }
-}
-
-function summarizeToolInput(_name: string, input: unknown): string | null {
-  if (!input || typeof input !== 'object') return null;
-  const rec = input as Record<string, unknown>;
-  const candidates = ['command', 'file_path', 'path', 'pattern', 'query', 'url'];
-  for (const key of candidates) {
-    const v = rec[key];
-    if (typeof v === 'string' && v.length > 0) {
-      return v.length > 200 ? `${v.slice(0, 200)}…` : v;
-    }
-  }
-  const desc = rec.description;
-  if (typeof desc === 'string' && desc.length > 0) {
-    return desc.length > 200 ? `${desc.slice(0, 200)}…` : desc;
-  }
-  // Fall back to a compact JSON preview for unknown tool shapes.
-  try {
-    const s = JSON.stringify(rec);
-    return s.length > 200 ? `${s.slice(0, 200)}…` : s;
-  } catch {
-    return null;
-  }
-}
-
-function summarizeToolResult(content: unknown): string | null {
-  if (typeof content === 'string') {
-    const trimmed = content.trim();
-    if (!trimmed) return null;
-    return trimmed.length > 200 ? `${trimmed.slice(0, 200)}…` : trimmed;
-  }
-  if (Array.isArray(content)) {
-    for (const part of content) {
-      if (part && typeof part === 'object') {
-        const text = (part as { text?: unknown }).text;
-        if (typeof text === 'string' && text.trim().length > 0) {
-          const t = text.trim();
-          return t.length > 200 ? `${t.slice(0, 200)}…` : t;
-        }
-      }
-    }
-  }
-  return null;
 }
 
 type Emitter = (room: string, event: string, payload: unknown) => void;

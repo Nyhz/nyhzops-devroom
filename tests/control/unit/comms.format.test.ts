@@ -13,7 +13,7 @@ describe('formatCommsEvent — real Claude stream-json shape', () => {
     expect(formatCommsEvent(ev)).toEqual(['Adding health route now.']);
   });
 
-  it('extracts tool_use from nested assistant content', () => {
+  it('emits tool_use as bare name — no argument summary', () => {
     const ev = {
       type: 'assistant',
       message: {
@@ -27,7 +27,7 @@ describe('formatCommsEvent — real Claude stream-json shape', () => {
         ],
       },
     } as unknown as StreamJsonEvent;
-    expect(formatCommsEvent(ev)).toEqual(['⚙ Bash: pnpm build']);
+    expect(formatCommsEvent(ev)).toEqual(['⚙ Bash']);
   });
 
   it('emits one message per content part, preserving order', () => {
@@ -47,11 +47,11 @@ describe('formatCommsEvent — real Claude stream-json shape', () => {
     } as unknown as StreamJsonEvent;
     expect(formatCommsEvent(ev)).toEqual([
       "I'll read the file.",
-      '⚙ Read: src/x.ts',
+      '⚙ Read',
     ]);
   });
 
-  it('extracts tool_result from nested user.message.content[]', () => {
+  it('drops tool_result entries — raw tool output is noise', () => {
     const ev = {
       type: 'user',
       message: {
@@ -64,24 +64,7 @@ describe('formatCommsEvent — real Claude stream-json shape', () => {
         ],
       },
     } as unknown as StreamJsonEvent;
-    expect(formatCommsEvent(ev)).toEqual(['✓ result: file contents here']);
-  });
-
-  it('marks errored tool_result with ✗', () => {
-    const ev = {
-      type: 'user',
-      message: {
-        content: [
-          {
-            type: 'tool_result',
-            tool_use_id: 't1',
-            content: 'boom',
-            is_error: true,
-          },
-        ],
-      },
-    } as unknown as StreamJsonEvent;
-    expect(formatCommsEvent(ev)).toEqual(['✗ result: boom']);
+    expect(formatCommsEvent(ev)).toEqual([]);
   });
 
   it('supports legacy flat assistant shape (back-compat with test fixtures)', () => {

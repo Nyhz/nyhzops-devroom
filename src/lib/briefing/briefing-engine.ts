@@ -1,4 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 import { eq } from 'drizzle-orm';
 import type { Server as SocketIOServer } from 'socket.io';
 import { getDatabase } from '@/lib/db/index';
@@ -15,7 +17,7 @@ import {
 import { generateId } from '@/lib/utils';
 import { config } from '@/lib/config';
 import { buildBriefingSystemPrompt, buildBriefingUserMessage } from './briefing-prompt';
-import { GENERATE_PLAN_CONTRACT } from './briefing-contract';
+import { GENERATE_PLAN_CONTRACT, GENERATE_PLAN_SYSTEM_PROMPT } from './briefing-contract';
 import { formatAssetRoster } from './asset-roster';
 import { insertPlanFromJSON } from '@/actions/campaign-helpers';
 import type { PlanJSON } from '@/types';
@@ -55,6 +57,25 @@ const activeProcesses = new Map<string, ActiveProcess>();
 /**
  * Filter multiple flags (and their values) from an args array.
  */
+/**
+ * Rewrite the settings.json inside an isolated HOME to clear `enabledPlugins`.
+ * Plugin-provided tools (e.g. typescript-lsp → `LSP`) are not suppressed by
+ * `--tools ""`, so on a `--max-turns 1` run the model will happily reach for
+ * them and the CLI will exit 1 when the turn budget runs out mid-tool-call.
+ * Keeps the rest of settings (credentials, permissions mode) intact.
+ */
+function disableHomePlugins(homePath: string): void {
+  const settingsPath = path.join(homePath, '.claude', 'settings.json');
+  try {
+    const raw = fs.readFileSync(settingsPath, 'utf-8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    parsed.enabledPlugins = {};
+    fs.writeFileSync(settingsPath, JSON.stringify(parsed, null, 2));
+  } catch {
+    // Best-effort: if settings don't exist or can't be parsed, leave them.
+  }
+}
+
 function filterFlags(args: string[], flags: string[]): string[] {
   const flagSet = new Set(flags);
   const result: string[] = [];
@@ -159,11 +180,16 @@ export async function sendBriefingMessage(
 
   // Composed system prompt: stable across turns within a briefing and across
   // briefings on the same battlefield, so eligible for prompt caching.
-  const composedSystemPrompt = buildBriefingSystemPrompt({
-    claudeMdPath: battlefield.claudeMdPath,
-    specMdPath: battlefield.specMdPath,
-    allAssets,
-  });
+  // GENERATE PLAN uses a dedicated tool-free system prompt — the conversation
+  // BRIEFING_CONTRACT advertises Read/Glob/Grep, which makes the model
+  // hallucinate tool-call markup when tools are stripped for plan emission.
+  const composedSystemPrompt = isGeneratePlan
+    ? GENERATE_PLAN_SYSTEM_PROMPT
+    : buildBriefingSystemPrompt({
+        claudeMdPath: battlefield.claudeMdPath,
+        specMdPath: battlefield.specMdPath,
+        allAssets,
+      });
 
   // Conversation mode: read-only recon tools (Read, Glob, Grep) so STRATEGIST
   // can scout the codebase while planning. No Bash, Edit, Write, or web tools —
@@ -238,8 +264,15 @@ ${GENERATE_PLAN_CONTRACT}`;
   }
 
   // 8. Spawn Claude process with isolated HOME
-  // Use a persistent HOME per campaign so --resume can find previous session data
+  // Use a persistent HOME per campaign so --resume can find previous session data.
+  // For GENERATE PLAN we don't --resume, so we also scrub any enabled plugins
+  // from the copied settings.json — plugin-provided tools (e.g. typescript-lsp
+  // exposes `LSP`) bypass `--tools ""`, and with `--max-turns 1` a tool call
+  // exhausts the budget and the CLI exits 1.
   const persistentHome = createAuthenticatedHomeAt(`/tmp/claude-briefing-${campaignId}`);
+  if (isGeneratePlan) {
+    disableHomePlugins(persistentHome);
+  }
 
   const abortController = new AbortController();
   const proc = spawn(config.claudePath, cliArgs, {
@@ -251,14 +284,24 @@ ${GENERATE_PLAN_CONTRACT}`;
 
   activeProcesses.set(campaignId, { proc, abort: abortController });
 
+  if (isGeneratePlan) {
+    console.log(
+      `[BRIEFING] GENERATE PLAN triggered for campaign ${campaignId} ` +
+      `(stdinBytes=${stdinContent.length}, systemPromptBytes=${composedSystemPrompt.length})`,
+    );
+  }
+
   const room = `briefing:${campaignId}`;
   let fullResponse = '';
   let extractedSessionId: string | null = null;
   let lineBuffer = '';
+  let rawStdout = '';
 
   // Parse stream-json output line by line
   proc.stdout.on('data', (chunk: Buffer) => {
-    lineBuffer += chunk.toString();
+    const s = chunk.toString();
+    if (rawStdout.length < 8000) rawStdout += s;
+    lineBuffer += s;
     const lines = lineBuffer.split('\n');
     lineBuffer = lines.pop() ?? '';
 
@@ -344,6 +387,12 @@ ${GENERATE_PLAN_CONTRACT}`;
           }
 
           if (code !== 0 && code !== null) {
+            console.error(
+              `[BRIEFING] STRATEGIST exited code=${code} campaign=${campaignId} ` +
+              `isGeneratePlan=${isGeneratePlan} stdinBytes=${stdinContent.length} ` +
+              `stdoutBytes=${fullResponse.length} stderr=${stderrOutput || '<empty>'}\n` +
+              `[BRIEFING] rawStdout (first ${rawStdout.length} bytes):\n${rawStdout}`,
+            );
             const errorMsg = `STRATEGIST process exited with code ${code}: ${stderrOutput.slice(0, 500)}`;
             io.to(room).emit('briefing:error', { campaignId, error: errorMsg });
             reject(new Error(errorMsg));
@@ -438,6 +487,11 @@ ${GENERATE_PLAN_CONTRACT}`;
     });
 
     proc.on('error', (err) => {
+      console.error(
+        `[BRIEFING] STRATEGIST spawn error campaign=${campaignId} ` +
+        `isGeneratePlan=${isGeneratePlan}:`,
+        err,
+      );
       activeProcesses.delete(campaignId);
       io.to(room).emit('briefing:error', {
         campaignId,
