@@ -3,56 +3,89 @@
 ### Battlefield
 
 ```
-- id                TEXT PRIMARY KEY (ULID)
-- name              TEXT NOT NULL
-- codename          TEXT NOT NULL            -- e.g. "OPERATION THUNDER"
-- description       TEXT
-- initialBriefing   TEXT                     -- Commander's project briefing for bootstrap
-- repoPath          TEXT NOT NULL            -- absolute path to git repo (auto-generated or linked)
-- defaultBranch     TEXT DEFAULT 'main'
-- claudeMdPath      TEXT                     -- path to project CLAUDE.md (auto-set after bootstrap)
-- specMdPath        TEXT                     -- path to project SPEC.md (auto-set after bootstrap)
-- scaffoldCommand   TEXT                     -- command used to scaffold (for reference)
-- scaffoldStatus    TEXT                     -- null | 'running' | 'complete' | 'failed'
-- devServerCommand  TEXT DEFAULT 'npm run dev' -- command to start dev server
-- autoStartDevServer INTEGER DEFAULT 0       -- boolean
-- status            TEXT DEFAULT 'initializing' -- initializing | active | archived
-- bootstrapMissionId TEXT                    -- references the bootstrap mission
-- createdAt         INTEGER NOT NULL         -- unix ms
-- updatedAt         INTEGER NOT NULL
+- id                    TEXT PRIMARY KEY (ULID)
+- name                  TEXT NOT NULL
+- codename              TEXT NOT NULL            -- e.g. "OPERATION THUNDER"
+- description           TEXT
+- initialBriefing       TEXT                     -- Commander's project briefing for bootstrap
+- repoPath              TEXT NOT NULL            -- absolute path to git repo
+- defaultBranch         TEXT DEFAULT 'main'
+- claudeMdPath          TEXT                     -- path to project CLAUDE.md (auto-set after bootstrap)
+- specMdPath            TEXT                     -- path to project SPEC.md (auto-set after bootstrap)
+- scaffoldCommand       TEXT                     -- command used to scaffold (for reference)
+- scaffoldStatus        TEXT                     -- null | 'running' | 'complete' | 'failed'
+- devServerCommand      TEXT DEFAULT 'npm run dev'
+- autoStartDevServer    INTEGER DEFAULT 0        -- boolean
+- status                TEXT DEFAULT 'initializing' -- initializing | active | archived
+- bootstrapMissionId    TEXT                     -- references the bootstrap mission
+- gateManifest          TEXT                     -- JSON: { build, test, lint, typecheck }
+- needsGateManifest     INTEGER DEFAULT 0        -- boolean; gate manifest not yet configured
+- mainIsRed             INTEGER DEFAULT 0        -- boolean; main branch currently failing gates
+- overrideMainRedGuard  INTEGER DEFAULT 0        -- boolean; Commander override for red-main guard
+- createdAt             INTEGER NOT NULL         -- unix ms
+- updatedAt             INTEGER NOT NULL
 ```
 
 ### Mission
 
 ```
-- id              TEXT PRIMARY KEY (ULID)
-- battlefieldId   TEXT NOT NULL REFERENCES battlefields(id)
-- campaignId      TEXT REFERENCES campaigns(id)
-- phaseId         TEXT REFERENCES phases(id)
-- type            TEXT DEFAULT 'standard'  -- standard | bootstrap | conflict_resolution | phase_debrief
-- title           TEXT NOT NULL
-- briefing        TEXT NOT NULL            -- markdown, may contain base64 images
-- status          TEXT DEFAULT 'standby'   -- standby|queued|deploying|in_combat|reviewing|approved|merging|accomplished|compromised|abandoned
-- priority        TEXT DEFAULT 'normal'    -- low|normal|high|critical
-- assetId         TEXT REFERENCES assets(id)
-- useWorktree     INTEGER DEFAULT 0
-- worktreeBranch  TEXT
-- dependsOn       TEXT                     -- mission ID this depends on (intra-phase ordering)
-- sessionId       TEXT                     -- Claude Code session for reuse
-- debrief         TEXT
-- iterations      INTEGER DEFAULT 0
-- costInput       INTEGER DEFAULT 0
-- costOutput      INTEGER DEFAULT 0
-- costCacheHit    INTEGER DEFAULT 0
-- reviewAttempts  INTEGER DEFAULT 0        -- Overseer review retry count
-- compromiseReason TEXT                    -- timeout | merge-failed | review-failed | execution-failed | escalated
-- mergeRetryAt    INTEGER                  -- unix ms for merge retry scheduling
-- skillOverrides  TEXT                     -- JSON: { added?: string[], removed?: string[] }
-- durationMs      INTEGER DEFAULT 0
-- startedAt       INTEGER
-- completedAt     INTEGER
-- createdAt       INTEGER NOT NULL
-- updatedAt       INTEGER NOT NULL
+- id                       TEXT PRIMARY KEY (ULID)
+- battlefieldId            TEXT NOT NULL REFERENCES battlefields(id)
+- campaignId               TEXT REFERENCES campaigns(id)
+- phaseId                  TEXT REFERENCES phases(id)
+- type                     TEXT DEFAULT 'combat'   -- 'combat' | 'recon'
+- title                    TEXT NOT NULL
+- briefing                 TEXT NOT NULL            -- markdown, may contain base64 images
+- status                   TEXT DEFAULT 'standby'  -- standby|queued|deploying|in_combat|merging|accomplished|compromised|abandoned
+- priority                 TEXT DEFAULT 'routine'  -- low|routine|high|critical
+- assetId                  TEXT REFERENCES assets(id)
+- useWorktree              INTEGER DEFAULT 0
+- worktreeBranch           TEXT
+- dependsOn                TEXT                    -- mission ID this depends on (intra-phase ordering)
+- sessionId                TEXT                    -- Claude Code session for reuse
+- debrief                  TEXT
+- debriefStructured        TEXT                    -- JSON; structured debrief parsed from mission output
+- iterations               INTEGER DEFAULT 0
+- costInput                INTEGER DEFAULT 0
+- costOutput               INTEGER DEFAULT 0
+- costCacheHit             INTEGER DEFAULT 0
+- compromiseReason         TEXT                    -- reason for COMPROMISED status
+- nextAttemptAt            INTEGER                 -- unix ms; scheduled retry time
+- infrastructureRetryCount INTEGER DEFAULT 0       -- count of infrastructure-error retries
+- reconViolatedReadonly    INTEGER DEFAULT 0       -- boolean; recon mission made a write
+- currentSortieAttempts    INTEGER DEFAULT 0       -- attempts in current sortie cycle
+- mergeResult              TEXT                    -- 'clean' | 'conflict_resolved' | 'failed' | null
+- mergeConflictFiles       TEXT                    -- JSON array of conflicting file paths
+- mergeTimestamp           INTEGER                 -- unix ms
+- skillOverrides           TEXT                    -- JSON: { added?: string[], removed?: string[] }
+- durationMs               INTEGER DEFAULT 0
+- startedAt                INTEGER
+- completedAt              INTEGER
+- createdAt                INTEGER NOT NULL
+- updatedAt                INTEGER NOT NULL
+```
+
+### MissionAttempt
+
+Per-attempt lifecycle audit table. One row per combat asset invocation. Part of the CONTROL reliability layer.
+
+```
+- id                TEXT PRIMARY KEY (ULID)
+- missionId         TEXT NOT NULL REFERENCES missions(id)
+- attemptNumber     INTEGER NOT NULL
+- startedAt         INTEGER NOT NULL             -- unix ms
+- endedAt           INTEGER                      -- unix ms; null if still running
+- endReason         TEXT                         -- 'clean' | 'timeout' | 'silence-kill' | 'infrastructure' | 'rate-limit' | 'auth' | 'turn-limit' | 'gate-failure'
+- classification    TEXT                         -- JSON; Overseer exit classification output
+- gateResults       TEXT                         -- JSON; gate manifest run results
+- debriefSynthesized INTEGER DEFAULT 0           -- boolean; debrief extracted from this attempt
+- autoCommitted     INTEGER DEFAULT 0            -- boolean; CONTROL auto-committed changes
+- tokensInput       INTEGER DEFAULT 0
+- tokensOutput      INTEGER DEFAULT 0
+- tokensCache       INTEGER DEFAULT 0
+- durationMs        INTEGER
+- sessionId         TEXT                         -- Claude Code session ID for this attempt
+- targetHeadAtStart TEXT                         -- git HEAD SHA at attempt start
 ```
 
 ### Campaign
@@ -60,16 +93,16 @@
 ```
 - id              TEXT PRIMARY KEY (ULID)
 - battlefieldId   TEXT NOT NULL REFERENCES battlefields(id)
-- name            TEXT NOT NULL            -- e.g. "Operation Clean Sweep"
+- name            TEXT NOT NULL                -- e.g. "Operation Clean Sweep"
 - objective       TEXT NOT NULL
-- status          TEXT DEFAULT 'draft'     -- draft|planning|active|paused|accomplished|compromised|abandoned
-- worktreeMode    TEXT DEFAULT 'phase'     -- none|phase|mission
+- status          TEXT DEFAULT 'draft'         -- draft|planning|active|paused|accomplished|compromised|abandoned
+- worktreeMode    TEXT DEFAULT 'phase'         -- none|phase|mission
 - currentPhase    INTEGER DEFAULT 0
 - isTemplate      INTEGER DEFAULT 0
 - templateId      TEXT
-- debrief         TEXT                     -- campaign completion debrief
-- stallReason     TEXT                     -- reason campaign was paused/stalled
-- stalledPhaseId  TEXT                     -- phase that caused the stall
+- debrief         TEXT                         -- campaign completion debrief
+- stallReason     TEXT                         -- reason campaign was paused/stalled
+- stalledPhaseId  TEXT                         -- phase that caused the stall
 - createdAt       INTEGER NOT NULL
 - updatedAt       INTEGER NOT NULL
 ```
@@ -80,13 +113,13 @@
 - id              TEXT PRIMARY KEY (ULID)
 - campaignId      TEXT NOT NULL REFERENCES campaigns(id)
 - phaseNumber     INTEGER NOT NULL
-- name            TEXT NOT NULL            -- e.g. "Recon", "Strike", "Extraction"
+- name            TEXT NOT NULL                -- e.g. "Recon", "Strike", "Extraction"
 - objective       TEXT
-- status          TEXT DEFAULT 'standby'   -- standby|active|secured|compromised
+- status          TEXT DEFAULT 'standby'       -- standby|active|secured|compromised
 - debrief         TEXT
 - totalTokens     INTEGER DEFAULT 0
 - durationMs      INTEGER DEFAULT 0
-- completingAt    INTEGER                  -- timestamp when phase started completing
+- completingAt    INTEGER                      -- timestamp when phase started completing
 - createdAt       INTEGER NOT NULL
 ```
 
@@ -97,9 +130,9 @@ Interactive campaign planning sessions with STRATEGIST asset.
 ```
 - id              TEXT PRIMARY KEY (ULID)
 - campaignId      TEXT NOT NULL REFERENCES campaigns(id) UNIQUE
-- sessionId       TEXT                     -- Claude Code session ID
+- sessionId       TEXT                         -- Claude Code session ID
 - assetId         TEXT REFERENCES assets(id)
-- status          TEXT DEFAULT 'open'      -- open | closed
+- status          TEXT DEFAULT 'open'          -- open | closed
 - createdAt       INTEGER NOT NULL
 - updatedAt       INTEGER NOT NULL
 ```
@@ -109,7 +142,7 @@ Interactive campaign planning sessions with STRATEGIST asset.
 ```
 - id              TEXT PRIMARY KEY (ULID)
 - briefingId      TEXT NOT NULL REFERENCES briefingSessions(id)
-- role            TEXT NOT NULL             -- 'user' | 'assistant'
+- role            TEXT NOT NULL                -- 'user' | 'assistant'
 - content         TEXT NOT NULL
 - timestamp       INTEGER NOT NULL
 ```
@@ -117,19 +150,20 @@ Interactive campaign planning sessions with STRATEGIST asset.
 ### Asset
 
 ```
-- id              TEXT PRIMARY KEY (ULID)
-- codename        TEXT NOT NULL UNIQUE     -- e.g. "OPERATIVE", "ASSERT"
-- specialty       TEXT NOT NULL
-- systemPrompt    TEXT
-- model           TEXT DEFAULT 'claude-sonnet-4-6'
-- status          TEXT DEFAULT 'active'    -- active | offline
+- id                TEXT PRIMARY KEY (ULID)
+- codename          TEXT NOT NULL UNIQUE       -- e.g. "OPERATIVE", "ASSERT"
+- specialty         TEXT NOT NULL
+- systemPrompt      TEXT
+- model             TEXT DEFAULT 'claude-sonnet-4-6'
+- status            TEXT DEFAULT 'active'      -- active | offline
 - missionsCompleted INTEGER DEFAULT 0
-- skills          TEXT                     -- JSON array of Claude Code plugin skill identifiers
-- mcpServers      TEXT                     -- JSON array of MCP server configurations
-- maxTurns        INTEGER                  -- max turns for Claude Code invocation
-- effort          TEXT                     -- 'low' | 'medium' | 'high' | 'max'
-- isSystem        INTEGER DEFAULT 0        -- boolean; system assets (STRATEGIST, OVERSEER, QUARTERMASTER) cannot be deleted
-- createdAt       INTEGER NOT NULL
+- skills            TEXT                       -- JSON array of Claude Code plugin skill identifiers
+- mcpServers        TEXT                       -- JSON array of MCP server configurations
+- maxTurns          INTEGER                    -- max turns for Claude Code invocation
+- effort            TEXT                       -- 'low' | 'medium' | 'high' | 'max'
+- isSystem          INTEGER DEFAULT 0          -- boolean; system assets cannot be deleted
+- memory            TEXT                       -- persistent asset memory (markdown)
+- createdAt         INTEGER NOT NULL
 ```
 
 ### MissionLog
@@ -138,8 +172,23 @@ Interactive campaign planning sessions with STRATEGIST asset.
 - id              TEXT PRIMARY KEY (ULID)
 - missionId       TEXT NOT NULL REFERENCES missions(id)
 - timestamp       INTEGER NOT NULL
-- type            TEXT NOT NULL             -- log | status | error
+- type            TEXT NOT NULL                -- log | status | error
 - content         TEXT NOT NULL
+```
+
+### Comms
+
+Structured event stream for the CONTROL reliability layer. Records supervisor lifecycle events, gate results, and escalation actions across missions, campaigns, and battlefields.
+
+```
+- id              TEXT PRIMARY KEY (ULID)
+- missionId       TEXT                         -- optional mission context
+- campaignId      TEXT                         -- optional campaign context
+- battlefieldId   TEXT                         -- optional battlefield context
+- actor           TEXT NOT NULL                -- originating component (e.g. "CONTROL", "OVERSEER")
+- message         TEXT NOT NULL
+- level           TEXT DEFAULT 'info'          -- 'info' | 'warn' | 'error'
+- createdAt       INTEGER NOT NULL
 ```
 
 ### ScheduledTask
@@ -147,14 +196,15 @@ Interactive campaign planning sessions with STRATEGIST asset.
 ```
 - id              TEXT PRIMARY KEY (ULID)
 - battlefieldId   TEXT NOT NULL REFERENCES battlefields(id)
-- name            TEXT NOT NULL             -- e.g. "Nightly test suite"
-- type            TEXT NOT NULL             -- mission | campaign
-- cron            TEXT NOT NULL             -- cron expression (e.g. "0 3 * * *")
-- enabled         INTEGER DEFAULT 1        -- boolean
-- missionTemplate TEXT                     -- JSON: { title, briefing, assetId, priority, useWorktree }
+- name            TEXT NOT NULL                -- e.g. "Nightly test suite"
+- type            TEXT NOT NULL                -- mission | campaign
+- cron            TEXT NOT NULL                -- cron expression (e.g. "0 3 * * *")
+- enabled         INTEGER DEFAULT 1            -- boolean
+- missionTemplate TEXT                         -- JSON: { title, briefing, assetId, priority, useWorktree }
 - campaignId      TEXT REFERENCES campaigns(id) -- if type=campaign, which template to re-run
-- lastRunAt       INTEGER                  -- unix ms
-- nextRunAt       INTEGER                  -- unix ms (precomputed)
+- dossierId       TEXT                         -- optional dossier to use for mission generation
+- lastRunAt       INTEGER                      -- unix ms
+- nextRunAt       INTEGER                      -- unix ms (precomputed)
 - runCount        INTEGER DEFAULT 0
 - createdAt       INTEGER NOT NULL
 - updatedAt       INTEGER NOT NULL
@@ -165,10 +215,10 @@ Interactive campaign planning sessions with STRATEGIST asset.
 ```
 - id              TEXT PRIMARY KEY (ULID)
 - battlefieldId   TEXT NOT NULL REFERENCES battlefields(id)
-- command         TEXT NOT NULL             -- the command that was executed
+- command         TEXT NOT NULL                -- the command that was executed
 - exitCode        INTEGER
 - durationMs      INTEGER DEFAULT 0
-- output          TEXT                     -- captured stdout+stderr (truncated if large)
+- output          TEXT                         -- captured stdout+stderr (truncated if large)
 - createdAt       INTEGER NOT NULL
 ```
 
@@ -178,12 +228,12 @@ Reusable mission briefing templates with variable interpolation.
 
 ```
 - id              TEXT PRIMARY KEY (ULID)
-- codename        TEXT NOT NULL UNIQUE     -- e.g. "CODE_REVIEW", "SECURITY_AUDIT"
+- codename        TEXT NOT NULL UNIQUE         -- e.g. "CODE_REVIEW", "SECURITY_AUDIT"
 - name            TEXT NOT NULL
 - description     TEXT
-- briefingTemplate TEXT NOT NULL           -- markdown with {{variable}} placeholders
-- variables       TEXT                     -- JSON array of DossierVariable objects
-- assetCodename   TEXT                     -- recommended asset for this dossier
+- briefingTemplate TEXT NOT NULL              -- markdown with {{variable}} placeholders
+- variables       TEXT                         -- JSON array of DossierVariable objects
+- assetCodename   TEXT                         -- recommended asset for this dossier
 - createdAt       INTEGER NOT NULL
 - updatedAt       INTEGER NOT NULL
 ```
@@ -192,18 +242,19 @@ Reusable mission briefing templates with variable interpolation.
 
 ### OverseerLog
 
-Records Overseer review decisions during mission/campaign execution.
+Records Overseer AI decisions during mission execution.
 
 ```
 - id              TEXT PRIMARY KEY (ULID)
 - missionId       TEXT NOT NULL REFERENCES missions(id)
 - campaignId      TEXT REFERENCES campaigns(id)
 - battlefieldId   TEXT NOT NULL REFERENCES battlefields(id)
-- question        TEXT NOT NULL             -- the decision the Overseer faced
-- answer          TEXT NOT NULL             -- the decision made
-- reasoning       TEXT NOT NULL             -- why this decision was chosen
-- confidence      TEXT NOT NULL             -- 'high' | 'medium' | 'low'
-- escalated       INTEGER DEFAULT 0        -- whether it was escalated to Commander
+- question        TEXT NOT NULL                -- the decision the Overseer faced
+- answer          TEXT NOT NULL                -- the decision made
+- reasoning       TEXT NOT NULL                -- why this decision was chosen
+- confidence      TEXT NOT NULL                -- 'high' | 'medium' | 'low'
+- escalated       INTEGER DEFAULT 0            -- whether it was escalated to Commander
+- decisionType    TEXT                         -- categorisation of decision (e.g. 'exit-classification', 'gate-advisory')
 - timestamp       INTEGER NOT NULL
 ```
 
@@ -213,10 +264,10 @@ In-app and Telegram alerts for mission events, failures, and escalations.
 
 ```
 - id              TEXT PRIMARY KEY (ULID)
-- level           TEXT NOT NULL             -- 'info' | 'warning' | 'critical'
+- level           TEXT NOT NULL                -- 'info' | 'warning' | 'critical'
 - title           TEXT NOT NULL
 - detail          TEXT NOT NULL
-- entityType      TEXT                     -- 'mission' | 'campaign' | 'phase'
+- entityType      TEXT                         -- 'mission' | 'campaign' | 'phase'
 - entityId        TEXT
 - battlefieldId   TEXT
 - read            INTEGER DEFAULT 0
@@ -231,10 +282,10 @@ Standalone GENERAL chat sessions — independent of campaigns. Can optionally li
 
 ```
 - id              TEXT PRIMARY KEY (ULID)
-- name            TEXT NOT NULL             -- user-assigned session name
-- sessionId       TEXT                     -- Claude Code resume session ID
+- name            TEXT NOT NULL                -- user-assigned session name
+- sessionId       TEXT                         -- Claude Code resume session ID
 - battlefieldId   TEXT REFERENCES battlefields(id) -- optional battlefield context
-- status          TEXT DEFAULT 'active'    -- 'active' | 'closed'
+- status          TEXT DEFAULT 'active'        -- 'active' | 'closed'
 - createdAt       INTEGER NOT NULL
 - updatedAt       INTEGER NOT NULL
 ```
@@ -244,14 +295,36 @@ Standalone GENERAL chat sessions — independent of campaigns. Can optionally li
 ```
 - id              TEXT PRIMARY KEY (ULID)
 - sessionId       TEXT NOT NULL REFERENCES generalSessions(id)
-- role            TEXT NOT NULL             -- 'commander' | 'general' | 'system'
+- role            TEXT NOT NULL                -- 'commander' | 'general' | 'system'
 - content         TEXT NOT NULL
 - timestamp       INTEGER NOT NULL
 ```
 
+### TestRun
+
+Test runner history for a battlefield. Records each gate or manual test execution.
+
+```
+- id              TEXT PRIMARY KEY (ULID)
+- battlefieldId   TEXT NOT NULL REFERENCES battlefields(id)
+- framework       TEXT NOT NULL                -- e.g. "vitest", "playwright"
+- command         TEXT NOT NULL                -- exact command that was run
+- pattern         TEXT                         -- optional file/test filter pattern
+- status          TEXT DEFAULT 'running'       -- 'running' | 'passed' | 'failed' | 'error'
+- totalTests      INTEGER DEFAULT 0
+- passed          INTEGER DEFAULT 0
+- failed          INTEGER DEFAULT 0
+- skipped         INTEGER DEFAULT 0
+- durationMs      INTEGER DEFAULT 0
+- coveragePercent INTEGER                      -- integer percentage (0–100), null if not measured
+- results         TEXT                         -- JSON; parsed per-test results
+- rawOutput       TEXT                         -- raw stdout/stderr
+- createdAt       INTEGER NOT NULL
+```
+
 ### FollowUpSuggestion
 
-Extracted from mission debriefs by the Quartermaster. Surfaces recommended next actions on the battlefield overview.
+Extracted from mission debriefs. Surfaces recommended next actions on the battlefield overview.
 
 ```
 - id              TEXT PRIMARY KEY (ULID)
@@ -259,7 +332,7 @@ Extracted from mission debriefs by the Quartermaster. Surfaces recommended next 
 - missionId       TEXT REFERENCES missions(id)
 - campaignId      TEXT REFERENCES campaigns(id)
 - suggestion      TEXT NOT NULL
-- status          TEXT NOT NULL DEFAULT 'pending' -- 'pending' | 'added' | 'dismissed'
+- status          TEXT DEFAULT 'pending'       -- 'pending' | 'added' | 'dismissed'
 - intelNoteId     TEXT REFERENCES intelNotes(id)
 - createdAt       INTEGER NOT NULL
 - updatedAt       INTEGER NOT NULL
@@ -273,11 +346,21 @@ Board cards for battlefield planning and tracking.
 - id              TEXT PRIMARY KEY (ULID)
 - battlefieldId   TEXT NOT NULL REFERENCES battlefields(id)
 - title           TEXT NOT NULL
-- description     TEXT                     -- markdown, may contain base64 images
-- column          TEXT DEFAULT 'backlog'   -- 'backlog' | 'planned'
+- description     TEXT                         -- markdown, may contain base64 images
+- column          TEXT DEFAULT 'tasked'        -- 'tasked' | 'ops_ready'
 - position        INTEGER DEFAULT 0
 - missionId       TEXT REFERENCES missions(id)
 - campaignId      TEXT REFERENCES campaigns(id)
 - createdAt       INTEGER NOT NULL
+- updatedAt       INTEGER NOT NULL
+```
+
+### Settings
+
+Global key/value configuration store. One row per key.
+
+```
+- key             TEXT PRIMARY KEY
+- value           TEXT NOT NULL
 - updatedAt       INTEGER NOT NULL
 ```
