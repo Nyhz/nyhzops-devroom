@@ -14,12 +14,12 @@ describe('socket event map types', () => {
   it('ServerToClientEvents["mission:log"] payload includes missionId', () => {
     expectTypeOf<
       Parameters<ServerToClientEvents['mission:log']>[0]
-    >().toMatchTypeOf<{ missionId: string | null }>();
+    >().toExtend<{ missionId: string | null }>();
   });
 
   it('ServerToClientEvents["notification:new"] payload includes level', () => {
     expectTypeOf<
       Parameters<ServerToClientEvents['notification:new']>[0]
-    >().toMatchTypeOf<{ level: string }>();
+    >().toExtend<{ level: string }>();
   });
 });
