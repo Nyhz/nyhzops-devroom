@@ -32,7 +32,18 @@ export interface ClassifierDeps {
 
 const INFRA = /\b5\d\d\b|overload|server.?busy|ECONN|ETIMEDOUT|ENOTFOUND|fetch failed|stream aborted/i;
 const RATE = /\b429\b|rate.?limit|too many requests/i;
-const AUTH = /\b40[13]\b|unauthori[sz]ed|invalid.?credential|keychain/i;
+const AUTH = /\b40[13]\b|unauthori[sz]ed|invalid.?(api.?key|credential)|authentication_error|oauth.*(expired|invalid|revoked)|keychain/i;
+
+/**
+ * Real Claude-CLI auth failures happen before any tool call: the process
+ * fails fast with no activity. If stderr matches the AUTH regex but the
+ * run produced tool calls or a diff, the match is almost certainly agent
+ * output (e.g. an HTTP 401 from a probe the agent ran), not a CLI auth
+ * break. Gate AUTH classification on that shape.
+ */
+function isFastEmpty(ctx: ExitContext): boolean {
+  return ctx.elapsedMs < 30_000 && ctx.toolUseCount === 0 && !ctx.hasDiff;
+}
 
 /**
  * Fast-path classifier for mission exits.
@@ -60,8 +71,8 @@ export async function classifyExit(
   if (ctx.stdoutResultSubtype === 'error_max_turns') {
     return { category: 'TURN_LIMIT', reasoning: 'max turns reached' };
   }
-  if (AUTH.test(ctx.stderr)) {
-    return { category: 'AUTH', reasoning: 'auth pattern in stderr' };
+  if (AUTH.test(ctx.stderr) && isFastEmpty(ctx)) {
+    return { category: 'AUTH', reasoning: 'auth pattern in stderr with fast-exit signature' };
   }
   if (RATE.test(ctx.stderr)) {
     return { category: 'RATE_LIMIT', reasoning: 'rate-limit pattern in stderr' };

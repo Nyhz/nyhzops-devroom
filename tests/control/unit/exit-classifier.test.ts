@@ -93,7 +93,7 @@ describe('classifyExit (fast-path)', () => {
     expect(r.category).toBe('RATE_LIMIT');
   });
 
-  it('AUTH on 401', async () => {
+  it('AUTH on 401 with fast-exit signature', async () => {
     const r = await classifyExit({
       exitCode: 1,
       stderr: '401 unauthorized',
@@ -104,6 +104,57 @@ describe('classifyExit (fast-path)', () => {
       hasDiff: false,
     });
     expect(r.category).toBe('AUTH');
+  });
+
+  it('AUTH on Invalid API key (real CLI phrasing) with fast exit', async () => {
+    const r = await classifyExit({
+      exitCode: 1,
+      stderr: 'Error: Invalid API key · Please run /login',
+      stdoutResultSubtype: null,
+      killedByControl: false,
+      elapsedMs: 800,
+      toolUseCount: 0,
+      hasDiff: false,
+    });
+    expect(r.category).toBe('AUTH');
+  });
+
+  it('not AUTH when 401 appears after significant tool use (agent output, not CLI auth)', async () => {
+    const overseerSpy = vi
+      .fn()
+      .mockResolvedValue({ category: 'AGENT_FAILURE', reasoning: 'test' });
+    const r = await classifyExit(
+      {
+        exitCode: 1,
+        stderr: 'curl: got 401 from api.example.com while probing endpoints',
+        stdoutResultSubtype: null,
+        killedByControl: false,
+        elapsedMs: 300_000,
+        toolUseCount: 7,
+        hasDiff: true,
+      },
+      { overseerClassify: overseerSpy },
+    );
+    expect(r.category).not.toBe('AUTH');
+  });
+
+  it('not AUTH when keychain is mentioned after tool use', async () => {
+    const overseerSpy = vi
+      .fn()
+      .mockResolvedValue({ category: 'AGENT_FAILURE', reasoning: 'test' });
+    const r = await classifyExit(
+      {
+        exitCode: 1,
+        stderr: 'warning: keychain path resolved to /Users/x/Library/Keychains',
+        stdoutResultSubtype: null,
+        killedByControl: false,
+        elapsedMs: 120_000,
+        toolUseCount: 4,
+        hasDiff: true,
+      },
+      { overseerClassify: overseerSpy },
+    );
+    expect(r.category).not.toBe('AUTH');
   });
 });
 
