@@ -1,4 +1,11 @@
+// IMPORTANT: must be the first import — sets DEVROOM_DB_PATH to a per-worker
+// temp file before any module loads config.ts. ES modules are evaluated in
+// import order (depth-first), so this side-effect runs before subsequent imports.
+import './db-env';
+
 import { vi } from 'vitest';
+import { runMigrations } from '@/lib/db';
+import { seedIfEmpty } from '../../../scripts/seed';
 
 // --- Mock next/cache ---
 vi.mock('next/cache', () => ({
@@ -29,3 +36,7 @@ globalThis.io = {
   to: mockTo,
   in: mockIn,
 } as unknown as typeof globalThis.io;
+
+// --- DB lifecycle: per-worker temp file, migrate + seed once per worker ---
+runMigrations();
+seedIfEmpty();
