@@ -100,6 +100,10 @@ export interface MergeOpts {
 export interface MergeResult {
   status: 'clean' | 'conflict_resolved' | 'failed';
   reason?: string;
+  /** Free-form error text (e.g. git stderr from a hard rebase failure).
+   *  Surfaced into comms so Commander sees the underlying cause, not just
+   *  the short `reason` code. */
+  detail?: string;
 }
 
 export interface WorktreeDeps {
@@ -903,6 +907,19 @@ export async function runMission(
       };
     }
 
+    // Surface the merge failure reason (and detail, when present) before
+    // flipping to compromised so Commander's audit trail shows *why* the
+    // merge failed, not just that it did. `detail` is the free-form git
+    // stderr from a hard rebase error; `reason` is the short code.
+    {
+      const reason = merge.reason ?? 'unknown';
+      const detail = merge.detail;
+      emitComm({
+        missionId,
+        message: `merge failed: ${reason}${detail ? ` — ${detail}` : ''}`,
+        level: 'error',
+      });
+    }
     transitionMission(missionId, 'compromised', endedAt);
     return {
       missionId,

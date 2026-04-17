@@ -191,6 +191,7 @@ async function productionMergeFn(opts: MergeOpts): Promise<MergeResult> {
   return {
     status: mergeResult.status === 'accomplished' ? 'clean' : 'failed',
     reason: mergeResult.reason ? String(mergeResult.reason) : undefined,
+    detail: mergeResult.detail,
   };
 }
 
