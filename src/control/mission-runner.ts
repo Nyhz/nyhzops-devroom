@@ -362,6 +362,15 @@ export async function runMission(
   // cleanup always runs, whether the mission ACCOMPLISHED, COMPROMISED, or
   // the loop threw unexpectedly. The watchdog sweep is still the
   // belt-and-suspenders backstop, but the happy path must not depend on it.
+  let finalStatus: 'accomplished' | 'compromised' | 'abandoned' | null = null;
+  const markTerminal = (
+    status: 'accomplished' | 'compromised' | 'abandoned',
+    now: number,
+  ): void => {
+    finalStatus = status;
+    transitionMission(missionId, status, now);
+  };
+
   try {
   // --- IN_COMBAT -----------------------------------------------------------
   transitionMission(missionId, 'in_combat', deps.now());
@@ -403,7 +412,7 @@ export async function runMission(
         message: `Spawn failed: ${(err as Error).message}`,
         level: 'error',
       });
-      transitionMission(missionId, 'compromised', endedAt);
+      markTerminal('compromised', endedAt);
       return { missionId, finalStatus: 'compromised', attemptCount: attemptNumber };
     }
 
@@ -443,7 +452,7 @@ export async function runMission(
         message: 'AUTH failure — claude CLI cannot authenticate. Orchestrator paused.',
         level: 'error',
       });
-      transitionMission(missionId, 'compromised', endedAt);
+      markTerminal('compromised', endedAt);
 
       // Notify Commander via escalate+Telegram. Awaited so the DB-backed
       // audit row is persisted before runMission returns COMPROMISED — the
@@ -479,7 +488,7 @@ export async function runMission(
         usage: run.usage,
         finalMessage: run.finalMessage,
       });
-      transitionMission(missionId, 'compromised', endedAt);
+      markTerminal('compromised', endedAt);
       return {
         missionId,
         finalStatus: 'compromised',
@@ -510,7 +519,7 @@ export async function runMission(
           message: `Infra retry budget exhausted after ${infraRetryCount} attempts.`,
           level: 'error',
         });
-        transitionMission(missionId, 'compromised', endedAt);
+        markTerminal('compromised', endedAt);
         return {
           missionId,
           finalStatus: 'compromised',
@@ -586,7 +595,7 @@ export async function runMission(
         overseerConsulted,
       });
       if (decision.action === 'COMPROMISED') {
-        transitionMission(missionId, 'compromised', endedAt);
+        markTerminal('compromised', endedAt);
         return {
           missionId,
           finalStatus: 'compromised',
@@ -624,7 +633,7 @@ export async function runMission(
             usage: run.usage,
             finalMessage: `${preConsultFinalMessage ?? ''}\n(consult failed: ${errMsg})`.trim(),
           });
-          transitionMission(missionId, 'compromised', consultFailedAt);
+          markTerminal('compromised', consultFailedAt);
           return {
             missionId,
             finalStatus: 'compromised',
@@ -636,7 +645,7 @@ export async function runMission(
           redirectPrompt = verdict;
           continue;
         }
-        transitionMission(missionId, 'compromised', endedAt);
+        markTerminal('compromised', endedAt);
         return {
           missionId,
           finalStatus: 'compromised',
@@ -663,7 +672,7 @@ export async function runMission(
         usage: run.usage,
         finalMessage: run.finalMessage,
       });
-      transitionMission(missionId, 'compromised', endedAt);
+      markTerminal('compromised', endedAt);
       return {
         missionId,
         finalStatus: 'compromised',
@@ -771,7 +780,7 @@ export async function runMission(
             usage: run.usage,
             finalMessage: `${preConsultFinalMessage ?? ''}\n(consult failed: ${errMsg})`.trim(),
           });
-          transitionMission(missionId, 'compromised', consultFailedAt);
+          markTerminal('compromised', consultFailedAt);
           return {
             missionId,
             finalStatus: 'compromised',
@@ -784,7 +793,7 @@ export async function runMission(
           redirectPrompt = verdict;
           continue;
         }
-        transitionMission(missionId, 'compromised', endedAt);
+        markTerminal('compromised', endedAt);
         return {
           missionId,
           finalStatus: 'compromised',
@@ -794,7 +803,7 @@ export async function runMission(
         };
       }
       // COMPROMISED (budget exhausted after OVERSEER redirect failed)
-      transitionMission(missionId, 'compromised', endedAt);
+      markTerminal('compromised', endedAt);
       return {
         missionId,
         finalStatus: 'compromised',
@@ -833,7 +842,7 @@ export async function runMission(
         usage: run.usage,
         finalMessage: run.finalMessage,
       });
-      transitionMission(missionId, 'compromised', endedAt);
+      markTerminal('compromised', endedAt);
       emitComm({
         missionId,
         message: `Merge failed: ${(err as Error).message}`,
@@ -892,7 +901,7 @@ export async function runMission(
           battlefieldId: mission.battlefieldId,
         });
       }
-      transitionMission(missionId, 'accomplished', endedAt);
+      markTerminal('accomplished', endedAt);
       return {
         missionId,
         finalStatus: 'accomplished',
@@ -915,7 +924,7 @@ export async function runMission(
         level: 'error',
       });
     }
-    transitionMission(missionId, 'compromised', endedAt);
+    markTerminal('compromised', endedAt);
     return {
       missionId,
       finalStatus: 'compromised',
@@ -926,7 +935,7 @@ export async function runMission(
   }
 
   // Safety fallthrough — never expected.
-  transitionMission(missionId, 'compromised', deps.now());
+  markTerminal('compromised', deps.now());
   return {
     missionId,
     finalStatus: 'compromised',
@@ -937,6 +946,7 @@ export async function runMission(
   } finally {
     // Best-effort worktree cleanup — never rethrow. The watchdog sweep
     // handles any leaks this misses.
+    let cleanedOk = false;
     try {
       // Keep the branch for Commander inspection — the worktree directory is
       // what leaks onto disk. Watchdog sweep handles branch cleanup later.
@@ -946,8 +956,20 @@ export async function runMission(
         branch,
         deleteBranch: false,
       });
+      cleanedOk = true;
     } catch (err) {
       console.error('[CONTROL] worktree cleanup failed for', missionId, err);
+      emitComm({
+        missionId,
+        message: `Worktree cleanup failed: ${(err as Error).message}`,
+        level: 'warn',
+      });
+    }
+    if (cleanedOk) {
+      emitComm({ missionId, message: 'Worktree cleaned.' });
+    }
+    if (finalStatus) {
+      emitComm({ missionId, message: `Mission ${finalStatus}.` });
     }
   }
 
