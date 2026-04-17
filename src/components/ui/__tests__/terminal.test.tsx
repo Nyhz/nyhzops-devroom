@@ -104,4 +104,22 @@ describe('Terminal', () => {
     expect(screen.getByText(/First message/)).toBeInTheDocument();
     expect(screen.getByText(/Second message/)).toBeInTheDocument();
   });
+
+  it('does not coalesce consecutive comms from the same actor', () => {
+    renderWithProviders(
+      <Terminal
+        logs={[
+          makeLog('Status → DEPLOYING', 'comms', 'CONTROL', 1000),
+          makeLog('Status → IN_COMBAT', 'comms', 'CONTROL', 2000),
+          makeLog('Status → MERGING', 'comms', 'CONTROL', 3000),
+        ]}
+      />,
+    );
+    // Each transition must render on its own row
+    expect(screen.getByText(/DEPLOYING/)).toBeInTheDocument();
+    expect(screen.getByText(/IN_COMBAT/)).toBeInTheDocument();
+    expect(screen.getByText(/MERGING/)).toBeInTheDocument();
+    // Three separate [CONTROL] labels
+    expect(screen.getAllByText('[CONTROL]')).toHaveLength(3);
+  });
 });

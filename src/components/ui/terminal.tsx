@@ -64,19 +64,8 @@ function groupLogs(logs: LogEntry[]): DisplayEntry[] {
       prev.type === entry.type &&
       prev.actor === entry.actor
     ) {
-      // Collapse repeated identical tool calls
+      // Collapse repeated identical tool calls — tight retry loops become "(N)"
       prev.count++;
-      prev.timestamp = entry.timestamp;
-    } else if (
-      !isToolCall &&
-      entry.type === 'comms' &&
-      prev &&
-      prev.type === 'comms' &&
-      prev.actor === entry.actor &&
-      !TOOL_PATTERN.test(prev.content.trim())
-    ) {
-      // Coalesce consecutive text lines into one entry (same actor only)
-      prev.content = prev.content.trimEnd() + ' ' + trimmed;
       prev.timestamp = entry.timestamp;
     } else {
       result.push({ ...entry, count: 1 });
