@@ -318,18 +318,19 @@ describe('mission-actions integration — Phase 8.1', () => {
       await expect(acceptMergeOverride(m.id)).rejects.toThrow('not compromised');
     });
 
-    it('transitions compromised (no worktreeBranch) → accomplished', async () => {
-      // With no worktreeBranch, acceptAndMerge skips git and marks accomplished.
+    it('throws when compromised mission has no resolvable worktree branch', async () => {
+      // Previously this silently marked the mission accomplished with no merge —
+      // a no-op that misled the Commander. Now it must fail loudly.
       const m = insertMission({
         id: 'am-2',
         status: 'compromised',
         worktreeBranch: null,
       });
 
-      await acceptMergeOverride(m.id);
+      await expect(acceptMergeOverride(m.id)).rejects.toThrow(/no resolvable worktree branch/);
 
       const row = getMissionById(m.id);
-      expect(row?.status).toBe('accomplished');
+      expect(row?.status).toBe('compromised');
     });
 
     it('throws when mission not found', async () => {

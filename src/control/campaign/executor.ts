@@ -608,16 +608,23 @@ export async function acceptAndMerge(
   const targetBranch = battlefield.defaultBranch ?? 'main';
   const repoPath = battlefield.repoPath;
   const candidateBranch = mission.worktreeBranch ?? `devroom/${missionId}`;
-  const probe = simpleGit(repoPath);
-  let sourceBranch: string;
-  try {
-    await probe.revparse([candidateBranch]);
-    sourceBranch = candidateBranch;
-  } catch {
-    throw new Error(
-      `acceptAndMerge: mission ${missionId} has no resolvable worktree branch ` +
-      `(tried "${candidateBranch}"). Cannot merge — mission state NOT changed.`,
-    );
+
+  // Probe the branch only when running the real (default) git runner. Tests
+  // inject a mock runMerge with stub repo paths and don't need (or want) a
+  // real git probe. In production, verify the branch exists before declaring
+  // success — a silent no-op followed by a success message has misled the
+  // Commander before.
+  let sourceBranch = candidateBranch;
+  if (!deps.runMerge) {
+    try {
+      const probe = simpleGit(repoPath);
+      await probe.revparse([candidateBranch]);
+    } catch {
+      throw new Error(
+        `acceptAndMerge: mission ${missionId} has no resolvable worktree branch ` +
+        `(tried "${candidateBranch}"). Cannot merge — mission state NOT changed.`,
+      );
+    }
   }
 
   const runner =
