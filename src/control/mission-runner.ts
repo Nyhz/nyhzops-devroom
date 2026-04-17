@@ -231,8 +231,22 @@ function appendDebriefInstruction(briefing: string, dropPath: string): string {
 MISSION-END PROTOCOL — DEBRIEF HANDOFF:
 After your final commit (and only then), call the Write tool exactly once to record your structured debrief.
   file_path: ${dropPath}
-  content:   a JSON object matching the DebriefSchema (summary, commits, files_touched, open_questions, confidence).
-Do NOT stage or commit this file — it lives outside version control by design. Do NOT emit the JSON inline in your prose. The Write tool call IS the debrief submission.`;
+  content:   a JSON object matching the DebriefSchema EXACTLY. Use this skeleton — keep these field names verbatim, do not invent new keys (e.g. "changes", "risks", "nextActions"):
+
+{
+  "summary": "<one short paragraph: what you did and the outcome>",
+  "commits": ["<short sha 1>", "<short sha 2>"],
+  "files_touched": ["<path/one>", "<path/two>"],
+  "open_questions": [
+    { "severity": "low" | "medium" | "high", "title": "<short>", "description": "<full sentence>" }
+  ],
+  "confidence": "low" | "medium" | "high"
+}
+
+Rules:
+  - Do NOT emit a <DEBRIEF>…</DEBRIEF> block in your prose — the Write tool call IS the debrief submission.
+  - Do NOT stage or commit ${dropPath}; it lives outside version control by design.
+  - "open_questions" may be []. Required fields: summary, commits, files_touched, open_questions, confidence.`;
   return briefing.endsWith('\n') ? `${briefing}${footer}` : `${briefing}\n${footer}`;
 }
 
@@ -776,7 +790,7 @@ export async function runMission(
       if (sweep.swept) {
         emitComm({
           missionId,
-          message: `Auto-commit: ${sweep.filesChanged} files swept (agent did not commit).`,
+          message: `Auto-commit: ${sweep.filesChanged} file${sweep.filesChanged === 1 ? '' : 's'} left uncommitted by agent — swept into chore commit.`,
         });
       }
     } catch (err) {

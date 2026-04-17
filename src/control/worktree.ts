@@ -106,6 +106,20 @@ export async function createMissionWorktree(opts: CreateWorktreeOpts): Promise<W
   // the user's repo-level .gitignore, scoped to this worktree's lifetime.
   await addToWorktreeExclude(wtPath, '.devroom/');
 
+  // Pre-configure the local git identity for this worktree so the asset's
+  // first `git commit` doesn't trip on "Please tell me who you are." Some
+  // agents react to that error by retrying with `-c user.email=… -c
+  // user.name=… commit`, which works but is a wasted detour and obscures
+  // what actually went wrong. Keep these scoped to the worktree config so
+  // they never bleed into the user's global git identity.
+  const wtGit = simpleGit(wtPath);
+  try {
+    await wtGit.addConfig('user.name', 'DEVROOM Asset', false, 'local');
+    await wtGit.addConfig('user.email', 'asset@devroom.local', false, 'local');
+  } catch {
+    // best-effort — agent will fall back to the inline-identity dance
+  }
+
   return { path: wtPath, branch: opts.missionBranch };
 }
 
