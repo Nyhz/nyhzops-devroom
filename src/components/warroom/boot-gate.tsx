@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { BootSequence } from './boot-sequence';
 
 interface BootGateProps {
@@ -13,24 +13,28 @@ interface BootGateProps {
  * Shows the boot animation as a full-screen overlay on first visit.
  * Uses sessionStorage so it only plays once per browser session.
  *
- * State is initialized lazily: server-side always returns 'booting'; on the
- * client, the lazy initializer reads sessionStorage immediately so returning
- * visitors skip the animation without a useEffect round-trip.
- * - First visit → 'booting' (shows animation)
- * - Returning visit → 'done' (overlay never rendered)
+ * Always starts as 'booting' (matching SSR) then checks sessionStorage after
+ * mount to skip the animation for returning visitors.
  */
 export function BootGate({ children, battlefieldCount, inCombatCount }: BootGateProps) {
-  const [state, setState] = useState<'booting' | 'done'>(() => {
-    if (typeof window === 'undefined') return 'booting';
+  const [state, setState] = useState<'booting' | 'done'>('booting');
+
+  useEffect(() => {
     try {
-      return sessionStorage.getItem('devroom-booted') === 'true' ? 'done' : 'booting';
+      if (sessionStorage.getItem('devroom-booted') === 'true') {
+        setState('done');
+      }
     } catch {
-      return 'booting';
+      // sessionStorage unavailable — animation plays normally
     }
-  });
+  }, []);
 
   const handleBootComplete = useCallback(() => {
-    sessionStorage.setItem('devroom-booted', 'true');
+    try {
+      sessionStorage.setItem('devroom-booted', 'true');
+    } catch {
+      // ignore
+    }
     setState('done');
   }, []);
 
