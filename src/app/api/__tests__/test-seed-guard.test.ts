@@ -6,18 +6,17 @@ vi.mock('@/lib/db/index', () => ({
 }));
 
 describe('test seed API route E2E_TEST_MODE guard', () => {
-  const originalEnv = process.env.E2E_TEST_MODE;
-
   beforeEach(() => {
-    delete process.env.E2E_TEST_MODE;
+    vi.stubEnv('E2E_TEST_MODE', '');
+    // Routes block in production before checking E2E_TEST_MODE. When the test
+    // suite is spawned from the prod devroom service (in-app RUN TESTS),
+    // NODE_ENV=production is inherited and these tests would assert the wrong
+    // error message. Force a non-prod env so the E2E_TEST_MODE guard is hit.
+    vi.stubEnv('NODE_ENV', 'test');
   });
 
   afterEach(() => {
-    if (originalEnv !== undefined) {
-      process.env.E2E_TEST_MODE = originalEnv;
-    } else {
-      delete process.env.E2E_TEST_MODE;
-    }
+    vi.unstubAllEnvs();
   });
 
   describe('POST /api/test/seed-campaign', () => {
