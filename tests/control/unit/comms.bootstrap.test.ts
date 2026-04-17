@@ -41,7 +41,6 @@ describe('comms bootstrap / setCommsEmitter wiring', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     // Ensure globalThis.io is also undefined so there is no implicit fallback.
     const savedIo = globalThis.io;
-    // @ts-expect-error - intentional test-only teardown
     globalThis.io = undefined;
 
     try {
