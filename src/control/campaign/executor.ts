@@ -30,6 +30,25 @@ import type { EscalationQuestion } from '@/lib/telegram/notifier';
 const IN_FLIGHT = new Set(['queued', 'deploying', 'in_combat', 'merging']);
 const TERMINAL_STATES = new Set(['accomplished', 'compromised', 'abandoned']);
 
+/**
+ * Mission states that mean "the dispatcher considers it live work" — anything
+ * queued for dispatch or actively running. Used by pauseCampaign to refuse
+ * pausing while real work is in flight (a paused campaign with an `in_combat`
+ * mission is internally inconsistent — the dispatcher would keep the mission
+ * running and would even pick up freshly queued ones, making "paused" a
+ * UI-only fiction).
+ *
+ * `standby` is intentionally NOT in this set: a mission with unsatisfied deps
+ * is dormant from the dispatcher's perspective, so pausing a campaign whose
+ * remaining work is all dependency-blocked is fine.
+ */
+const LIVE_MISSION_STATES = new Set([
+  'queued',
+  'deploying',
+  'in_combat',
+  'merging',
+]);
+
 function parseDeps(raw: string | null | undefined): string[] {
   if (!raw) return [];
   try {
@@ -133,6 +152,68 @@ export function launchCampaign(campaignId: string): void {
     battlefieldId: campaign.battlefieldId,
     actor: 'CONTROL',
     message: `Campaign launched — phase ${firstPhase.phaseNumber} (${firstPhase.name}) active`,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 1b. pauseCampaign
+// ---------------------------------------------------------------------------
+
+export interface PauseOpts {
+  reason?: string;
+}
+
+/**
+ * Flip a campaign to PAUSED. Refuses when any mission is queued, deploying,
+ * in_combat, or merging — pausing under those conditions is a UI-only fiction
+ * because the dispatcher would keep them running, leaving the campaign in an
+ * internally inconsistent state. Only callable from `active`.
+ *
+ * Standby missions (dependency-blocked) are fine to leave around — they
+ * aren't doing anything the dispatcher cares about.
+ */
+export function pauseCampaign(campaignId: string, opts: PauseOpts = {}): void {
+  const db = getDatabase();
+  const campaign = loadCampaign(campaignId);
+  if (campaign.status !== 'active') {
+    throw new Error(
+      `pauseCampaign: campaign must be active to pause (current: ${campaign.status})`,
+    );
+  }
+
+  const liveMissions = db
+    .select({ id: missions.id, title: missions.title, status: missions.status })
+    .from(missions)
+    .where(eq(missions.campaignId, campaignId))
+    .all()
+    .filter((m) => LIVE_MISSION_STATES.has(m.status ?? ''));
+
+  if (liveMissions.length > 0) {
+    const summary = liveMissions
+      .slice(0, 3)
+      .map((m) => `"${m.title}" (${m.status})`)
+      .join(', ');
+    const more = liveMissions.length > 3 ? ` and ${liveMissions.length - 3} more` : '';
+    throw new Error(
+      `pauseCampaign: cannot pause while ${liveMissions.length} mission${liveMissions.length === 1 ? ' is' : 's are'} live — ${summary}${more}. Wait for them to finish or abandon them first.`,
+    );
+  }
+
+  db.update(campaigns)
+    .set({
+      status: 'paused',
+      stallReason: opts.reason ?? null,
+      updatedAt: Date.now(),
+    })
+    .where(eq(campaigns.id, campaignId))
+    .run();
+
+  emitComm({
+    campaignId,
+    battlefieldId: campaign.battlefieldId,
+    actor: 'CONTROL',
+    message: `Campaign paused${opts.reason ? `: ${opts.reason}` : ''}`,
+    level: 'warn',
   });
 }
 
