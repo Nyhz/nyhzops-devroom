@@ -5,6 +5,7 @@ import { getControlConfig } from './config';
 import { emitComm } from './comms';
 import { sweepStaleMissions } from './watchdog';
 import { runMission, type MissionRunnerDeps } from './mission-runner';
+import { onMissionTerminal } from './campaign/executor';
 
 /**
  * Task 2.10 scaffold — dispatch loop, slot accounting, startup recovery.
@@ -171,6 +172,23 @@ export class Control {
     } finally {
       this.live.delete(missionId);
       this.dispatched.delete(missionId);
+      // Wire mission completion back to campaign phase advancement.
+      // Without this, settlePhase / activatePhase only ever fire from the
+      // manual Accept-and-Merge or Abandon UI paths — natural happy-path
+      // completions (clean gates → clean merge → ACCOMPLISHED) leave the
+      // phase stuck in ACTIVE and the next phase never wakes up.
+      // onMissionTerminal returns early for standalone missions and only
+      // settles when ALL phase missions are terminal, so it is safe to
+      // call unconditionally after runMission resolves.
+      try {
+        onMissionTerminal(missionId);
+      } catch (err) {
+        emitComm({
+          missionId,
+          message: `Phase advancement failed: ${(err as Error).message}`,
+          level: 'error',
+        });
+      }
     }
   }
 
