@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
 // Battlefields (Projects)
@@ -65,7 +65,11 @@ export const missions = sqliteTable('missions', {
   completedAt: integer('completed_at'),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
-});
+}, (table) => [
+  index('idx_missions_status').on(table.status),
+  index('idx_missions_battlefield').on(table.battlefieldId),
+  index('idx_missions_bf_status').on(table.battlefieldId, table.status),
+]);
 
 // ---------------------------------------------------------------------------
 // Campaigns (Multi-phase operations)
@@ -208,7 +212,9 @@ export const overseerLogs = sqliteTable('overseer_logs', {
   escalated: integer('escalated').default(0),
   decisionType: text('decision_type'),
   timestamp: integer('timestamp').notNull(),
-});
+}, (table) => [
+  index('idx_overseer_logs_mission').on(table.missionId),
+]);
 
 // ---------------------------------------------------------------------------
 // Notifications (Escalation + In-App)
@@ -225,7 +231,9 @@ export const notifications = sqliteTable('notifications', {
   telegramSent: integer('telegram_sent').default(0),
   telegramMsgId: integer('telegram_msg_id'),
   createdAt: integer('created_at').notNull(),
-});
+}, (table) => [
+  index('idx_notifications_read_created').on(table.read, table.createdAt),
+]);
 
 // ---------------------------------------------------------------------------
 // Command Logs
@@ -347,7 +355,9 @@ export const missionAttempts = sqliteTable('mission_attempts', {
   durationMs: integer('duration_ms'),
   sessionId: text('session_id'),
   targetHeadAtStart: text('target_head_at_start'),
-});
+}, (table) => [
+  index('idx_mission_attempts_mission').on(table.missionId),
+]);
 
 export type MissionAttempt = typeof missionAttempts.$inferSelect;
 export type NewMissionAttempt = typeof missionAttempts.$inferInsert;
@@ -364,7 +374,11 @@ export const comms = sqliteTable('comms', {
   message: text('message').notNull(),
   level: text('level', { enum: ['info', 'warn', 'error'] }).notNull().default('info'),
   createdAt: integer('created_at').notNull(),
-});
+}, (table) => [
+  index('idx_comms_mission').on(table.missionId),
+  index('idx_comms_campaign').on(table.campaignId),
+  index('idx_comms_battlefield').on(table.battlefieldId),
+]);
 
 export type Comm = typeof comms.$inferSelect;
 export type NewComm = typeof comms.$inferInsert;
