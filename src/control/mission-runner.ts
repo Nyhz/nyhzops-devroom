@@ -273,15 +273,6 @@ function recordAttempt(opts: {
   return id;
 }
 
-function countAttempts(missionId: string): number {
-  const db = getDatabase();
-  return db
-    .select()
-    .from(missionAttempts)
-    .where(eq(missionAttempts.missionId, missionId))
-    .all().length;
-}
-
 function hashDiff(s: string): string {
   return createHash('sha1').update(s).digest('hex');
 }
@@ -361,6 +352,9 @@ export async function runMission(
   let lastSessionId: string | null = mission.sessionId ?? null;
   let lastGateStderr = '';
   let redirectPrompt: string | null = null;
+  // Tracks the most recent attempt number from the combat loop so the
+  // safety-fallthrough return path can report it without re-querying the DB.
+  let lastAttemptNumber = 0;
 
   const db = getDatabase();
 
@@ -375,7 +369,8 @@ export async function runMission(
   // Loop until we land on a terminal decision.
   // Safety cap to avoid runaway loops in pathological dep configurations.
   for (let guard = 0; guard < 20; guard++) {
-    const attemptNumber = countAttempts(missionId) + 1;
+    const attemptNumber = lastAttemptNumber + 1;
+    lastAttemptNumber = attemptNumber;
     const spawnStart = deps.now();
 
     const briefing = redirectPrompt ?? mission.briefing;
@@ -935,7 +930,7 @@ export async function runMission(
   return {
     missionId,
     finalStatus: 'compromised',
-    attemptCount: countAttempts(missionId),
+    attemptCount: lastAttemptNumber,
     classification: lastClassification,
     gateResults: lastGateResults,
   };
