@@ -108,10 +108,16 @@ export async function resetWorktreeToHead(worktreePath: string): Promise<void> {
   await git.raw(['clean', '-fdx']);
 }
 
+export type RebaseResult =
+  | { conflict: false; rebased: true }
+  | { conflict: false; rebased: false }
+  | { conflict: true; rebased: false }
+  | { conflict: false; rebased: false; error: string };
+
 export async function rebaseOntoTarget(
   worktreePath: string,
   targetBranch: string,
-): Promise<{ rebased: boolean; conflict: boolean }> {
+): Promise<RebaseResult> {
   const git = simpleGit(worktreePath);
   try {
     // Fetch is best-effort — local fixture repos have no remote.
@@ -123,7 +129,9 @@ export async function rebaseOntoTarget(
     const before = (await git.revparse(['HEAD'])).trim();
     await git.rebase([targetBranch]);
     const after = (await git.revparse(['HEAD'])).trim();
-    return { rebased: before !== after, conflict: false };
+    return before !== after
+      ? { rebased: true, conflict: false }
+      : { rebased: false, conflict: false };
   } catch (err) {
     // Abort the rebase if it left the worktree mid-rebase.
     try {
@@ -131,8 +139,9 @@ export async function rebaseOntoTarget(
     } catch {
       // ignore
     }
-    if (/conflict/i.test((err as Error).message)) return { rebased: false, conflict: true };
-    throw err;
+    const message = (err as Error).message;
+    if (/conflict/i.test(message)) return { rebased: false, conflict: true };
+    return { rebased: false, conflict: false, error: message };
   }
 }
 

@@ -70,11 +70,14 @@ export type MergeStatus = 'accomplished' | 'compromised';
 export type MergeFailureReason =
   | 'merge-conflict'
   | 'post-rebase-gate-failure'
-  | 'post-qm-gate-failure';
+  | 'post-qm-gate-failure'
+  | 'rebase-error';
 
 export interface MergeResult {
   status: MergeStatus;
   reason?: MergeFailureReason;
+  /** Populated when reason === 'rebase-error' — git error text. */
+  detail?: string;
 }
 
 /**
@@ -143,6 +146,10 @@ export async function runMerge(
     }
 
     const rebase = await rebaseOntoTarget(opts.worktreePath, opts.targetBranch);
+
+    if ('error' in rebase) {
+      return { status: 'compromised', reason: 'rebase-error', detail: rebase.error };
+    }
 
     if (rebase.conflict) {
       const onQuartermaster =
