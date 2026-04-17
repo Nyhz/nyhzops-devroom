@@ -150,7 +150,7 @@ async function waitForTerminalStatuses(
       .from(missions)
       .where(inArray(missions.id, ids))
       .all();
-    if (rows.length === ids.length && rows.every((r) => terminals.has(r.status))) {
+    if (rows.length === ids.length && rows.every((r) => r.status !== null && terminals.has(r.status))) {
       return;
     }
     await new Promise((r) => setTimeout(r, 25));
