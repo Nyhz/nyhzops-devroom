@@ -65,7 +65,7 @@ function makeAuthDeps(overrides: Partial<MissionRunnerDeps> = {}): MissionRunner
   const authRun: AssetRunResult = {
     exitCode: 1,
     stderr: 'auth error',
-    stdoutResultSubtype: 'error',
+    stdoutResultSubtype: 'error_during_execution',
     finalMessage: 'OAuth token expired',
     toolUseCount: 0,
     sessionId: 'sess-auth',
