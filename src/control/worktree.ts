@@ -127,20 +127,24 @@ export async function createMissionWorktree(opts: CreateWorktreeOpts): Promise<W
 }
 
 /**
- * Resolve a worktree's private `info/exclude` path. Linked worktrees keep
- * their gitdir under `<main-repo>/.git/worktrees/<wt>/`; the common repo's
- * `info/exclude` applies to all worktrees, but the per-worktree path is
- * where scoped ignores belong.
+ * Resolve the `info/exclude` path that git actually consults for this
+ * worktree. Common gotcha: linked worktrees DO have their own gitdir at
+ * `<main-repo>/.git/worktrees/<wt>/`, but git ignores the `info/exclude`
+ * inside it — the only `info/exclude` it reads is the common repo's
+ * `<common-gitdir>/info/exclude`, shared across every worktree. Writing
+ * to the per-worktree path is a silent no-op.
+ *
+ * `git rev-parse --git-common-dir` returns the canonical common gitdir
+ * regardless of whether the cwd is the main repo or a linked worktree,
+ * so we use that as the single source of truth.
  */
 async function worktreeExcludePath(wtPath: string): Promise<string | null> {
-  // The `.git` entry inside a linked worktree is a file containing
-  // `gitdir: <absolute path>`. Resolve that, then `info/exclude` under it.
   try {
-    const gitFile = path.join(wtPath, '.git');
-    const raw = await readFile(gitFile, 'utf-8');
-    const m = raw.match(/^gitdir:\s*(.+)$/m);
-    if (!m) return null;
-    return path.join(m[1].trim(), 'info', 'exclude');
+    const out = await simpleGit(wtPath).raw(['rev-parse', '--git-common-dir']);
+    const dir = out.trim();
+    if (!dir) return null;
+    const absDir = path.isAbsolute(dir) ? dir : path.resolve(wtPath, dir);
+    return path.join(absDir, 'info', 'exclude');
   } catch {
     return null;
   }
