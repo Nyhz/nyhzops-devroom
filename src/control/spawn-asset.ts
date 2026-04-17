@@ -29,6 +29,7 @@ import path from 'node:path';
 
 import { buildClaudeArgs } from './assets/cli-builder';
 import { getControlConfig } from './config';
+import { cleanEnv } from './gates';
 import { attachLivenessMonitor, type LivenessEvent } from './liveness';
 import type { AssetRunResult, SpawnAssetOpts } from './mission-runner';
 
@@ -250,7 +251,7 @@ export async function spawnAsset(opts: SpawnAssetExtendedOpts): Promise<AssetRun
   const child = spawn(opts.claudeBinary ?? 'claude', args, {
     cwd: opts.worktreePath,
     env: {
-      ...process.env,
+      ...cleanEnv(),
       ...(opts.env ?? {}),
       HOME: homeDir,
     },

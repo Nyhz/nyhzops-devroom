@@ -79,13 +79,29 @@ export async function runGates(opts: RunGatesOptions): Promise<GateRunResults> {
   return { results, overallStatus: 'pass' };
 }
 
+/**
+ * Devroom is itself a Next dev server, so its process env carries
+ * `NODE_ENV=development`, `TURBOPACK=1`, and a `NODE_PATH` that point at
+ * devroom's own runtime. Without scrubbing, `next build` (or any tool that
+ * checks these) inside a battlefield inherits them and crashes — most
+ * famously "Cannot read properties of null (reading 'useContext')" during
+ * prerender. Strip the known offenders before handing env to the child.
+ */
+const POISONED_ENV_VARS = ['NODE_ENV', 'NODE_PATH', 'TURBOPACK', 'NEXT_RUNTIME'] as const;
+
+export function cleanEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const key of POISONED_ENV_VARS) delete env[key];
+  return env;
+}
+
 async function defaultSpawnShell(
   cmd: string,
   opts: { cwd: string; timeout: number },
 ): Promise<SpawnShellResult> {
   return new Promise<SpawnShellResult>((resolve) => {
     const start = Date.now();
-    const child = nodeSpawn('sh', ['-c', cmd], { cwd: opts.cwd });
+    const child = nodeSpawn('sh', ['-c', cmd], { cwd: opts.cwd, env: cleanEnv() });
     let stdout = '';
     let stderr = '';
     let timedOut = false;
