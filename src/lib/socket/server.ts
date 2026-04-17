@@ -1,7 +1,8 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { startMetricsEmitter } from '@/lib/system-metrics';
+import type { ClientToServerEvents, ServerToClientEvents } from '@/lib/socket/events';
 
-export function setupSocketIO(io: SocketIOServer) {
+export function setupSocketIO(io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>) {
   io.on('connection', (socket) => {
     console.log(`[Socket.IO] Client connected: ${socket.id}`);
 
@@ -100,7 +101,11 @@ export function setupSocketIO(io: SocketIOServer) {
         await sendBriefingMessage(io, data.campaignId, data.message);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Briefing failed';
-        socket.emit('briefing:error', { campaignId: data.campaignId, error: message });
+        // briefing:error is not yet in ServerToClientEvents — open extension.
+        (socket.emit as (ev: string, arg: unknown) => boolean)(
+          'briefing:error',
+          { campaignId: data.campaignId, error: message },
+        );
       }
     });
 
@@ -118,7 +123,11 @@ export function setupSocketIO(io: SocketIOServer) {
         await sendGeneralMessage(io, data.sessionId, data.message);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'GENERAL session failed';
-        socket.emit('general:error', { sessionId: data.sessionId, error: message });
+        // general:error is not yet in ServerToClientEvents — open extension.
+        (socket.emit as (ev: string, arg: unknown) => boolean)(
+          'general:error',
+          { sessionId: data.sessionId, error: message },
+        );
       }
     });
 
