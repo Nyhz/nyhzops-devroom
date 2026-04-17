@@ -28,6 +28,7 @@ import {
 } from '@/lib/db/schema';
 import { generateId, toKebabCase } from '@/lib/utils';
 import { config } from '@/lib/config';
+import { getGitIdentity } from '@/control/git-identity';
 import { getNextRun } from '@/lib/scheduler/cron';
 import { emitComm } from '@/control/comms';
 import type { GateManifest, GateRunResults, RunGatesOptions } from '@/control/gates';
@@ -187,6 +188,24 @@ export async function createBattlefield(
     const git = simpleGit(dirPath);
     await git.init();
     await git.raw(['branch', '-m', defaultBranch]);
+    // Ensure the default branch has a HEAD so later worktree operations can
+    // resolve it. Without this, an empty repo fails `git worktree add <path>
+    // main` with "fatal: invalid reference: main". If a scaffold command
+    // runs it will commit its own files on top; if not, this empty commit
+    // is all that exists until bootstrap commits CLAUDE.md / SPEC.md.
+    {
+      const id = getGitIdentity();
+      await git.raw([
+        '-c',
+        `user.name=${id.name}`,
+        '-c',
+        `user.email=${id.email}`,
+        'commit',
+        '--allow-empty',
+        '-m',
+        'chore: initialize battlefield',
+      ]);
+    }
     repoPath = dirPath;
 
     if (data.scaffoldCommand) {
@@ -213,6 +232,17 @@ export async function createBattlefield(
   if (data.skipBootstrap) {
     claudeMdPath = data.claudeMdPath ?? null;
     specMdPath = data.specMdPath ?? null;
+  }
+
+  // Commander-supplied CLAUDE.md / SPEC.md content — write to repo root so
+  // bootstrap can detect them and skip (or narrow) the INTEL authoring step.
+  // The files are NOT committed here; the Commander reviews via
+  // <BootstrapReview /> and `approveBootstrap` commits both together.
+  if (data.claudeMdContent && data.claudeMdContent.trim().length > 0) {
+    fs.writeFileSync(path.join(repoPath, 'CLAUDE.md'), data.claudeMdContent, 'utf-8');
+  }
+  if (data.specMdContent && data.specMdContent.trim().length > 0) {
+    fs.writeFileSync(path.join(repoPath, 'SPEC.md'), data.specMdContent, 'utf-8');
   }
 
   // Determine initial status: 'initializing' when bootstrap will run,

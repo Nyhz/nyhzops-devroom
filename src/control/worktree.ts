@@ -1,6 +1,7 @@
 import simpleGit from 'simple-git';
 import path from 'node:path';
 import { realpath, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { getGitIdentity } from './git-identity';
 
 export function sanitizeBranchForPath(branch: string): string {
   return branch.replace(/[^a-zA-Z0-9._-]/g, '-');
@@ -111,11 +112,13 @@ export async function createMissionWorktree(opts: CreateWorktreeOpts): Promise<W
   // agents react to that error by retrying with `-c user.email=… -c
   // user.name=… commit`, which works but is a wasted detour and obscures
   // what actually went wrong. Keep these scoped to the worktree config so
-  // they never bleed into the user's global git identity.
+  // they never bleed into the user's global git identity. Identity comes
+  // from `DEVROOM_GIT_USER` / `DEVROOM_GIT_EMAIL` (see git-identity.ts).
   const wtGit = simpleGit(wtPath);
   try {
-    await wtGit.addConfig('user.name', 'DEVROOM Asset', false, 'local');
-    await wtGit.addConfig('user.email', 'asset@devroom.local', false, 'local');
+    const id = getGitIdentity();
+    await wtGit.addConfig('user.name', id.name, false, 'local');
+    await wtGit.addConfig('user.email', id.email, false, 'local');
   } catch {
     // best-effort — agent will fall back to the inline-identity dance
   }
@@ -234,11 +237,12 @@ export async function autoCommitSweep(
   const status = await git.status();
   if (status.files.length === 0) return { swept: false, filesChanged: 0 };
   await git.add('.');
+  const id = getGitIdentity();
   await git
-    .env('GIT_AUTHOR_NAME', 'DEVROOM')
-    .env('GIT_AUTHOR_EMAIL', 'devroom@local')
-    .env('GIT_COMMITTER_NAME', 'DEVROOM')
-    .env('GIT_COMMITTER_EMAIL', 'devroom@local')
+    .env('GIT_AUTHOR_NAME', id.name)
+    .env('GIT_AUTHOR_EMAIL', id.email)
+    .env('GIT_COMMITTER_NAME', id.name)
+    .env('GIT_COMMITTER_EMAIL', id.email)
     .raw(['commit', '--no-verify', '-m', `chore(mission): sweep uncommitted work [${missionId}]`]);
   return { swept: true, filesChanged: status.files.length };
 }
