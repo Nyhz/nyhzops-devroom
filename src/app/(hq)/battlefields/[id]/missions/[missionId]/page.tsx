@@ -119,6 +119,12 @@ export default async function MissionDetailPage({
           Priority:{' '}
           <span className="text-dr-text uppercase">{mission.priority}</span>
         </span>
+        {mission.worktreeBranch && (
+          <span className="text-dr-muted">
+            Worktree:{' '}
+            <span className="text-dr-text font-mono">{mission.worktreeBranch}</span>
+          </span>
+        )}
       </div>
 
       {/* Recon banner — no-merge notice */}
@@ -157,7 +163,7 @@ export default async function MissionDetailPage({
       </div>
 
       {/* Telemetry row */}
-      {(mission.iterations || mission.durationMs || mission.costInput || mission.worktreeBranch) && (
+      {(mission.iterations || mission.durationMs || mission.costInput) && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-xs font-data">
           {mission.iterations != null && mission.iterations > 0 && (
             <div className="bg-dr-surface border border-dr-border px-2 py-1.5">
@@ -187,12 +193,6 @@ export default async function MissionDetailPage({
             <div className="bg-dr-surface border border-dr-border px-2 py-1.5">
               <div className="text-dr-dim uppercase tracking-wider text-[10px]">CACHE HIT</div>
               <div className="text-dr-text mt-0.5">{mission.costCacheHit.toLocaleString()}</div>
-            </div>
-          )}
-          {mission.worktreeBranch && (
-            <div className="bg-dr-surface border border-dr-border px-2 py-1.5 col-span-2">
-              <div className="text-dr-dim uppercase tracking-wider text-[10px]">WORKTREE BRANCH</div>
-              <div className="text-dr-text font-mono mt-0.5 truncate">{mission.worktreeBranch}</div>
             </div>
           )}
         </div>
