@@ -343,10 +343,9 @@ export async function runMission(
     return { missionId, finalStatus: 'compromised', attemptCount: 0 };
   }
 
-  // --- IN_COMBAT -----------------------------------------------------------
-  transitionMission(missionId, 'in_combat', deps.now());
-
-  // Retry-loop state.
+  // Retry-loop state — declared outside the try block below so the
+  // runOverseerConsult closure (declared at the end of runMission) can
+  // still capture them.
   let sortieAttempt = 0; // combat-asset spawns that count against 3-deterministic budget
   let infraRetryCount = 0;
   let overseerConsulted = false;
@@ -359,6 +358,14 @@ export async function runMission(
   let redirectPrompt: string | null = null;
 
   const db = getDatabase();
+
+  // Worktree is live from here on — wrap the remainder in try/finally so
+  // cleanup always runs, whether the mission ACCOMPLISHED, COMPROMISED, or
+  // the loop threw unexpectedly. The watchdog sweep is still the
+  // belt-and-suspenders backstop, but the happy path must not depend on it.
+  try {
+  // --- IN_COMBAT -----------------------------------------------------------
+  transitionMission(missionId, 'in_combat', deps.now());
 
   // Loop until we land on a terminal decision.
   // Safety cap to avoid runaway loops in pathological dep configurations.
@@ -835,6 +842,22 @@ export async function runMission(
     classification: lastClassification,
     gateResults: lastGateResults,
   };
+  } finally {
+    // Best-effort worktree cleanup — never rethrow. The watchdog sweep
+    // handles any leaks this misses.
+    try {
+      // Keep the branch for Commander inspection — the worktree directory is
+      // what leaks onto disk. Watchdog sweep handles branch cleanup later.
+      await deps.worktree.remove({
+        repoPath: battlefield.repoPath,
+        worktreePath,
+        branch,
+        deleteBranch: false,
+      });
+    } catch (err) {
+      console.error('[CONTROL] worktree cleanup failed for', missionId, err);
+    }
+  }
 
   // -------------------------------------------------------------------------
   // OVERSEER consult helper (closure over loop state).

@@ -291,10 +291,11 @@ describe('combat mission lifecycle — integration', () => {
     expect(attempts[0].autoCommitted).toBe(1);
     expect(attempts[0].endReason).toBe('clean');
 
-    // Confirm the sweep commit landed on the worktree branch.
+    // Confirm the sweep commit landed on the worktree branch. The worktree
+    // directory itself is cleaned up by runMission's finally block, so we
+    // inspect the branch ref through the main repo.
     const branch = `devroom/${missionId}`;
-    const wtPath = path.join(repo.path, '.worktrees', branch.replace(/\//g, '-'));
-    const log = await simpleGit(wtPath).log();
+    const log = await simpleGit(repo.path).log([branch]);
     expect(log.latest?.message).toMatch(/chore\(mission\): sweep uncommitted work/);
   }, 30_000);
 
