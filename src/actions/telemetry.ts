@@ -172,9 +172,11 @@ export async function getResourceUsage(battlefieldId: string): Promise<ResourceM
     dbSize = 0;
   }
 
-  // Socket connections
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const socketConnections = (globalThis.io as any)?.engine?.clientsCount ?? 0;
+  // Socket connections — `engine.clientsCount` is a Socket.IO internal not
+  // on the public type. Narrow cast documents the specific escape hatch.
+  const socketConnections =
+    (globalThis.io as { engine?: { clientsCount?: number } } | undefined)
+      ?.engine?.clientsCount ?? 0;
 
   return {
     agentSlots: { active, max },

@@ -23,16 +23,8 @@ import { isEnabled as telegramIsEnabled } from './src/lib/telegram/telegram';
 import { handleTelegramCallback } from './src/lib/notifications/escalate';
 import { setBootTimestamp, stopMetricsEmitter } from './src/lib/system-metrics';
 
-// Typed globalThis for Socket.IO access
-declare global {
-  // Intentionally typed loosely — many legacy call sites (dev-server,
-  // escalate, server actions) emit events that are not yet in
-  // ServerToClientEvents. Incremental tightening will follow.
-  var io: SocketIOServer | undefined;
-  var orchestrator: Control | undefined;
-  var devServerManager: DevServerManager | undefined;
-  var scheduler: Scheduler | undefined;
-}
+// Global singletons (io, orchestrator, devServerManager, scheduler) are
+// declared ambiently in src/types/globals.d.ts.
 
 const dev = process.env.NODE_ENV !== 'production';
 const SERVER_BOOT_TIME = Date.now();
