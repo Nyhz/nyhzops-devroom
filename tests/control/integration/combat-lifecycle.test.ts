@@ -493,36 +493,6 @@ describe('combat mission lifecycle — integration', () => {
   }, 30_000);
 
   // -------------------------------------------------------------------------
-  // 8. OVERSEER classifier fallback for otherwise-unknown exits.
-  //    We inject a scenario that exits 0 with no result event — which falls
-  //    through all fast-path regex checks. The overseerClassifier dep is
-  //    consulted and returns AGENT_FAILURE → treated as gate-fail-like retry.
-  //
-  //    SKIPPED: the fast-path classifier already assigns NEEDS_COMMANDER for
-  //    such exits when overseerClassify is not provided; exercising the
-  //    OVERSEER branch requires a non-fast-path scenario AND a live
-  //    overseerClassifier wired end-to-end. The runner wires the dep, but
-  //    crafting a deterministic scenario that reaches the OVERSEER branch
-  //    without also hitting regex matches is brittle without the full
-  //    prompt-builder plumbing (Task 5.4+).
-  // -------------------------------------------------------------------------
-  it.skip('overseer classifier fallback: AGENT_FAILURE → retry path', async () => {
-    // TODO: enable once prompt-builder is integrated into mission-runner.
-  });
-
-  // -------------------------------------------------------------------------
-  // 9. Same-diff path (no-progress) → OVERSEER redirect → recovered.
-  //    SKIPPED: requires distinct scenarios per attempt (first fails, retry
-  //    writes different files after OVERSEER redirect). The current scripted-
-  //    claude wires ONE scenario per spawnAsset function; to test this we'd
-  //    need a dispatcher that switches scenarios based on attempt number.
-  //    Deferred to a follow-up task.
-  // -------------------------------------------------------------------------
-  it.skip('same-diff: OVERSEER redirect → attempt 4 passes → ACCOMPLISHED', async () => {
-    // TODO: introduce multi-scenario dispatcher in scripted-claude wiring.
-  });
-
-  // -------------------------------------------------------------------------
-  // 10. All attempts fail → COMPROMISED (covered by test #3 via escalate).
+  // All attempts fail → COMPROMISED (covered by test #3 via escalate).
   // -------------------------------------------------------------------------
 });
