@@ -13,39 +13,65 @@ export interface CommEvent {
 }
 
 /**
- * Convert a Claude Code stream-json event into a human-readable single-line
- * comm message. Returns null to skip events that carry no Commander-visible
- * information (system init, per-token deltas, the final result event — which
- * is already surfaced via the exit classifier).
+ * Convert a Claude Code stream-json event into zero or more human-readable
+ * single-line comm messages. Real Claude output nests text, tool_use, and
+ * tool_result parts inside `event.message.content[]`; a single event can
+ * produce multiple comm lines (e.g. a text thought followed by a tool_use).
+ *
+ * Legacy flat shape (`{type:'assistant', text:'...'}`) is supported as a
+ * fallback so scripted-claude test fixtures keep working.
  */
-export function formatCommsEvent(ev: StreamJsonEvent): string | null {
+export function formatCommsEvent(ev: StreamJsonEvent): string[] {
+  const out: string[] = [];
+
+  // Nested real-Claude shape: walk message.content[]
+  const msg = (ev as { message?: unknown }).message;
+  if (msg && typeof msg === 'object') {
+    const content = (msg as { content?: unknown }).content;
+    if (Array.isArray(content)) {
+      for (const part of content) {
+        if (!part || typeof part !== 'object') continue;
+        const p = part as Record<string, unknown>;
+        const ptype = p.type;
+        if (ptype === 'text' && typeof p.text === 'string') {
+          const t = p.text.trim();
+          if (t) out.push(t.length > 400 ? `${t.slice(0, 400)}…` : t);
+        } else if (ptype === 'tool_use') {
+          const name = typeof p.name === 'string' ? p.name : 'tool';
+          const summary = summarizeToolInput(name, p.input);
+          out.push(summary ? `⚙ ${name}: ${summary}` : `⚙ ${name}`);
+        } else if (ptype === 'tool_result') {
+          const preview = summarizeToolResult(p.content);
+          const glyph = p.is_error === true ? '✗' : '✓';
+          out.push(preview ? `${glyph} result: ${preview}` : `${glyph} result`);
+        }
+      }
+      return out;
+    }
+  }
+
+  // Legacy flat shape fallback (scripted-claude fixtures, older events)
   switch (ev.type) {
     case 'assistant': {
       const text = typeof ev.text === 'string' ? ev.text.trim() : '';
-      if (!text) return null;
-      const preview = text.length > 400 ? `${text.slice(0, 400)}…` : text;
-      return preview;
+      if (!text) return [];
+      return [text.length > 400 ? `${text.slice(0, 400)}…` : text];
     }
     case 'tool_use': {
       const name = typeof ev.name === 'string' ? ev.name : 'tool';
       const input = (ev as { input?: unknown }).input;
       const summary = summarizeToolInput(name, input);
-      return summary ? `⚙ ${name}: ${summary}` : `⚙ ${name}`;
+      return [summary ? `⚙ ${name}: ${summary}` : `⚙ ${name}`];
     }
     case 'tool_result': {
       const content = (ev as { content?: unknown }).content;
       const preview = summarizeToolResult(content);
       const isError = (ev as { is_error?: boolean }).is_error === true;
       const glyph = isError ? '✗' : '✓';
-      return preview ? `${glyph} result: ${preview}` : `${glyph} result`;
+      return [preview ? `${glyph} result: ${preview}` : `${glyph} result`];
     }
-    case 'system':
-    case 'user':
-    case 'stream_event':
-    case 'result':
-      return null;
     default:
-      return null;
+      return [];
   }
 }
 
