@@ -384,8 +384,7 @@ export async function runMission(
         sessionId: lastSessionId ?? undefined,
         onPid: (pid) => deps.onPidAssigned?.(pid),
         onCommsEvent: (ev) => {
-          const message = formatCommsEvent(ev);
-          if (message) {
+          for (const message of formatCommsEvent(ev)) {
             emitComm({ missionId, actor: 'OPERATIVE', message });
           }
         },
