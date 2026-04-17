@@ -8,6 +8,7 @@ import { missionLogs, missionAttempts, comms, missions } from '@/lib/db/schema';
 import { LiveStatusBadge } from '@/components/mission/live-status-badge';
 import { MissionTypeBadge } from '@/components/mission/mission-type-badge';
 import { MissionComms } from '@/components/mission/mission-comms';
+import { TelemetryHud } from '@/components/mission/telemetry-hud';
 import { FollowUpCardsLive } from '@/components/follow-up/follow-up-cards-live';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { TacCard } from '@/components/ui/tac-card';
@@ -142,6 +143,16 @@ export default async function MissionDetailPage({
         </div>
       )}
 
+      {/* Telemetry HUD — balanced single-row panel with tactical accents. */}
+      <TelemetryHud
+        iterations={mission.iterations}
+        durationMs={mission.durationMs}
+        costInput={mission.costInput}
+        costOutput={mission.costOutput}
+        costCacheHit={mission.costCacheHit}
+      />
+
+
       {/* Briefing — collapsed by default */}
       <div className="space-y-3">
         <details>
@@ -161,42 +172,6 @@ export default async function MissionDetailPage({
           </TacCard>
         </details>
       </div>
-
-      {/* Telemetry row */}
-      {(mission.iterations || mission.durationMs || mission.costInput) && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-xs font-data">
-          {mission.iterations != null && mission.iterations > 0 && (
-            <div className="bg-dr-surface border border-dr-border px-2 py-1.5">
-              <div className="text-dr-dim uppercase tracking-wider text-[10px]">ITERATIONS</div>
-              <div className="text-dr-text mt-0.5">{mission.iterations}</div>
-            </div>
-          )}
-          {mission.durationMs != null && mission.durationMs > 0 && (
-            <div className="bg-dr-surface border border-dr-border px-2 py-1.5">
-              <div className="text-dr-dim uppercase tracking-wider text-[10px]">DURATION</div>
-              <div className="text-dr-text mt-0.5">{Math.round(mission.durationMs / 1000)}s</div>
-            </div>
-          )}
-          {mission.costInput != null && mission.costInput > 0 && (
-            <div className="bg-dr-surface border border-dr-border px-2 py-1.5">
-              <div className="text-dr-dim uppercase tracking-wider text-[10px]">INPUT TOKENS</div>
-              <div className="text-dr-text mt-0.5">{mission.costInput.toLocaleString()}</div>
-            </div>
-          )}
-          {mission.costOutput != null && mission.costOutput > 0 && (
-            <div className="bg-dr-surface border border-dr-border px-2 py-1.5">
-              <div className="text-dr-dim uppercase tracking-wider text-[10px]">OUTPUT TOKENS</div>
-              <div className="text-dr-text mt-0.5">{mission.costOutput.toLocaleString()}</div>
-            </div>
-          )}
-          {mission.costCacheHit != null && mission.costCacheHit > 0 && (
-            <div className="bg-dr-surface border border-dr-border px-2 py-1.5">
-              <div className="text-dr-dim uppercase tracking-wider text-[10px]">CACHE HIT</div>
-              <div className="text-dr-text mt-0.5">{mission.costCacheHit.toLocaleString()}</div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Live Comms + Debrief + Actions */}
       <MissionComms

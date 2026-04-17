@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { getStatusColor } from '@/components/ui/tac-badge';
 
@@ -75,6 +75,25 @@ const actorContentStyles: Partial<Record<LogActor, string>> = {
 };
 
 const TOOL_PATTERN = /^Tool: \w+/;
+
+/** Match a trailing `(+N -M)` diff suffix on an Edit tool_use line. */
+const EDIT_DIFF_SUFFIX = /^(.*?)\s(\(\+(\d+)\s-(\d+)\))\s*$/;
+
+function renderContent(content: string): ReactNode {
+  const m = content.match(EDIT_DIFF_SUFFIX);
+  if (!m) return content;
+  const [, head, , added, removed] = m;
+  return (
+    <>
+      {head}{' '}
+      <span className="text-dr-dim">(</span>
+      <span className="text-dr-green">+{added}</span>
+      <span className="text-dr-dim"> </span>
+      <span className="text-dr-red">-{removed}</span>
+      <span className="text-dr-dim">)</span>
+    </>
+  );
+}
 
 function formatTimestamp(ms: number): string {
   const d = new Date(ms);
@@ -154,7 +173,7 @@ export function Terminal({ logs, className }: TerminalProps) {
                   [{entry.actor}]
                 </span>
               )}
-              {entry.content}
+              {renderContent(entry.content)}
               {entry.count > 1 && (
                 <span className="text-dr-dim ml-1.5">({entry.count})</span>
               )}

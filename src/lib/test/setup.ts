@@ -24,6 +24,7 @@ globalThis.orchestrator = {
   live: new Map(),
   start: vi.fn().mockResolvedValue(undefined),
   stop: vi.fn().mockResolvedValue(undefined),
+  killMission: vi.fn().mockReturnValue(false),
 } as unknown as typeof globalThis.orchestrator;
 
 // --- Mock globalThis.io (Socket.IO) ---

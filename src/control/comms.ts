@@ -13,6 +13,15 @@ export interface CommEvent {
   level?: 'info' | 'warn' | 'error';
 }
 
+export interface FormatCommsOpts {
+  /**
+   * Worktree path used by mission-runner as the debrief drop target. When
+   * provided, a `Write` tool_use targeting this path collapses to a generic
+   * `⚙ Write debrief.json` line — the raw JSON body is never echoed.
+   */
+  debriefDropPath?: string;
+}
+
 /**
  * Convert a Claude Code stream-json event into zero or more human-readable
  * single-line comm messages. Real Claude output nests text, tool_use, and
@@ -22,7 +31,10 @@ export interface CommEvent {
  * Legacy flat shape (`{type:'assistant', text:'...'}`) is supported as a
  * fallback so scripted-claude test fixtures keep working.
  */
-export function formatCommsEvent(ev: StreamJsonEvent): string[] {
+export function formatCommsEvent(
+  ev: StreamJsonEvent,
+  opts: FormatCommsOpts = {},
+): string[] {
   const out: string[] = [];
 
   // Nested real-Claude shape: walk message.content[]
@@ -35,11 +47,11 @@ export function formatCommsEvent(ev: StreamJsonEvent): string[] {
         const p = part as Record<string, unknown>;
         const ptype = p.type;
         if (ptype === 'text' && typeof p.text === 'string') {
-          const t = p.text.trim();
-          if (t) out.push(t.length > 400 ? `${t.slice(0, 400)}…` : t);
+          const visible = stripDebriefBlock(p.text).trim();
+          if (visible) out.push(visible.length > 400 ? `${visible.slice(0, 400)}…` : visible);
         } else if (ptype === 'tool_use') {
           const name = typeof p.name === 'string' ? p.name : 'tool';
-          out.push(`⚙ ${name}`);
+          out.push(formatToolUse(name, p.input, opts));
         }
         // tool_result intentionally dropped — the asset's narration conveys intent;
         // raw tool output is noise in the comms stream.
@@ -51,19 +63,112 @@ export function formatCommsEvent(ev: StreamJsonEvent): string[] {
   // Legacy flat shape fallback (scripted-claude fixtures, older events)
   switch (ev.type) {
     case 'assistant': {
-      const text = typeof ev.text === 'string' ? ev.text.trim() : '';
+      const raw = typeof ev.text === 'string' ? ev.text : '';
+      const text = stripDebriefBlock(raw).trim();
       if (!text) return [];
       return [text.length > 400 ? `${text.slice(0, 400)}…` : text];
     }
     case 'tool_use': {
       const name = typeof ev.name === 'string' ? ev.name : 'tool';
-      return [`⚙ ${name}`];
+      return [formatToolUse(name, (ev as { input?: unknown }).input, opts)];
     }
     case 'tool_result':
       return [];
     default:
       return [];
   }
+}
+
+/**
+ * Render a tool_use line for the comms terminal. Default is `⚙ Name`; for
+ * file-oriented tools we append a short `parent/file` hint, and for Edit we
+ * include `(+added -removed)` line counts. The Terminal component paints the
+ * `(+N -M)` suffix green/red.
+ */
+function formatToolUse(
+  name: string,
+  input: unknown,
+  opts: FormatCommsOpts = {},
+): string {
+  const rec = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
+
+  // Debrief drop: the asset's Write to the debrief path carries the full
+  // JSON body in `input.content`. Don't let that payload balloon the comms
+  // stream — show a compact "debrief submitted" marker instead.
+  if (name === 'Write' && opts.debriefDropPath) {
+    const fp = typeof rec.file_path === 'string' ? rec.file_path : '';
+    if (fp === opts.debriefDropPath || fp.endsWith(opts.debriefDropPath)) {
+      return `⚙ Write debrief.json`;
+    }
+  }
+
+  // Name-specific rendering runs first — for Grep/Glob the interesting bit is
+  // the pattern, not the optional `path` argument, so we must not fall through
+  // to the generic file_path branch.
+  if (name === 'Edit' || name === 'NotebookEdit') {
+    const oldS = typeof rec.old_string === 'string' ? rec.old_string
+      : typeof rec.old_source === 'string' ? rec.old_source
+      : '';
+    const newS = typeof rec.new_string === 'string' ? rec.new_string
+      : typeof rec.new_source === 'string' ? rec.new_source
+      : '';
+    const removed = oldS ? oldS.split('\n').length : 0;
+    const added = newS ? newS.split('\n').length : 0;
+    const fp = pickFilePath(rec);
+    const loc = fp ? ` ${shortPath(fp)}` : '';
+    return `⚙ ${name}${loc} (+${added} -${removed})`;
+  }
+
+  if (name === 'Grep' || name === 'Glob') {
+    const pat = typeof rec.pattern === 'string' ? rec.pattern : null;
+    return pat ? `⚙ ${name} ${truncate(pat, 60)}` : `⚙ ${name}`;
+  }
+
+  if (name === 'Bash') {
+    const desc = typeof rec.description === 'string' ? rec.description : null;
+    if (desc) return `⚙ ${name} ${truncate(desc, 60)}`;
+    const cmd = typeof rec.command === 'string' ? rec.command.trim() : '';
+    return cmd ? `⚙ ${name} ${truncate(cmd, 60)}` : `⚙ ${name}`;
+  }
+
+  const filePath = pickFilePath(rec);
+  if (filePath) {
+    return `⚙ ${name} ${shortPath(filePath)}`;
+  }
+
+  return `⚙ ${name}`;
+}
+
+function pickFilePath(rec: Record<string, unknown>): string | null {
+  if (typeof rec.file_path === 'string') return rec.file_path;
+  if (typeof rec.path === 'string') return rec.path;
+  if (typeof rec.notebook_path === 'string') return rec.notebook_path;
+  return null;
+}
+
+/** parent-dir/filename — strips the rest of the absolute path. */
+function shortPath(p: string): string {
+  const parts = p.split('/').filter(Boolean);
+  if (parts.length <= 1) return p;
+  return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+}
+
+function truncate(s: string, max: number): string {
+  return s.length > max ? `${s.slice(0, max)}…` : s;
+}
+
+/**
+ * Remove the `<DEBRIEF>…</DEBRIEF>` block (closed or open-ended) from an
+ * asset's text output. The debrief is consumed by the parser and rendered
+ * in the Debrief panel — having it also echo into COMMS just doubles noise
+ * at mission completion.
+ */
+function stripDebriefBlock(text: string): string {
+  const openIdx = text.indexOf('<DEBRIEF>');
+  if (openIdx === -1) return text;
+  const closeIdx = text.indexOf('</DEBRIEF>', openIdx);
+  const tail = closeIdx === -1 ? '' : text.slice(closeIdx + '</DEBRIEF>'.length);
+  return (text.slice(0, openIdx) + tail).replace(/\n{3,}/g, '\n\n');
 }
 
 type Emitter = (room: string, event: string, payload: unknown) => void;

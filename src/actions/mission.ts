@@ -296,6 +296,11 @@ export async function abandonMission(id: string): Promise<Mission> {
   const db = getDatabase();
   const mission = getOrThrow(missions, id, 'abandonMission');
 
+  // Kill the live Claude subprocess first — setting status=abandoned in the
+  // DB does not interrupt stdout streaming, so without this the agent keeps
+  // emitting comms until it naturally exits.
+  globalThis.orchestrator?.killMission(id);
+
   // Delegate to executor: sets status→abandoned, emits comm, cascades.
   executorAbandonMission(id, { reason: 'commander-abandon' });
 

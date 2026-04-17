@@ -54,6 +54,7 @@ const mockOrchestrator = {
   live: new Map(),
   start: vi.fn().mockResolvedValue(undefined),
   stop: vi.fn().mockResolvedValue(undefined),
+  killMission: vi.fn().mockReturnValue(false),
 };
 
 const mockEmit = vi.fn();

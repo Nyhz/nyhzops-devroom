@@ -76,7 +76,7 @@ const DEFAULT_ASSETS: Array<{
   {
     codename: 'STRATEGIST',
     specialty: 'Campaign planning',
-    model: 'claude-opus-4-6',
+    model: 'claude-opus-4-7',
     maxTurns: 3,
     effort: 'high',
     isSystem: 1,

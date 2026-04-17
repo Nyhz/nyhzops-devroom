@@ -16,9 +16,8 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
   const discovery = await getAvailableSkillsAndMcps();
 
   const modelLabel = {
-    'claude-opus-4-6': 'Opus',
+    'claude-opus-4-7': 'Opus',
     'claude-sonnet-4-6': 'Sonnet',
-    'claude-haiku-4-5-20251001': 'Haiku',
   }[asset.model ?? 'claude-sonnet-4-6'] ?? asset.model;
 
   return (

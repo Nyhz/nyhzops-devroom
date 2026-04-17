@@ -4,9 +4,8 @@ import { TacBadge } from '@/components/ui/tac-badge';
 import type { Asset } from '@/types';
 
 const MODEL_LABELS: Record<string, string> = {
-  'claude-opus-4-6': 'Opus',
+  'claude-opus-4-7': 'Opus',
   'claude-sonnet-4-6': 'Sonnet',
-  'claude-haiku-4-5-20251001': 'Haiku',
 };
 
 interface AssetListProps {

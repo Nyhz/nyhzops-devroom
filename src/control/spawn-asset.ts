@@ -68,6 +68,14 @@ export interface AssetDefinition {
 export interface SpawnAssetExtendedOpts extends SpawnAssetOpts {
   asset: AssetDefinition;
   rulesOfEngagement: string;
+  /**
+   * Path inside the worktree where the asset should Write its final debrief
+   * JSON. When set, `spawn-asset` intercepts `Write` tool_use events whose
+   * `file_path` matches this path and captures `input.content` verbatim.
+   * Comms formatter also uses it to suppress the raw JSON payload from the
+   * stream (the Write call itself still shows as `⚙ Write debrief.json`).
+   */
+  debriefDropPath?: string;
   claudeBinary?: string;
   /**
    * Arguments prepended before the asset-derived args. Primarily used by
@@ -149,6 +157,49 @@ async function probeHasDiff(worktreePath: string): Promise<boolean> {
 }
 
 /**
+ * Inspect a stream-json event for a `Write` tool_use whose target path is
+ * (or ends with) the injected debrief drop path, and return the raw JSON
+ * content string if so. Handles both the real-Claude nested shape
+ * (`message.content[]`) and the legacy flat tool_use shape.
+ */
+function maybeCaptureDebriefWrite(
+  ev: StreamJsonEvent,
+  dropPath: string,
+): string | null {
+  const pathEndsDrop = (p: unknown): boolean =>
+    typeof p === 'string' && (p === dropPath || p.endsWith(dropPath));
+
+  const readContent = (input: unknown): string | null => {
+    if (!input || typeof input !== 'object') return null;
+    const rec = input as { file_path?: unknown; content?: unknown };
+    if (!pathEndsDrop(rec.file_path)) return null;
+    return typeof rec.content === 'string' ? rec.content : null;
+  };
+
+  // Nested shape: assistant.message.content[].tool_use
+  const msg = (ev as { message?: unknown }).message;
+  if (msg && typeof msg === 'object') {
+    const content = (msg as { content?: unknown }).content;
+    if (Array.isArray(content)) {
+      for (const part of content) {
+        if (!part || typeof part !== 'object') continue;
+        const p = part as { type?: unknown; name?: unknown; input?: unknown };
+        if (p.type === 'tool_use' && p.name === 'Write') {
+          const captured = readContent(p.input);
+          if (captured) return captured;
+        }
+      }
+    }
+  }
+  // Legacy flat shape: { type: 'tool_use', name: 'Write', input: {...} }
+  if (ev.type === 'tool_use' && ev.name === 'Write') {
+    const captured = readContent((ev as { input?: unknown }).input);
+    if (captured) return captured;
+  }
+  return null;
+}
+
+/**
  * Wire SIGTERM → SIGKILL after 5 s. Idempotent — safe to call multiple times.
  */
 function killTree(child: ChildProcess): void {
@@ -222,6 +273,7 @@ export async function spawnAsset(opts: SpawnAssetExtendedOpts): Promise<AssetRun
   let toolUseCount = 0;
   let stdoutResultSubtype: AssetRunResult['stdoutResultSubtype'] = null;
   let finalMessage: string | null = null;
+  let debriefJson: string | null = null;
   let usage: AssetRunResult['usage'] = undefined;
   let sessionId: string | null = opts.sessionId ?? null;
   let killedByControl = false;
@@ -270,8 +322,38 @@ export async function spawnAsset(opts: SpawnAssetExtendedOpts): Promise<AssetRun
           const ev = JSON.parse(line) as StreamJsonEvent;
           opts.onCommsEvent?.(ev);
           if (ev.type === 'tool_use') toolUseCount += 1;
-          if (ev.type === 'assistant' && typeof ev.text === 'string') {
-            finalMessage = ev.text;
+          // Debrief capture: the asset Writes its final JSON to
+          // `debriefDropPath` inside the worktree. Intercept that specific
+          // Write tool_use and stash `input.content` verbatim — this is the
+          // structured debrief source of truth.
+          if (opts.debriefDropPath) {
+            const captured = maybeCaptureDebriefWrite(ev, opts.debriefDropPath);
+            if (captured) debriefJson = captured;
+          }
+          if (ev.type === 'assistant') {
+            // Flat legacy shape: `{type:'assistant', text:'...'}` (scripted fixtures).
+            if (typeof ev.text === 'string') {
+              finalMessage = ev.text;
+            }
+            // Nested real-Claude shape: message.content[] with text parts +
+            // tool_use parts. Join text parts in order; ignore tool_use so
+            // the <DEBRIEF> block isn't drowned out by tool input JSON.
+            const nested = (ev as { message?: unknown }).message;
+            if (nested && typeof nested === 'object') {
+              const content = (nested as { content?: unknown }).content;
+              if (Array.isArray(content)) {
+                const texts: string[] = [];
+                for (const part of content) {
+                  if (part && typeof part === 'object') {
+                    const p = part as { type?: unknown; text?: unknown };
+                    if (p.type === 'text' && typeof p.text === 'string') {
+                      texts.push(p.text);
+                    }
+                  }
+                }
+                if (texts.length > 0) finalMessage = texts.join('\n');
+              }
+            }
           }
           if (ev.type === 'result') {
             if (
@@ -280,6 +362,12 @@ export async function spawnAsset(opts: SpawnAssetExtendedOpts): Promise<AssetRun
               ev.subtype === 'error_during_execution'
             ) {
               stdoutResultSubtype = ev.subtype;
+            }
+            // Prefer the authoritative `result.result` string when provided —
+            // it is the model's final full answer after all tool turns.
+            const res = (ev as { result?: unknown }).result;
+            if (typeof res === 'string' && res.length > 0) {
+              finalMessage = res;
             }
             if (ev.usage) {
               usage = {
@@ -346,6 +434,7 @@ export async function spawnAsset(opts: SpawnAssetExtendedOpts): Promise<AssetRun
     stderr: stderrBuf,
     stdoutResultSubtype,
     finalMessage,
+    debriefJson,
     toolUseCount,
     sessionId,
     hasDiff,

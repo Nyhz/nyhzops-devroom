@@ -112,12 +112,12 @@ describe('asset actions', () => {
 
     it('updates model', async () => {
       const asset = createTestAsset(db, { codename: 'LIMA' });
-      await updateAsset(asset.id, { model: 'claude-opus-4-6' });
+      await updateAsset(asset.id, { model: 'claude-opus-4-7' });
 
       const { assets } = await import('@/lib/db/schema');
       const { eq } = await import('drizzle-orm');
       const row = db.select().from(assets).where(eq(assets.id, asset.id)).get();
-      expect(row!.model).toBe('claude-opus-4-6');
+      expect(row!.model).toBe('claude-opus-4-7');
     });
 
     it('throws on empty codename update', async () => {

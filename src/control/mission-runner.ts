@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { ulid } from 'ulid';
 import simpleGit from 'simple-git';
 import { createHash } from 'node:crypto';
@@ -21,6 +21,8 @@ import type {
 } from './worktree';
 import { decideNextAction, nextInfraBackoffMs } from './retry-policy';
 import { emitComm, emitMissionStatus, formatCommsEvent } from './comms';
+import { parseDebrief } from './debrief/parse';
+import { DebriefSchema, type Debrief } from './debrief/schema';
 
 /**
  * Per-mission lifecycle state machine.
@@ -50,6 +52,10 @@ export interface SpawnAssetOpts {
   /** Runtime override for the L3 stdout-silence watchdog (milliseconds).
    *  Recon uses this to raise the threshold per spec §7 step 5. */
   stdoutSilenceMs?: number;
+  /** Worktree-relative path where the asset should Write its final debrief
+   *  JSON. Used by `spawn-asset` to intercept the `Write` tool_use and
+   *  capture the structured debrief directly from the stream. */
+  debriefDropPath?: string;
 }
 
 export interface AssetRunResult {
@@ -57,6 +63,11 @@ export interface AssetRunResult {
   stderr: string;
   stdoutResultSubtype: 'success' | 'error_max_turns' | 'error_during_execution' | null;
   finalMessage: string | null;
+  /** Raw JSON string captured from the asset's Write tool_use targeting the
+   *  debrief drop path. Structured-debrief source of truth — preferred over
+   *  parsing `<DEBRIEF>` blocks out of finalMessage. Optional so test
+   *  fixtures constructed without it still satisfy the interface. */
+  debriefJson?: string | null;
   toolUseCount: number;
   sessionId: string | null;
   hasDiff: boolean;
@@ -171,6 +182,54 @@ function loadMission(missionId: string): { mission: MissionRow; battlefield: Bat
     .get();
   if (!bf) throw new Error(`mission-runner: battlefield ${mission.battlefieldId} not found`);
   return { mission, battlefield: bf };
+}
+
+/**
+ * Worktree-relative path where OPERATIVE writes its final structured debrief
+ * JSON. The per-worktree `info/exclude` (set up by `createMissionWorktree`)
+ * keeps this file from ever being stageable by `git add`, so it can't leak
+ * into the merge. When the worktree is removed on success, this file goes
+ * with it.
+ */
+const DEBRIEF_DROP_PATH = '.devroom/debrief.json';
+
+/**
+ * Append a footer to the mission briefing telling the asset where to drop
+ * its final debrief JSON. Kept as a single block so prompt-caching stays
+ * stable across attempts — only the volatile briefing prefix changes.
+ */
+/**
+ * Pick the best structured debrief from an asset run. Order of preference:
+ *   1. `run.debriefJson` — captured from the asset's Write tool_use to
+ *      DEBRIEF_DROP_PATH. Authoritative, structured at the source.
+ *   2. Regex-extracted `<DEBRIEF>…</DEBRIEF>` from `run.finalMessage` — legacy
+ *      fallback so in-flight missions and older asset prompts still work.
+ * Returns null if neither source yields a schema-valid debrief.
+ */
+function parseStructuredDebrief(run: AssetRunResult): Debrief | null {
+  if (run.debriefJson) {
+    try {
+      const parsed = DebriefSchema.safeParse(JSON.parse(run.debriefJson));
+      if (parsed.success) return parsed.data;
+    } catch { /* malformed JSON — fall through */ }
+  }
+  if (run.finalMessage) {
+    const result = parseDebrief(run.finalMessage);
+    if (result.ok) return result.data;
+  }
+  return null;
+}
+
+function appendDebriefInstruction(briefing: string, dropPath: string): string {
+  const footer = `
+
+---
+MISSION-END PROTOCOL — DEBRIEF HANDOFF:
+After your final commit (and only then), call the Write tool exactly once to record your structured debrief.
+  file_path: ${dropPath}
+  content:   a JSON object matching the DebriefSchema (summary, commits, files_touched, open_questions, confidence).
+Do NOT stage or commit this file — it lives outside version control by design. Do NOT emit the JSON inline in your prose. The Write tool call IS the debrief submission.`;
+  return briefing.endsWith('\n') ? `${briefing}${footer}` : `${briefing}\n${footer}`;
 }
 
 function transitionMission(missionId: string, status: string, now: number): void {
@@ -296,7 +355,13 @@ export async function runMission(
   const rateLimitDelay = deps.rateLimitBackoffMs ?? DEFAULT_RATE_LIMIT_BACKOFF;
 
   // --- DEPLOYING -----------------------------------------------------------
-  transitionMission(missionId, 'deploying', deps.now());
+  const missionStartedAt = deps.now();
+  getDatabase()
+    .update(missions)
+    .set({ startedAt: missionStartedAt })
+    .where(and(eq(missions.id, missionId), isNull(missions.startedAt)))
+    .run();
+  transitionMission(missionId, 'deploying', missionStartedAt);
 
   const branch = mission.worktreeBranch ?? `devroom/${missionId}`;
   const targetBranch = battlefield.defaultBranch ?? 'main';
@@ -368,6 +433,18 @@ export async function runMission(
     now: number,
   ): void => {
     finalStatus = status;
+    // Roll telemetry onto the missions row so the detail page stops showing
+    // zero for duration/iterations. mission_attempts has the authoritative
+    // per-attempt numbers; missions.{durationMs,iterations} is a summary.
+    getDatabase()
+      .update(missions)
+      .set({
+        completedAt: now,
+        durationMs: now - missionStartedAt,
+        iterations: lastAttemptNumber,
+      })
+      .where(eq(missions.id, missionId))
+      .run();
     transitionMission(missionId, status, now);
   };
 
@@ -382,7 +459,10 @@ export async function runMission(
     lastAttemptNumber = attemptNumber;
     const spawnStart = deps.now();
 
-    const briefing = redirectPrompt ?? mission.briefing;
+    const briefing = appendDebriefInstruction(
+      redirectPrompt ?? mission.briefing,
+      DEBRIEF_DROP_PATH,
+    );
     let run: AssetRunResult;
     try {
       run = await deps.spawnAsset({
@@ -391,9 +471,10 @@ export async function runMission(
         briefing,
         assetCodename: 'OPERATIVE',
         sessionId: lastSessionId ?? undefined,
+        debriefDropPath: DEBRIEF_DROP_PATH,
         onPid: (pid) => deps.onPidAssigned?.(pid),
         onCommsEvent: (ev) => {
-          for (const message of formatCommsEvent(ev)) {
+          for (const message of formatCommsEvent(ev, { debriefDropPath: DEBRIEF_DROP_PATH })) {
             emitComm({ missionId, actor: 'OPERATIVE', message });
           }
         },
@@ -879,10 +960,16 @@ export async function runMission(
       // pages read the same. Without this write the UI shows Tokens: 0 and
       // "(no debrief)" even for successful missions.
       const dbForMission = getDatabase();
+      // Prefer the structured JSON captured from the asset's Write tool_use
+      // (DEBRIEF_DROP_PATH). Fall back to regex-parsing the finalMessage for
+      // any in-flight missions still using the legacy <DEBRIEF> convention.
+      const structured = parseStructuredDebrief(run);
+      const debriefText = structured?.summary ?? run.finalMessage ?? null;
       dbForMission
         .update(missions)
         .set({
-          ...(run.finalMessage ? { debrief: run.finalMessage } : {}),
+          ...(debriefText ? { debrief: debriefText } : {}),
+          ...(structured ? { debriefStructured: JSON.stringify(structured) } : {}),
           costInput: run.usage?.input ?? 0,
           costOutput: run.usage?.output ?? 0,
           costCacheHit: run.usage?.cache ?? 0,

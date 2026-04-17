@@ -13,7 +13,7 @@ describe('formatCommsEvent — real Claude stream-json shape', () => {
     expect(formatCommsEvent(ev)).toEqual(['Adding health route now.']);
   });
 
-  it('emits tool_use as bare name — no argument summary', () => {
+  it('emits Bash tool_use with description when provided', () => {
     const ev = {
       type: 'assistant',
       message: {
@@ -22,12 +22,50 @@ describe('formatCommsEvent — real Claude stream-json shape', () => {
             type: 'tool_use',
             id: 't1',
             name: 'Bash',
-            input: { command: 'pnpm build' },
+            input: { command: 'pnpm build', description: 'Run build' },
           },
         ],
       },
     } as unknown as StreamJsonEvent;
-    expect(formatCommsEvent(ev)).toEqual(['⚙ Bash']);
+    expect(formatCommsEvent(ev)).toEqual(['⚙ Bash Run build']);
+  });
+
+  it('shortens file paths to parent/file for Read-style tools', () => {
+    const ev = {
+      type: 'assistant',
+      message: {
+        content: [
+          {
+            type: 'tool_use',
+            id: 't1',
+            name: 'Read',
+            input: { file_path: '/Users/a/b/c/src/x.ts' },
+          },
+        ],
+      },
+    } as unknown as StreamJsonEvent;
+    expect(formatCommsEvent(ev)).toEqual(['⚙ Read src/x.ts']);
+  });
+
+  it('annotates Edit with short path and +added/-removed line counts', () => {
+    const ev = {
+      type: 'assistant',
+      message: {
+        content: [
+          {
+            type: 'tool_use',
+            id: 't1',
+            name: 'Edit',
+            input: {
+              file_path: '/Users/a/b/src/foo.ts',
+              old_string: 'a\nb\nc',
+              new_string: 'a\nb\nc\nd\ne',
+            },
+          },
+        ],
+      },
+    } as unknown as StreamJsonEvent;
+    expect(formatCommsEvent(ev)).toEqual(['⚙ Edit src/foo.ts (+5 -3)']);
   });
 
   it('emits one message per content part, preserving order', () => {
@@ -47,7 +85,7 @@ describe('formatCommsEvent — real Claude stream-json shape', () => {
     } as unknown as StreamJsonEvent;
     expect(formatCommsEvent(ev)).toEqual([
       "I'll read the file.",
-      '⚙ Read',
+      '⚙ Read src/x.ts',
     ]);
   });
 
@@ -62,6 +100,63 @@ describe('formatCommsEvent — real Claude stream-json shape', () => {
             content: 'file contents here',
           },
         ],
+      },
+    } as unknown as StreamJsonEvent;
+    expect(formatCommsEvent(ev)).toEqual([]);
+  });
+
+  it('uses pattern (not path) for Grep', () => {
+    const ev = {
+      type: 'assistant',
+      message: {
+        content: [
+          {
+            type: 'tool_use',
+            name: 'Grep',
+            input: { pattern: 'todo', path: '/a/b/src' },
+          },
+        ],
+      },
+    } as unknown as StreamJsonEvent;
+    expect(formatCommsEvent(ev)).toEqual(['⚙ Grep todo']);
+  });
+
+  it('shows Bash command when no description is provided', () => {
+    const ev = {
+      type: 'assistant',
+      message: {
+        content: [
+          {
+            type: 'tool_use',
+            name: 'Bash',
+            input: { command: 'pnpm build' },
+          },
+        ],
+      },
+    } as unknown as StreamJsonEvent;
+    expect(formatCommsEvent(ev)).toEqual(['⚙ Bash pnpm build']);
+  });
+
+  it('strips <DEBRIEF> blocks from text parts so COMMS stays clean', () => {
+    const ev = {
+      type: 'assistant',
+      message: {
+        content: [
+          {
+            type: 'text',
+            text: 'Build passed.\n\n<DEBRIEF>\n{"summary":"x"}\n</DEBRIEF>',
+          },
+        ],
+      },
+    } as unknown as StreamJsonEvent;
+    expect(formatCommsEvent(ev)).toEqual(['Build passed.']);
+  });
+
+  it('suppresses a text part that is only a <DEBRIEF> block', () => {
+    const ev = {
+      type: 'assistant',
+      message: {
+        content: [{ type: 'text', text: '<DEBRIEF>\n{"a":1}\n</DEBRIEF>' }],
       },
     } as unknown as StreamJsonEvent;
     expect(formatCommsEvent(ev)).toEqual([]);

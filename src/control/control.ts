@@ -91,6 +91,34 @@ export class Control {
     await Promise.allSettled([...this.inFlight]);
   }
 
+  /**
+   * Send SIGTERM (then SIGKILL after 5s) to the Claude subprocess running the
+   * given mission, if any. Returns true if a pid was known and signaled.
+   *
+   * Used by the `abandonMission` Server Action so the Commander's click
+   * actually stops the running agent — setting status=abandoned in the DB
+   * doesn't interrupt stdout streaming by itself.
+   */
+  killMission(missionId: string): boolean {
+    const pid = this.live.get(missionId);
+    if (!pid || pid === 0) return false;
+    try {
+      process.kill(pid, 'SIGTERM');
+    } catch {
+      return false;
+    }
+    setTimeout(() => {
+      try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ }
+    }, 5000).unref?.();
+    emitComm({
+      missionId,
+      actor: 'CONTROL',
+      message: `Killed live process pid=${pid}`,
+      level: 'warn',
+    });
+    return true;
+  }
+
   pauseAll(reason: string): void {
     this.paused = true;
     emitComm({ message: `Orchestrator paused: ${reason}`, level: 'warn' });

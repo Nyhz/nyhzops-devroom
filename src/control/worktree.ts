@@ -1,6 +1,6 @@
 import simpleGit from 'simple-git';
 import path from 'node:path';
-import { realpath } from 'node:fs/promises';
+import { realpath, readFile, writeFile, mkdir } from 'node:fs/promises';
 
 export function sanitizeBranchForPath(branch: string): string {
   return branch.replace(/[^a-zA-Z0-9._-]/g, '-');
@@ -99,7 +99,51 @@ export async function createMissionWorktree(opts: CreateWorktreeOpts): Promise<W
   } else {
     await git.raw(['worktree', 'add', '-b', opts.missionBranch, wtPath, opts.targetBranch]);
   }
+
+  // Register `.devroom/` in the worktree's private exclude so the asset's
+  // debrief file (written at end of mission) is never stageable by `git add`.
+  // Per-worktree `info/exclude` is an official git mechanism — invisible to
+  // the user's repo-level .gitignore, scoped to this worktree's lifetime.
+  await addToWorktreeExclude(wtPath, '.devroom/');
+
   return { path: wtPath, branch: opts.missionBranch };
+}
+
+/**
+ * Resolve a worktree's private `info/exclude` path. Linked worktrees keep
+ * their gitdir under `<main-repo>/.git/worktrees/<wt>/`; the common repo's
+ * `info/exclude` applies to all worktrees, but the per-worktree path is
+ * where scoped ignores belong.
+ */
+async function worktreeExcludePath(wtPath: string): Promise<string | null> {
+  // The `.git` entry inside a linked worktree is a file containing
+  // `gitdir: <absolute path>`. Resolve that, then `info/exclude` under it.
+  try {
+    const gitFile = path.join(wtPath, '.git');
+    const raw = await readFile(gitFile, 'utf-8');
+    const m = raw.match(/^gitdir:\s*(.+)$/m);
+    if (!m) return null;
+    return path.join(m[1].trim(), 'info', 'exclude');
+  } catch {
+    return null;
+  }
+}
+
+async function addToWorktreeExclude(wtPath: string, pattern: string): Promise<void> {
+  const excludePath = await worktreeExcludePath(wtPath);
+  if (!excludePath) return; // best-effort — don't break worktree creation
+  try {
+    let existing = '';
+    try { existing = await readFile(excludePath, 'utf-8'); } catch { /* new file */ }
+    if (existing.split('\n').some((l) => l.trim() === pattern)) return;
+    await mkdir(path.dirname(excludePath), { recursive: true });
+    const next = existing.endsWith('\n') || existing.length === 0
+      ? `${existing}${pattern}\n`
+      : `${existing}\n${pattern}\n`;
+    await writeFile(excludePath, next);
+  } catch {
+    // ignore — the asset instruction is still the primary safeguard
+  }
 }
 
 export async function resetWorktreeToHead(worktreePath: string): Promise<void> {
