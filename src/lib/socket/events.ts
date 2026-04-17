@@ -71,6 +71,13 @@ export interface ServerToClientEvents {
     missionId: string;
     status: string;
   }) => void;
+  'activity:event': (payload: {
+    type: string;
+    battlefieldCodename: string;
+    missionTitle: string;
+    timestamp: number;
+    detail: string;
+  }) => void;
   'notification:new': (payload: {
     id: string;
     level: string;

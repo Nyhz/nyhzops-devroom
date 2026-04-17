@@ -13,10 +13,10 @@ export interface ActivityEvent {
   detail: string;
 }
 
-export function useActivityFeed(): ActivityEvent[] {
+export function useActivityFeed(initialEvents: ActivityEvent[] = []): ActivityEvent[] {
   const socket = useSocket();
   const reconnectKey = useReconnectKey();
-  const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [events, setEvents] = useState<ActivityEvent[]>(initialEvents);
 
   const handleEvent = useCallback((event: ActivityEvent) => {
     setEvents(prev => {

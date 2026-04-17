@@ -1,5 +1,6 @@
+import { eq } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db';
-import { comms } from '@/lib/db/schema';
+import { battlefields, comms, missions } from '@/lib/db/schema';
 import { ulid } from 'ulid';
 import type { StreamJsonEvent } from './spawn-asset';
 
@@ -181,6 +182,61 @@ export function emitComm(ev: CommEvent): void {
   }
   if (emitter && ev.campaignId) {
     emitter(`campaign:${ev.campaignId}`, 'campaign:log', row);
+  }
+
+  if (emitter && ev.missionId && row.actor === 'CONTROL') {
+    const activity = buildActivityPayload(ev.missionId, row.message, row.createdAt);
+    if (activity) emitter('hq:activity', 'activity:event', activity);
+  }
+}
+
+/** Match CONTROL comms that represent mission activity beats. */
+const ACTIVITY_PATTERNS: Array<{ pattern: RegExp; type: (m: RegExpMatchArray) => string }> = [
+  { pattern: /^Status\s*(?:→|->)\s*([A-Z_ ]+)\s*$/i, type: (m) => `mission:${m[1].trim().toLowerCase().replace(/\s+/g, '_')}` },
+  { pattern: /^Mission\s+(queued|accomplished|compromised|abandoned)\b/i, type: (m) => `mission:${m[1].toLowerCase()}` },
+];
+
+interface ActivityPayload {
+  type: string;
+  battlefieldCodename: string;
+  missionTitle: string;
+  timestamp: number;
+  detail: string;
+}
+
+function buildActivityPayload(
+  missionId: string,
+  message: string,
+  timestamp: number,
+): ActivityPayload | null {
+  let type: string | null = null;
+  for (const { pattern, type: mkType } of ACTIVITY_PATTERNS) {
+    const m = message.trim().match(pattern);
+    if (m) { type = mkType(m); break; }
+  }
+  if (!type) return null;
+
+  try {
+    const db = getDatabase();
+    const row = db
+      .select({
+        title: missions.title,
+        bfCodename: battlefields.codename,
+      })
+      .from(missions)
+      .leftJoin(battlefields, eq(battlefields.id, missions.battlefieldId))
+      .where(eq(missions.id, missionId))
+      .get();
+    if (!row) return null;
+    return {
+      type,
+      battlefieldCodename: row.bfCodename ?? 'UNKNOWN',
+      missionTitle: row.title ?? 'Untitled',
+      timestamp,
+      detail: message,
+    };
+  } catch {
+    return null;
   }
 }
 

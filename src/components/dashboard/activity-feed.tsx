@@ -7,6 +7,7 @@ import { useActivityFeed, type ActivityEvent } from '@/hooks/use-activity-feed';
 
 interface ActivityFeedProps {
   className?: string;
+  initialEvents?: ActivityEvent[];
 }
 
 function getTypeIndicator(type: string): { icon: string; color: string } {
@@ -58,8 +59,8 @@ function ActivityEntry({ event }: { event: ActivityEvent }) {
   );
 }
 
-export function ActivityFeed({ className }: ActivityFeedProps) {
-  const events = useActivityFeed();
+export function ActivityFeed({ className, initialEvents }: ActivityFeedProps) {
+  const events = useActivityFeed(initialEvents);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -71,7 +72,7 @@ export function ActivityFeed({ className }: ActivityFeedProps) {
       <div className="text-dr-amber font-tactical text-sm tracking-widest uppercase mb-3">
         ACTIVITY FEED
       </div>
-      <TacCard className="p-0 max-h-80 overflow-y-auto">
+      <TacCard className="p-0 flex-1 overflow-y-auto min-h-0">
         {events.length === 0 ? (
           <div className="p-4 text-center text-dr-dim font-tactical text-xs">
             No recent activity. Deploy a mission to begin.

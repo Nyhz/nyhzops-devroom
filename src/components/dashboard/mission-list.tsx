@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { SearchInput } from '@/components/ui/search-input';
 import { TacBadge, getStatusBorderColor } from '@/components/ui/tac-badge';
 import { TacCard } from '@/components/ui/tac-card';
 import { TacButton } from '@/components/ui/tac-button';
 import { formatRelativeTime } from '@/lib/utils';
+import { useSocket } from '@/hooks/use-socket';
 
 const FINISHED_STATUSES = new Set(['accomplished', 'compromised', 'abandoned']);
 const FINISHED_LIMIT = 10;
@@ -27,6 +28,34 @@ interface MissionListProps {
 export function MissionList({ missions, battlefieldId }: MissionListProps) {
   const [search, setSearch] = useState('');
   const [showAll, setShowAll] = useState(false);
+  const socket = useSocket();
+  const [liveStatus, setLiveStatus] = useState<Record<string, string>>(() =>
+    Object.fromEntries(missions.map((m) => [m.id, m.status ?? 'standby'])),
+  );
+
+  useEffect(() => {
+    setLiveStatus((prev) => {
+      const next = { ...prev };
+      for (const m of missions) next[m.id] = next[m.id] ?? m.status ?? 'standby';
+      return next;
+    });
+  }, [missions]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const ids = missions.map((m) => m.id);
+    for (const id of ids) socket.emit('mission:subscribe', id);
+
+    const handleStatus = (data: { missionId: string; status: string }) => {
+      setLiveStatus((prev) => ({ ...prev, [data.missionId]: data.status }));
+    };
+    socket.on('mission:status', handleStatus);
+
+    return () => {
+      socket.off('mission:status', handleStatus);
+      for (const id of ids) socket.emit('mission:unsubscribe', id);
+    };
+  }, [socket, missions]);
 
   const visibleMissions = useMemo(() => {
     if (showAll || search) return missions;
@@ -77,10 +106,12 @@ export function MissionList({ missions, battlefieldId }: MissionListProps) {
       ) : (
         <>
           <div className="space-y-px">
-            {filtered.map((mission) => (
+            {filtered.map((mission) => {
+              const status = liveStatus[mission.id] ?? mission.status ?? 'standby';
+              return (
               <div
                 key={mission.id}
-                className={`bg-dr-surface border-l-2 ${getStatusBorderColor(mission.status)} flex flex-col gap-2 px-3 py-3 md:flex-row md:items-center md:justify-between md:px-5 md:py-4 md:gap-0`}
+                className={`bg-dr-surface border-l-2 ${getStatusBorderColor(status)} flex flex-col gap-2 px-3 py-3 md:flex-row md:items-center md:justify-between md:px-5 md:py-4 md:gap-0`}
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3">
@@ -99,7 +130,7 @@ export function MissionList({ missions, battlefieldId }: MissionListProps) {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 md:gap-5 shrink-0 md:ml-4">
-                  <TacBadge status={mission.status ?? 'standby'} />
+                  <TacBadge status={status} />
                   <Link
                     href={`/battlefields/${battlefieldId}/missions/${mission.id}`}
                     className="text-dr-amber font-tactical text-sm tracking-wider hover:text-dr-green transition-colors"
@@ -108,7 +139,8 @@ export function MissionList({ missions, battlefieldId }: MissionListProps) {
                   </Link>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           {hasHiddenMissions && (
             <div className="mt-3 flex justify-center">

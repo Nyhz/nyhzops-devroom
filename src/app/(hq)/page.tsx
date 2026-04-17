@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { count, eq, inArray, desc } from 'drizzle-orm';
 import { getDatabase } from '@/lib/db/index';
 import { battlefields, missions, assets } from '@/lib/db/schema';
+import { loadInitialActivity } from '@/lib/activity';
 import { TacCard } from '@/components/ui/tac-card';
 import { TacBadge, getStatusColor } from '@/components/ui/tac-badge';
+import { LiveStatusBadge } from '@/components/mission/live-status-badge';
 import { TacButton } from '@/components/ui/tac-button';
 import { StatsBar } from '@/components/dashboard/stats-bar';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
@@ -128,16 +130,19 @@ export default function ProjectsPage() {
       </div>
 
       {/* Bottom: Activity Feed + Recent Missions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 items-stretch">
         {/* Left: Activity Feed */}
-        <ActivityFeed />
+        <ActivityFeed
+          initialEvents={loadInitialActivity(30)}
+          className="h-full"
+        />
 
         {/* Right: Recent Missions */}
-        <div>
+        <div className="flex flex-col h-full">
           <div className="text-dr-amber font-tactical text-sm tracking-widest uppercase mb-3">
             RECENT MISSIONS
           </div>
-          <TacCard className="p-0">
+          <TacCard className="p-0 flex-1 overflow-y-auto">
             {recentMissions.length === 0 ? (
               <div className="p-4 text-center text-dr-dim font-tactical text-xs">
                 No missions deployed yet.
@@ -171,7 +176,7 @@ export default function ProjectsPage() {
                           </span>
                         </div>
                       </div>
-                      <TacBadge status={m.status ?? 'standby'} />
+                      <LiveStatusBadge missionId={m.id} initialStatus={m.status ?? 'standby'} />
                     </div>
                   </Link>
                 ))}

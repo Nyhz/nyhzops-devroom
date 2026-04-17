@@ -2,6 +2,34 @@
 
 import { useRef, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { getStatusColor } from '@/components/ui/tac-badge';
+
+const statusColorClass: Record<ReturnType<typeof getStatusColor>, string> = {
+  green: 'text-dr-green',
+  amber: 'text-dr-amber',
+  red: 'text-dr-red',
+  blue: 'text-dr-blue',
+  teal: 'text-dr-teal',
+  dim: 'text-dr-dim',
+};
+
+const STATUS_LINE_PATTERNS: RegExp[] = [
+  /^Status\s*(?:→|->)\s*([A-Z_ ]+)\s*$/i,
+  /^Mission\s+(queued|accomplished|compromised|abandoned)\b/i,
+];
+
+/** When a CONTROL comms entry is a status-transition line, return the
+ *  tac-badge color class for that status. Keeps status beats visually aligned
+ *  with the mission status badge. */
+function statusLineColor(actor: LogActor | undefined, content: string): string | null {
+  if (actor !== 'CONTROL') return null;
+  const trimmed = content.trim();
+  for (const pat of STATUS_LINE_PATTERNS) {
+    const m = trimmed.match(pat);
+    if (m) return statusColorClass[getStatusColor(m[1])];
+  }
+  return null;
+}
 
 export type LogActor = 'CONTROL' | 'OPERATIVE' | 'OVERSEER' | 'COMMANDER';
 
@@ -37,6 +65,13 @@ const actorStyles: Record<LogActor, string> = {
   OPERATIVE: 'text-dr-green',
   OVERSEER: 'text-dr-teal',
   COMMANDER: 'text-dr-amber',
+};
+
+/** When set, the actor's info-level content is colored with this class
+ *  (overriding the default `type` color). Keeps CONTROL milestone beats
+ *  visually distinct from OPERATIVE prose. */
+const actorContentStyles: Partial<Record<LogActor, string>> = {
+  CONTROL: 'text-dr-green',
 };
 
 const TOOL_PATTERN = /^Tool: \w+/;
@@ -96,15 +131,24 @@ export function Terminal({ logs, className }: TerminalProps) {
       )}
     >
       <div className="space-y-0.5 font-data text-xs">
-        {grouped.map((entry, i) => (
+        {grouped.map((entry, i) => {
+          const statusColor =
+            entry.type === 'comms' ? statusLineColor(entry.actor, entry.content) : null;
+          const contentClass =
+            statusColor ??
+            (entry.actor && entry.type === 'comms' && actorContentStyles[entry.actor]
+              ? actorContentStyles[entry.actor]
+              : typeStyles[entry.type]);
+          const labelClass = entry.actor ? actorStyles[entry.actor] : '';
+          return (
           <div key={`${entry.timestamp}-${i}`} className="flex gap-3 leading-relaxed">
             <span className="text-dr-dim shrink-0 select-none">
               {formatTimestamp(entry.timestamp)}
             </span>
-            <span className={cn(typeStyles[entry.type], 'whitespace-pre-wrap break-all')}>
+            <span className={cn(contentClass, 'whitespace-pre-wrap break-all')}>
               {entry.actor && (
                 <span
-                  className={cn(actorStyles[entry.actor], 'mr-1 select-none font-tactical')}
+                  className={cn(labelClass, 'mr-1 select-none font-tactical')}
                   data-actor={entry.actor}
                 >
                   [{entry.actor}]
@@ -116,7 +160,8 @@ export function Terminal({ logs, className }: TerminalProps) {
               )}
             </span>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
