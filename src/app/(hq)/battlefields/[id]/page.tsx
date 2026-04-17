@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getDatabase } from '@/lib/db/index';
 import { battlefields, missions, assets } from '@/lib/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { DeployMission } from '@/components/dashboard/deploy-mission';
 import { StatsBar } from '@/components/dashboard/stats-bar';
 import { MissionList } from '@/components/dashboard/mission-list';
@@ -148,10 +148,7 @@ export default async function BattlefieldOverviewPage({
   }).from(missions)
     .leftJoin(assets, eq(missions.assetId, assets.id))
     .where(eq(missions.battlefieldId, id))
-    .orderBy(
-      sql`CASE ${missions.status} WHEN 'in_combat' THEN 0 WHEN 'deploying' THEN 1 WHEN 'queued' THEN 2 WHEN 'standby' THEN 3 WHEN 'accomplished' THEN 4 WHEN 'compromised' THEN 5 WHEN 'abandoned' THEN 6 END`,
-      desc(missions.createdAt)
-    )
+    .orderBy(desc(missions.createdAt))
     .all();
 
   // Stats computation
