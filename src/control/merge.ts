@@ -78,6 +78,10 @@ export interface MergeResult {
   reason?: MergeFailureReason;
   /** Populated when reason === 'rebase-error' — git error text. */
   detail?: string;
+  /** Paths reported as conflicting by git during the failed rebase. Captured
+   *  before `git rebase --abort` wipes the markers so the Commander (and
+   *  downstream retry paths) know exactly what needs resolution. */
+  conflictFiles?: string[];
 }
 
 /**
@@ -171,10 +175,11 @@ export async function runMerge(
     }
 
     if (rebase.conflict) {
+      const conflictFiles = rebase.conflictFiles;
       const onQuartermaster =
         opts.onQuartermaster ?? (await resolveDefaultQuartermaster());
       if (!onQuartermaster) {
-        return { status: 'compromised', reason: 'merge-conflict' };
+        return { status: 'compromised', reason: 'merge-conflict', conflictFiles };
       }
       const conflictDiff = await safeCollectConflictDiff(opts.worktreePath);
       const logSourceToTarget = await safeGitLogRange(
@@ -198,7 +203,12 @@ export async function runMerge(
         claudeMdExcerpt: opts.claudeMdExcerpt ?? '',
       });
       if (!qm.resolved) {
-        return { status: 'compromised', reason: 'merge-conflict' };
+        return {
+          status: 'compromised',
+          reason: 'merge-conflict',
+          conflictFiles,
+          detail: qm.reason,
+        };
       }
       const gates = await runGatesFn({
         manifest: opts.manifest,
@@ -207,7 +217,7 @@ export async function runMerge(
         suiteTimeoutMs,
       });
       if (gates.overallStatus !== 'pass') {
-        return { status: 'compromised', reason: 'post-qm-gate-failure' };
+        return { status: 'compromised', reason: 'post-qm-gate-failure', conflictFiles };
       }
       return fastForward();
     }

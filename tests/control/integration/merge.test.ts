@@ -201,7 +201,8 @@ describe('runMerge', () => {
       runGates: stubGates('pass'),
     });
 
-    expect(result).toEqual({ status: 'compromised', reason: 'merge-conflict' });
+    expect(result).toMatchObject({ status: 'compromised', reason: 'merge-conflict' });
+    expect(result.conflictFiles?.length ?? 0).toBeGreaterThan(0);
   });
 
   it('compromises with merge-conflict when QUARTERMASTER fails to resolve', async () => {
@@ -224,7 +225,8 @@ describe('runMerge', () => {
       runGates: stubGates('pass'),
     });
 
-    expect(result).toEqual({ status: 'compromised', reason: 'merge-conflict' });
+    expect(result).toMatchObject({ status: 'compromised', reason: 'merge-conflict' });
+    expect(result.conflictFiles?.length ?? 0).toBeGreaterThan(0);
   });
 
   it('accomplishes when QUARTERMASTER resolves and gates pass', async () => {
@@ -288,7 +290,8 @@ describe('runMerge', () => {
       runGates: stubGates('fail'),
     });
 
-    expect(result).toEqual({ status: 'compromised', reason: 'post-qm-gate-failure' });
+    expect(result).toMatchObject({ status: 'compromised', reason: 'post-qm-gate-failure' });
+    expect(result.conflictFiles?.length ?? 0).toBeGreaterThan(0);
   });
 
   it('serializes concurrent runMerge calls on the same battlefieldId', async () => {

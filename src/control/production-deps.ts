@@ -14,7 +14,8 @@ import { assets, battlefields, missions } from '@/lib/db/schema';
 import type { GateManifest } from './gates';
 import { runGates } from './gates';
 import { classifyExit, type ClassifierDeps } from './exit-classifier';
-import { runMerge } from './merge';
+import { runMerge, type QuartermasterCallback, type QuartermasterResult } from './merge';
+import { emitComm } from './comms';
 import {
   createMissionWorktree,
   resetWorktreeToHead,
@@ -153,6 +154,74 @@ async function productionOverseerConsult(
 // Merge adapter
 // ---------------------------------------------------------------------------
 
+/**
+ * Build the production QUARTERMASTER callback for a specific mission. Handles
+ * the three things the old silent `resolveDefaultQuartermaster` did not:
+ *   1. If the module can't be loaded, emit an error comm (not a silent null)
+ *      so the Commander can see WHY QM didn't run.
+ *   2. Emit a "QUARTERMASTER spawning…" comm at the start so the transition
+ *      from MERGING → COMPROMISED is no longer a 1-second mystery when QM is
+ *      unavailable — it's obvious at a glance whether QM actually ran.
+ *   3. Emit a structured outcome comm (resolved/unresolved + reason + ms)
+ *      when QM returns, so mission timelines tell the full merge story.
+ */
+function makeProductionQuartermasterCallback(
+  missionId: string,
+  campaignId: string | null,
+  battlefieldId: string,
+): QuartermasterCallback {
+  return async (input): Promise<QuartermasterResult> => {
+    let mod: typeof import('./merge/quartermaster');
+    try {
+      mod = await import('./merge/quartermaster');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      emitComm({
+        missionId,
+        campaignId: campaignId ?? undefined,
+        battlefieldId,
+        actor: 'CONTROL',
+        level: 'error',
+        message: `QUARTERMASTER unavailable — module load failed: ${msg}`,
+      });
+      return { resolved: false, reason: 'qm-unavailable', stderr: msg };
+    }
+
+    emitComm({
+      missionId,
+      campaignId: campaignId ?? undefined,
+      battlefieldId,
+      actor: 'CONTROL',
+      message: 'QUARTERMASTER spawning — resolving merge conflict…',
+    });
+
+    const startedAt = Date.now();
+    const result = await mod.spawnQuartermaster(input);
+    const durationMs = Date.now() - startedAt;
+
+    if (result.resolved) {
+      emitComm({
+        missionId,
+        campaignId: campaignId ?? undefined,
+        battlefieldId,
+        actor: 'CONTROL',
+        message: `QUARTERMASTER resolved conflict in ${(durationMs / 1000).toFixed(1)}s (commit ${result.commitSha?.slice(0, 7) ?? '?'}).`,
+      });
+    } else {
+      emitComm({
+        missionId,
+        campaignId: campaignId ?? undefined,
+        battlefieldId,
+        actor: 'CONTROL',
+        level: 'warn',
+        message: `QUARTERMASTER could not resolve (${result.reason ?? 'unknown'}) after ${(durationMs / 1000).toFixed(1)}s.`,
+      });
+    }
+
+    return result;
+  };
+}
+
 async function productionMergeFn(opts: MergeOpts): Promise<MergeResult> {
   const db = getDatabase();
   const mission = db.select().from(missions).where(eq(missions.id, opts.missionId)).get();
@@ -186,12 +255,18 @@ async function productionMergeFn(opts: MergeOpts): Promise<MergeResult> {
     worktreePath: opts.worktreePath,
     briefing: mission.briefing,
     debrief: mission.debrief ?? undefined,
+    onQuartermaster: makeProductionQuartermasterCallback(
+      mission.id,
+      mission.campaignId,
+      mission.battlefieldId,
+    ),
   });
 
   return {
     status: mergeResult.status === 'accomplished' ? 'clean' : 'failed',
     reason: mergeResult.reason ? String(mergeResult.reason) : undefined,
     detail: mergeResult.detail,
+    conflictFiles: mergeResult.conflictFiles,
   };
 }
 

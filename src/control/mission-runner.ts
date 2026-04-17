@@ -115,6 +115,10 @@ export interface MergeResult {
    *  Surfaced into comms so Commander sees the underlying cause, not just
    *  the short `reason` code. */
   detail?: string;
+  /** Paths reported as conflicting by git during the failed rebase. Captured
+   *  by `rebaseOntoTarget` before the abort wipes the markers, so the
+   *  Commander (and Mission Detail page) see exactly what needs resolution. */
+  conflictFiles?: string[];
 }
 
 export interface WorktreeDeps {
@@ -1002,14 +1006,30 @@ export async function runMission(
     // flipping to compromised so Commander's audit trail shows *why* the
     // merge failed, not just that it did. `detail` is the free-form git
     // stderr from a hard rebase error; `reason` is the short code.
+    // Persist `mergeConflictFiles` + `compromiseReason` on the row so the
+    // Mission Detail page can actually tell the Commander what to fix.
     {
       const reason = merge.reason ?? 'unknown';
       const detail = merge.detail;
+      const files = merge.conflictFiles ?? [];
+      const fileSummary = files.length > 0
+        ? ` (${files.length} file${files.length === 1 ? '' : 's'}: ${files.slice(0, 3).join(', ')}${files.length > 3 ? ', …' : ''})`
+        : '';
       emitComm({
         missionId,
-        message: `merge failed: ${reason}${detail ? ` — ${detail}` : ''}`,
+        message: `merge failed: ${reason}${fileSummary}${detail ? ` — ${detail}` : ''}`,
         level: 'error',
       });
+      const composedReason = detail ? `${reason}: ${detail}` : reason;
+      getDatabase()
+        .update(missions)
+        .set({
+          compromiseReason: composedReason,
+          mergeConflictFiles: files.length > 0 ? JSON.stringify(files) : null,
+          updatedAt: endedAt,
+        })
+        .where(eq(missions.id, missionId))
+        .run();
     }
     markTerminal('compromised', endedAt);
     return {

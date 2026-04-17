@@ -225,7 +225,8 @@ describe('spawnQuartermaster (integration)', () => {
       runGates: stubGates('pass'),
     });
 
-    expect(result).toEqual({ status: 'compromised', reason: 'merge-conflict' });
+    expect(result).toMatchObject({ status: 'compromised', reason: 'merge-conflict' });
+    expect(result.conflictFiles?.length ?? 0).toBeGreaterThan(0);
   }, 60_000);
 
   it('times out when the scripted QM hangs past hardTimeoutMs', async () => {

@@ -60,7 +60,13 @@ describe('rebaseOntoTarget — tri-state result', () => {
     await repoGit.commit('upstream edit');
 
     const result = await rebaseOntoTarget(wt.path, 'master');
-    expect(result).toEqual({ rebased: false, conflict: true });
+    expect(result).toMatchObject({ rebased: false, conflict: true });
+    // Conflict file list is captured before `git rebase --abort` wipes the
+    // markers. The fixture seeds exactly one file collision (`shared.txt`),
+    // so the list must contain it.
+    if (result.conflict === true) {
+      expect(result.conflictFiles).toContain('shared.txt');
+    }
   });
 
   it('returns { rebased: false, conflict: false, error } when rebasing onto a non-existent branch (no throw)', async () => {

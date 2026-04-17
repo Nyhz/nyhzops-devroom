@@ -155,8 +155,29 @@ export async function resetWorktreeToHead(worktreePath: string): Promise<void> {
 export type RebaseResult =
   | { conflict: false; rebased: true }
   | { conflict: false; rebased: false }
-  | { conflict: true; rebased: false }
+  | { conflict: true; rebased: false; conflictFiles: string[] }
   | { conflict: false; rebased: false; error: string };
+
+/**
+ * Capture conflicting paths from `git status --porcelain` while the worktree
+ * is still mid-rebase. After `git rebase --abort` runs, the index is reset and
+ * these markers vanish — so this MUST be called before the abort.
+ */
+async function collectConflictFiles(worktreePath: string): Promise<string[]> {
+  try {
+    const git = simpleGit(worktreePath);
+    const status = await git.raw(['status', '--porcelain']);
+    const files: string[] = [];
+    for (const line of status.split('\n')) {
+      // XY codes for conflict states: UU, AA, DD, AU, UA, DU, UD.
+      const m = line.match(/^(UU|AA|DD|AU|UA|DU|UD) (.+)$/);
+      if (m) files.push(m[2]);
+    }
+    return files;
+  } catch {
+    return [];
+  }
+}
 
 export async function rebaseOntoTarget(
   worktreePath: string,
@@ -177,14 +198,16 @@ export async function rebaseOntoTarget(
       ? { rebased: true, conflict: false }
       : { rebased: false, conflict: false };
   } catch (err) {
-    // Abort the rebase if it left the worktree mid-rebase.
+    const message = (err as Error).message;
+    const isConflict = /conflict/i.test(message);
+    // Snapshot conflict files BEFORE aborting — abort wipes the markers.
+    const conflictFiles = isConflict ? await collectConflictFiles(worktreePath) : [];
     try {
       await git.rebase(['--abort']);
     } catch {
       // ignore
     }
-    const message = (err as Error).message;
-    if (/conflict/i.test(message)) return { rebased: false, conflict: true };
+    if (isConflict) return { rebased: false, conflict: true, conflictFiles };
     return { rebased: false, conflict: false, error: message };
   }
 }
