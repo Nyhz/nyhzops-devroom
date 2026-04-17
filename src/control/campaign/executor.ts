@@ -180,14 +180,25 @@ function cascadeAbandon(
 ): void {
   const db = getDatabase();
   const phaseMissions = listPhaseMissions(phaseId);
+  // dependsOn is stored as TITLES (per briefing-contract). To make the graph
+  // traversal work, identify nodes by title — including the origin. Match
+  // back to mission.id at write time so we can update the right rows.
   const view = phaseMissions.map((m) => ({
-    id: m.id,
+    id: m.title,
     dependsOn: parseDeps(m.dependsOn),
     status: m.status ?? 'standby',
   }));
 
-  // Expand the graph by re-adding the origin (it may already be abandoned).
-  const cascaded = findTransitiveDependents(originId, view);
+  const origin = phaseMissions.find((m) => m.id === originId);
+  if (!origin) return;
+
+  const cascadedTitles = findTransitiveDependents(origin.title, view);
+  if (cascadedTitles.length === 0) return;
+
+  const titleToId = new Map(phaseMissions.map((m) => [m.title, m.id]));
+  const cascaded = cascadedTitles
+    .map((t) => titleToId.get(t))
+    .filter((id): id is string => Boolean(id));
   if (cascaded.length === 0) return;
 
   const now = Date.now();
@@ -219,7 +230,13 @@ function cascadeAbandon(
 function unblockPhaseDependents(phaseId: string): void {
   const db = getDatabase();
   const phaseMissions = listPhaseMissions(phaseId);
-  const byId = new Map(phaseMissions.map((m) => [m.id, m]));
+  // STRATEGIST emits dependsOn as mission TITLES (per briefing-contract.ts),
+  // and `campaign-helpers.insertCampaign` stores them verbatim. Look up by
+  // title here — looking up by id silently never matches and leaves the
+  // dependent stuck in standby forever (hit on Phase 4 of OPERATION
+  // BEGINNINGS: the "Create Account reference Server Action" mission
+  // depending on "All §3 route pages with empty states").
+  const byTitle = new Map(phaseMissions.map((m) => [m.title, m]));
 
   const toUnblock: string[] = [];
   for (const m of phaseMissions) {
@@ -229,8 +246,8 @@ function unblockPhaseDependents(phaseId: string): void {
       toUnblock.push(m.id);
       continue;
     }
-    const allDone = deps.every((depId) => {
-      const dep = byId.get(depId);
+    const allDone = deps.every((depTitle) => {
+      const dep = byTitle.get(depTitle);
       return dep && dep.status === 'accomplished';
     });
     if (allDone) toUnblock.push(m.id);
@@ -247,8 +264,9 @@ function unblockPhaseDependents(phaseId: string): void {
     }
   });
 
+  const byMissionId = new Map(phaseMissions.map((m) => [m.id, m]));
   for (const id of toUnblock) {
-    const m = byId.get(id);
+    const m = byMissionId.get(id);
     emitComm({
       missionId: id,
       campaignId: m?.campaignId ?? undefined,
