@@ -806,6 +806,7 @@ export async function runMission(
 
     // Gates pass → MERGING.
     transitionMission(missionId, 'merging', deps.now());
+    emitComm({ missionId, message: 'Merging worktree…' });
 
     let merge: MergeResult;
     try {
