@@ -103,10 +103,10 @@ export default function ProjectsPage() {
             const statusColor = getStatusColor(bf.status ?? 'initializing');
 
             return (
-              <Link key={bf.id} href={`/battlefields/${bf.id}`}>
+              <Link key={bf.id} href={`/battlefields/${bf.id}`} className="block h-full">
                 <TacCard
                   status={statusColor}
-                  className="hover:border-dr-amber transition-colors cursor-pointer"
+                  className="hover:border-dr-amber transition-colors cursor-pointer h-full"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="text-dr-amber font-tactical text-base tracking-wider uppercase">
