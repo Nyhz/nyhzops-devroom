@@ -140,6 +140,14 @@ Detailed docs are split into topic files under `.devroom/`. Reference these when
 
 ---
 
+## Deferred Work
+
+Initiatives descoped from the current cycle:
+
+- **INTEL-driven CLAUDE.md / SPEC.md authoring** (spec §12 step 5) — bootstrap emits baseline docs only; automated re-authoring from battlefield INTEL notes is not implemented. Tracked as a future standalone initiative.
+
+---
+
 ## Quick Reference
 
 ```
