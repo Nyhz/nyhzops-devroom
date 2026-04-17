@@ -313,7 +313,17 @@ function settlePhase(phaseId: string, campaignId: string): void {
     level: nextPhaseStatus === 'secured' ? 'info' : 'warn',
   });
 
-  // Advance
+  // Advance ONLY when every mission in the current phase landed
+  // ACCOMPLISHED. A single COMPROMISED or ABANDONED mission halts the
+  // campaign — the Commander decides what to do next (re-queue the failed
+  // mission via Tactical Override, abandon the campaign, etc.). When the
+  // re-queued mission later lands ACCOMPLISHED, `onMissionTerminal` will
+  // call `settlePhase` again and the cascade resumes.
+  if (!allAccomplished) {
+    settleCampaign(campaignId);
+    return;
+  }
+
   const allPhases = listCampaignPhases(campaignId);
   const idx = allPhases.findIndex((p) => p.id === phaseId);
   const nextPhase = idx >= 0 ? allPhases[idx + 1] : undefined;
@@ -502,17 +512,38 @@ export function tacticalOverride(missionId: string, newBriefing: string): void {
         currentSortieAttempts: 0,
         status: 'queued',
         compromiseReason: null,
+        mergeConflictFiles: null,
         updatedAt: now,
+        completedAt: null,
       })
       .where(eq(missions.id, missionId))
       .run();
+
+    // If the mission belongs to a settled phase / campaign, reset both back
+    // to ACTIVE so that when the re-queued mission lands ACCOMPLISHED,
+    // settlePhase fires again and the cascade resumes. Without this,
+    // re-queueing a mission inside a COMPROMISED phase is a no-op for the
+    // campaign — it runs, succeeds, and nothing advances.
+    if (mission.phaseId) {
+      db.update(phases)
+        .set({ status: 'active', completingAt: null, debrief: null })
+        .where(eq(phases.id, mission.phaseId))
+        .run();
+    }
+    if (mission.campaignId) {
+      db.update(campaigns)
+        .set({ status: 'active', updatedAt: now })
+        .where(eq(campaigns.id, mission.campaignId))
+        .run();
+    }
   });
+
   emitComm({
     missionId,
     campaignId: mission.campaignId ?? undefined,
     battlefieldId: mission.battlefieldId,
     actor: 'COMMANDER',
-    message: 'Tactical Override — briefing updated, mission re-queued',
+    message: 'Tactical Override — briefing updated, mission re-queued, phase reset to ACTIVE',
   });
 }
 
