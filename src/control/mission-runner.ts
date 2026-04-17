@@ -447,10 +447,16 @@ export async function runMission(
       });
       transitionMission(missionId, 'compromised', endedAt);
 
-      // Notify Commander via Telegram (fire-and-forget; failure must not break CONTROL).
-      import('@/lib/telegram/notifier')
-        .then(({ notifyAuthPause }) => notifyAuthPause())
-        .catch((err) => console.error('[CONTROL] notifyAuthPause failed:', err));
+      // Notify Commander via escalate+Telegram. Awaited so the DB-backed
+      // audit row is persisted before runMission returns COMPROMISED — the
+      // notifier's top-level try/catch swallows transport errors so this
+      // await cannot crash CONTROL. Dynamic import keeps the telegram module
+      // off CONTROL's boot path.
+      const { notifyAuthPause } = await import('@/lib/telegram/notifier');
+      await notifyAuthPause(run.finalMessage ?? undefined, {
+        missionId,
+        battlefieldId: mission.battlefieldId,
+      });
 
       return {
         missionId,

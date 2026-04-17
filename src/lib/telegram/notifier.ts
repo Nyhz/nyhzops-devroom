@@ -134,7 +134,10 @@ export async function notifyCampaignAccomplished(campaignId: string): Promise<vo
 // 4. notifyAuthPause
 // ---------------------------------------------------------------------------
 
-export async function notifyAuthPause(triggerSnippet?: string): Promise<void> {
+export async function notifyAuthPause(
+  triggerSnippet?: string,
+  context?: { missionId?: string; battlefieldId?: string },
+): Promise<void> {
   const detailLines = [
     'Claude CLI cannot authenticate. All missions halted.',
     'Commander: re-authenticate and restart the service.',
@@ -148,6 +151,9 @@ export async function notifyAuthPause(triggerSnippet?: string): Promise<void> {
       level: 'critical',
       title: 'AUTH FAILURE — ORCHESTRATOR PAUSED',
       detail: detailLines.join('\n'),
+      entityType: context?.missionId ? 'mission' : undefined,
+      entityId: context?.missionId,
+      battlefieldId: context?.battlefieldId,
     });
   } catch (err) {
     console.error('[notifier] notifyAuthPause failed:', err);
