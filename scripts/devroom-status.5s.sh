@@ -57,7 +57,7 @@ fi
 # --- HTTP health check ---
 HTTP_HEALTHY=false
 if $RUNNING && [ -n "$PID" ] && [ "$PID" != "0" ]; then
-  HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 2 --max-time 3 "http://localhost:7777" 2>/dev/null)
+  HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 2 --max-time 3 "http://localhost:7777/api/health" 2>/dev/null)
   if [ -n "$HTTP_CODE" ] && [ "$HTTP_CODE" -ge 200 ] 2>/dev/null && [ "$HTTP_CODE" -lt 500 ] 2>/dev/null; then
     HTTP_HEALTHY=true
   fi
