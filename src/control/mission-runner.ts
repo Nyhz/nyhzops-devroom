@@ -591,7 +591,42 @@ export async function runMission(
       }
       if (decision.action === 'OVERSEER_CONSULT') {
         overseerConsulted = true;
-        const verdict = await runOverseerConsult();
+        // Snapshot pre-consult classification and finalMessage so that if the
+        // consult throws (DB error, subprocess crash), we can still record an
+        // attempt annotated with the original classification — not null, not
+        // a generic "consult failed" that erases what actually happened.
+        const preConsultClassification = classification;
+        const preConsultFinalMessage = run.finalMessage;
+        let verdict: string | null;
+        try {
+          verdict = await runOverseerConsult();
+        } catch (err) {
+          const consultFailedAt = deps.now();
+          const errMsg = (err as Error).message;
+          emitComm({
+            missionId,
+            message: `OVERSEER consult failed: ${errMsg}`,
+            level: 'error',
+          });
+          recordAttempt({
+            missionId,
+            attemptNumber: countAttempts(missionId) + 1,
+            startedAt: endedAt,
+            endedAt: consultFailedAt,
+            endReason: run.killedByControl ? 'timeout' : 'silence-kill',
+            classification: preConsultClassification,
+            sessionId: run.sessionId,
+            usage: run.usage,
+            finalMessage: `${preConsultFinalMessage ?? ''}\n(consult failed: ${errMsg})`.trim(),
+          });
+          transitionMission(missionId, 'compromised', consultFailedAt);
+          return {
+            missionId,
+            finalStatus: 'compromised',
+            attemptCount: countAttempts(missionId),
+            classification: preConsultClassification,
+          };
+        }
         if (verdict) {
           redirectPrompt = verdict;
           continue;
@@ -701,7 +736,45 @@ export async function runMission(
       }
       if (decision.action === 'OVERSEER_CONSULT') {
         overseerConsulted = true;
-        const verdict = await runOverseerConsult();
+        // Snapshot pre-consult classification and finalMessage so that if the
+        // consult throws (DB error, subprocess crash), we can still record an
+        // attempt annotated with the original classification — not null, not
+        // a generic "consult failed" that erases what actually happened.
+        const preConsultClassification = classification;
+        const preConsultFinalMessage = run.finalMessage;
+        let verdict: string | null;
+        try {
+          verdict = await runOverseerConsult();
+        } catch (err) {
+          const consultFailedAt = deps.now();
+          const errMsg = (err as Error).message;
+          emitComm({
+            missionId,
+            message: `OVERSEER consult failed: ${errMsg}`,
+            level: 'error',
+          });
+          recordAttempt({
+            missionId,
+            attemptNumber: countAttempts(missionId) + 1,
+            startedAt: endedAt,
+            endedAt: consultFailedAt,
+            endReason: 'gate-failure',
+            classification: preConsultClassification,
+            gateResults,
+            sessionId: run.sessionId,
+            autoCommitted,
+            usage: run.usage,
+            finalMessage: `${preConsultFinalMessage ?? ''}\n(consult failed: ${errMsg})`.trim(),
+          });
+          transitionMission(missionId, 'compromised', consultFailedAt);
+          return {
+            missionId,
+            finalStatus: 'compromised',
+            attemptCount: countAttempts(missionId),
+            classification: preConsultClassification,
+            gateResults,
+          };
+        }
         if (verdict) {
           redirectPrompt = verdict;
           continue;
@@ -862,35 +935,26 @@ export async function runMission(
   // -------------------------------------------------------------------------
   // OVERSEER consult helper (closure over loop state).
   async function runOverseerConsult(): Promise<string | null> {
-    try {
-      const verdict = await deps.overseerConsult({
-        missionId,
-        briefing: mission.briefing,
-        attemptHistory: [],
-        lastGateStderr,
-        finalDiff: lastDiffHash ?? '',
-        claudeMdExcerpt: null,
-      });
-      emitComm({
-        missionId,
-        message: `OVERSEER verdict: ${verdict.verdict} — ${verdict.reasoning}`,
-      });
-      if (verdict.verdict === 'redirect' && verdict.redirect) {
-        return verdict.redirect.newPrompt;
-      }
-      // escalate: mark the final result so caller can surface the question.
-      // Fallthrough caller transitions COMPROMISED; we stash details by throwing
-      // a tagged object would complicate types — instead attach via mission-level
-      // note: we simply return null and the caller will compromise. Escalation
-      // details are logged in the comms line above.
-      return null;
-    } catch (err) {
-      emitComm({
-        missionId,
-        message: `OVERSEER consult failed: ${(err as Error).message}`,
-        level: 'error',
-      });
-      return null;
+    // Note: this deliberately does NOT catch errors. Call sites capture the
+    // pre-consult classification/finalMessage before awaiting and record a
+    // consult-phase attempt annotated with the consult error when this throws.
+    const verdict = await deps.overseerConsult({
+      missionId,
+      briefing: mission.briefing,
+      attemptHistory: [],
+      lastGateStderr,
+      finalDiff: lastDiffHash ?? '',
+      claudeMdExcerpt: null,
+    });
+    emitComm({
+      missionId,
+      message: `OVERSEER verdict: ${verdict.verdict} — ${verdict.reasoning}`,
+    });
+    if (verdict.verdict === 'redirect' && verdict.redirect) {
+      return verdict.redirect.newPrompt;
     }
+    // escalate: caller transitions COMPROMISED. Escalation details are logged
+    // in the comms line above.
+    return null;
   }
 }
