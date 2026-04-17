@@ -11,6 +11,7 @@ import { battlefields, campaigns, missions } from './src/lib/db/schema';
 import { setupSocketIO } from './src/lib/socket/server';
 import { config } from './src/lib/config';
 import { Control } from './src/control/control';
+import { setCommsEmitter } from './src/control/comms';
 import { buildProductionDeps } from './src/control/production-deps';
 import { DevServerManager } from './src/lib/process/dev-server';
 import { Scheduler } from './src/lib/scheduler/scheduler';
@@ -55,6 +56,10 @@ async function start() {
   // 5. Attach Socket.IO
   const io = new SocketIOServer(httpServer, { path: '/socket.io' });
   globalThis.io = io;
+  // Wire CONTROL's socket emitter — must be set before any mission dispatch
+  // emits comms. Keep `globalThis.io` assigned too: legacy call sites
+  // (escalate, dev-server, server actions) still read it directly.
+  setCommsEmitter((room, event, payload) => io.to(room).emit(event, payload));
   setupSocketIO(io);
   setBootTimestamp(SERVER_BOOT_TIME);
 
