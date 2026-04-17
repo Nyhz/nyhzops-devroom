@@ -14,13 +14,9 @@ declare global {
   // Intentionally typed loosely for `io` — many legacy call sites
   // (dev-server, escalate, server actions) emit events that are not yet
   // in ServerToClientEvents. Incremental tightening will follow.
-  // eslint-disable-next-line no-var
   var io: SocketIOServer | undefined;
-  // eslint-disable-next-line no-var
   var orchestrator: Control | undefined;
-  // eslint-disable-next-line no-var
   var devServerManager: DevServerManager | undefined;
-  // eslint-disable-next-line no-var
   var scheduler: Scheduler | undefined;
 }
 

@@ -34,6 +34,7 @@ export function MissionList({ missions, battlefieldId }: MissionListProps) {
   );
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: absorb new mission rows from props while preserving live socket status
     setLiveStatus((prev) => {
       const next = { ...prev };
       for (const m of missions) next[m.id] = next[m.id] ?? m.status ?? 'standby';

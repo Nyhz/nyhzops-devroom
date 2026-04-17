@@ -22,6 +22,17 @@ for (const p of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
 
 process.env.DEVROOM_DB_PATH = dbPath;
 
+// Hard-disable outbound Telegram during tests. Without this, tests that
+// exercise the real escalate()/notifier paths (e.g. notifier.test.ts) will
+// POST to the real bot API whenever the inherited shell env carries
+// DEVROOM_TELEGRAM_ENABLED=true — which is exactly what happens when a
+// mission's agent runs `pnpm test` inside a worktree (the DEVROOM service
+// loads .env.local, the agent inherits it). Result: real Telegram spam to
+// the Commander on every test run. Clamp here before any module reads it.
+process.env.DEVROOM_TELEGRAM_ENABLED = 'false';
+delete process.env.DEVROOM_TELEGRAM_BOT_TOKEN;
+delete process.env.DEVROOM_TELEGRAM_CHAT_ID;
+
 // Clean up the temp DB (and its WAL/SHM sidecars) when this worker exits so
 // /tmp doesn't accumulate stale devroom-test-*.db files across runs.
 process.on('exit', () => {

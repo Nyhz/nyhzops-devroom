@@ -22,6 +22,7 @@ export function BootGate({ children, battlefieldCount, inCombatCount }: BootGate
   useEffect(() => {
     try {
       if (sessionStorage.getItem('devroom-booted') === 'true') {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: mount-only skip check, SSR renders 'booting' to avoid hydration mismatch
         setState('done');
       }
     } catch {

@@ -42,6 +42,8 @@ export class Control {
   readonly live = new Map<string, number>();
   /** Tracks currently-dispatching missionIds so the loop never double-picks. */
   private readonly dispatched = new Set<string>();
+  /** In-flight dispatch promises, awaited by stop() so the live map drains. */
+  private readonly inFlight = new Set<Promise<void>>();
 
   constructor(private readonly opts: ControlOptions) {}
 
@@ -83,6 +85,10 @@ export class Control {
       clearInterval(this.watchdogTimer);
       this.watchdogTimer = null;
     }
+    // Drain in-flight dispatches so callers observing `live` see the cleared
+    // state. Missions themselves run to completion — we never abort them from
+    // here; that's the watchdog / commander's job.
+    await Promise.allSettled([...this.inFlight]);
   }
 
   pauseAll(reason: string): void {
@@ -113,7 +119,10 @@ export class Control {
       this.dispatched.add(next.id);
       this.live.set(next.id, 0);
       dispatched++;
-      void this.dispatchMission(next.id);
+      const p = this.dispatchMission(next.id).finally(() => {
+        this.inFlight.delete(p);
+      });
+      this.inFlight.add(p);
     }
     return dispatched;
   }

@@ -27,6 +27,7 @@ export function AssetDeployment({ initialData }: AssetDeploymentProps) {
   const [data, setData] = useState(initialData);
   const [peaceMsg, setPeaceMsg] = useState<string>(PEACE_MESSAGES[0]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: randomize after mount to avoid SSR/client hydration mismatch
     setPeaceMsg(getPeaceMessage());
   }, []);
 

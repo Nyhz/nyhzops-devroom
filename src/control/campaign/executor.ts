@@ -614,7 +614,7 @@ export async function acceptAndMerge(
   // real git probe. In production, verify the branch exists before declaring
   // success — a silent no-op followed by a success message has misled the
   // Commander before.
-  let sourceBranch = candidateBranch;
+  const sourceBranch = candidateBranch;
   if (!deps.runMerge) {
     try {
       const probe = simpleGit(repoPath);
