@@ -12,6 +12,7 @@
  */
 
 import { telegramBot } from './bot';
+import { escalate } from '@/lib/notifications/escalate';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -133,20 +134,21 @@ export async function notifyCampaignAccomplished(campaignId: string): Promise<vo
 // 4. notifyAuthPause
 // ---------------------------------------------------------------------------
 
-export async function notifyAuthPause(): Promise<void> {
-  const chatId = getChatId();
-  if (!chatId) return;
-
-  const text = [
-    '\u{1F534} *AUTH FAILURE — ORCHESTRATOR PAUSED*',
-    '',
-    '_Claude CLI cannot authenticate. All missions halted._',
-    '',
-    '_Commander: re-authenticate and restart the service._',
-  ].join('\n');
+export async function notifyAuthPause(triggerSnippet?: string): Promise<void> {
+  const detailLines = [
+    'Claude CLI cannot authenticate. All missions halted.',
+    'Commander: re-authenticate and restart the service.',
+  ];
+  if (triggerSnippet) {
+    detailLines.push('', `Trigger: ${triggerSnippet}`);
+  }
 
   try {
-    await telegramBot.send(chatId, text);
+    await escalate({
+      level: 'critical',
+      title: 'AUTH FAILURE — ORCHESTRATOR PAUSED',
+      detail: detailLines.join('\n'),
+    });
   } catch (err) {
     console.error('[notifier] notifyAuthPause failed:', err);
   }
