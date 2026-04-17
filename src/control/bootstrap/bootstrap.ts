@@ -7,10 +7,10 @@
  *   3. For any missing required gate (test / build) where a language can be
  *      inferred, call `scaffoldTestInfra` and merge the resulting command
  *      into the manifest.
- *   4. Docs generation (CLAUDE.md / SPEC.md via INTEL) — TODO: out of scope
- *      for this task. Orchestrator skips this step if both paths are already
- *      populated on the battlefield row; otherwise leaves them alone and
- *      emits a comm noting the skip.
+ *   4. Docs generation (CLAUDE.md / SPEC.md via INTEL) — DEFERRED — see
+ *      CLAUDE.md § Deferred Work. Orchestrator skips this step if both paths
+ *      are already populated on the battlefield row; otherwise leaves them
+ *      alone and emits a comm noting the skip.
  *   5. `verifyGatesOnHead` on the final manifest.
  *   6. Persist manifest; set `mainIsRed` if verify failed; clear
  *      `needsGateManifest`; flip status → `active`.
@@ -169,7 +169,8 @@ export async function bootstrapBattlefield(
   }
 
   // Step 4: docs generation — skipped per task 4.4 scope.
-  // TODO: wire INTEL-driven CLAUDE.md / SPEC.md authoring per spec §12 step 5.
+  // DEFERRED: INTEL-driven CLAUDE.md / SPEC.md authoring (spec §12 step 5).
+  // Bootstrap currently emits baseline docs only. See CLAUDE.md § Deferred Work.
   //       For now, bootstrap only touches the gate manifest. Callers that
   //       need docs generation must pre-populate `claudeMdPath` / `specMdPath`
   //       on the battlefield row.

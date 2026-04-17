@@ -1,8 +1,22 @@
 import simpleGit from 'simple-git';
 import path from 'node:path';
+import { realpath } from 'node:fs/promises';
 
 export function sanitizeBranchForPath(branch: string): string {
   return branch.replace(/[^a-zA-Z0-9._-]/g, '-');
+}
+
+async function resolveIntendedPath(p: string): Promise<string> {
+  try {
+    return await realpath(p);
+  } catch {
+    try {
+      const parent = await realpath(path.dirname(p));
+      return path.join(parent, path.basename(p));
+    } catch {
+      return p;
+    }
+  }
 }
 
 export interface WorktreeInfo {
@@ -16,20 +30,74 @@ export interface CreateWorktreeOpts {
   missionBranch: string;
 }
 
+export interface ParsedWorktreeEntry {
+  path: string;
+  branch: string | null;
+  detached: boolean;
+}
+
+/**
+ * Parse the output of `git worktree list --porcelain` into structured entries.
+ * Blocks are separated by empty lines; each block starts with `worktree <path>`
+ * and may contain `HEAD <sha>`, `branch refs/heads/<name>`, or `detached`.
+ */
+export function parseWorktreeList(output: string): ParsedWorktreeEntry[] {
+  const entries: ParsedWorktreeEntry[] = [];
+  let current: ParsedWorktreeEntry | null = null;
+  for (const rawLine of output.split('\n')) {
+    const line = rawLine.trimEnd();
+    if (line === '') {
+      if (current) {
+        entries.push(current);
+        current = null;
+      }
+      continue;
+    }
+    if (line.startsWith('worktree ')) {
+      if (current) entries.push(current);
+      current = { path: line.slice('worktree '.length), branch: null, detached: false };
+      continue;
+    }
+    if (!current) continue;
+    if (line.startsWith('branch ')) {
+      const ref = line.slice('branch '.length);
+      current.branch = ref.startsWith('refs/heads/') ? ref.slice('refs/heads/'.length) : ref;
+    } else if (line === 'detached') {
+      current.detached = true;
+    }
+  }
+  if (current) entries.push(current);
+  return entries;
+}
+
 export async function createMissionWorktree(opts: CreateWorktreeOpts): Promise<WorktreeInfo> {
   const git = simpleGit(opts.repoPath);
   const wtPath = path.join(opts.repoPath, '.worktrees', sanitizeBranchForPath(opts.missionBranch));
-  const branches = await git.branch();
-  const alreadyExists = branches.all.includes(opts.missionBranch);
-  try {
-    if (alreadyExists) {
-      await git.raw(['worktree', 'add', wtPath, opts.missionBranch]);
-    } else {
-      await git.raw(['worktree', 'add', '-b', opts.missionBranch, wtPath, opts.targetBranch]);
+
+  // Pre-flight: check whether wtPath is already registered as a worktree.
+  // git reports realpath'd paths (e.g. /private/tmp on macOS), so normalize
+  // wtPath through realpath when possible to compare reliably. If wtPath does
+  // not exist yet, realpath its parent + rejoin the basename.
+  const resolvedWtPath = await resolveIntendedPath(wtPath);
+  const listOut = await git.raw(['worktree', 'list', '--porcelain']);
+  const existing = parseWorktreeList(listOut).find((e) => e.path === resolvedWtPath);
+  if (existing) {
+    if (existing.branch === opts.missionBranch) {
+      return { path: wtPath, branch: opts.missionBranch };
     }
-  } catch (err) {
-    // If the path is already registered, ignore; else rethrow.
-    if (!(err as Error).message.includes('already')) throw err;
+    throw new Error(
+      `Worktree path ${wtPath} already registered for branch ${
+        existing.branch ?? '(detached)'
+      }, expected ${opts.missionBranch}`,
+    );
+  }
+
+  const branches = await git.branch();
+  const branchAlreadyExists = branches.all.includes(opts.missionBranch);
+  if (branchAlreadyExists) {
+    await git.raw(['worktree', 'add', wtPath, opts.missionBranch]);
+  } else {
+    await git.raw(['worktree', 'add', '-b', opts.missionBranch, wtPath, opts.targetBranch]);
   }
   return { path: wtPath, branch: opts.missionBranch };
 }
@@ -40,10 +108,16 @@ export async function resetWorktreeToHead(worktreePath: string): Promise<void> {
   await git.raw(['clean', '-fdx']);
 }
 
+export type RebaseResult =
+  | { conflict: false; rebased: true }
+  | { conflict: false; rebased: false }
+  | { conflict: true; rebased: false }
+  | { conflict: false; rebased: false; error: string };
+
 export async function rebaseOntoTarget(
   worktreePath: string,
   targetBranch: string,
-): Promise<{ rebased: boolean; conflict: boolean }> {
+): Promise<RebaseResult> {
   const git = simpleGit(worktreePath);
   try {
     // Fetch is best-effort — local fixture repos have no remote.
@@ -55,7 +129,9 @@ export async function rebaseOntoTarget(
     const before = (await git.revparse(['HEAD'])).trim();
     await git.rebase([targetBranch]);
     const after = (await git.revparse(['HEAD'])).trim();
-    return { rebased: before !== after, conflict: false };
+    return before !== after
+      ? { rebased: true, conflict: false }
+      : { rebased: false, conflict: false };
   } catch (err) {
     // Abort the rebase if it left the worktree mid-rebase.
     try {
@@ -63,8 +139,9 @@ export async function rebaseOntoTarget(
     } catch {
       // ignore
     }
-    if (/conflict/i.test((err as Error).message)) return { rebased: false, conflict: true };
-    throw err;
+    const message = (err as Error).message;
+    if (/conflict/i.test(message)) return { rebased: false, conflict: true };
+    return { rebased: false, conflict: false, error: message };
   }
 }
 

@@ -100,6 +100,10 @@ export interface MergeOpts {
 export interface MergeResult {
   status: 'clean' | 'conflict_resolved' | 'failed';
   reason?: string;
+  /** Free-form error text (e.g. git stderr from a hard rebase failure).
+   *  Surfaced into comms so Commander sees the underlying cause, not just
+   *  the short `reason` code. */
+  detail?: string;
 }
 
 export interface WorktreeDeps {
@@ -195,7 +199,8 @@ type EndReason =
   | 'rate-limit'
   | 'auth'
   | 'turn-limit'
-  | 'gate-failure';
+  | 'gate-failure'
+  | 'consult-error';
 
 /**
  * Parse "## Recommended Next Actions" bullets from a mission debrief and
@@ -268,15 +273,6 @@ function recordAttempt(opts: {
   return id;
 }
 
-function countAttempts(missionId: string): number {
-  const db = getDatabase();
-  return db
-    .select()
-    .from(missionAttempts)
-    .where(eq(missionAttempts.missionId, missionId))
-    .all().length;
-}
-
 function hashDiff(s: string): string {
   return createHash('sha1').update(s).digest('hex');
 }
@@ -343,10 +339,9 @@ export async function runMission(
     return { missionId, finalStatus: 'compromised', attemptCount: 0 };
   }
 
-  // --- IN_COMBAT -----------------------------------------------------------
-  transitionMission(missionId, 'in_combat', deps.now());
-
-  // Retry-loop state.
+  // Retry-loop state — declared outside the try block below so the
+  // runOverseerConsult closure (declared at the end of runMission) can
+  // still capture them.
   let sortieAttempt = 0; // combat-asset spawns that count against 3-deterministic budget
   let infraRetryCount = 0;
   let overseerConsulted = false;
@@ -357,13 +352,25 @@ export async function runMission(
   let lastSessionId: string | null = mission.sessionId ?? null;
   let lastGateStderr = '';
   let redirectPrompt: string | null = null;
+  // Tracks the most recent attempt number from the combat loop so the
+  // safety-fallthrough return path can report it without re-querying the DB.
+  let lastAttemptNumber = 0;
 
   const db = getDatabase();
+
+  // Worktree is live from here on — wrap the remainder in try/finally so
+  // cleanup always runs, whether the mission ACCOMPLISHED, COMPROMISED, or
+  // the loop threw unexpectedly. The watchdog sweep is still the
+  // belt-and-suspenders backstop, but the happy path must not depend on it.
+  try {
+  // --- IN_COMBAT -----------------------------------------------------------
+  transitionMission(missionId, 'in_combat', deps.now());
 
   // Loop until we land on a terminal decision.
   // Safety cap to avoid runaway loops in pathological dep configurations.
   for (let guard = 0; guard < 20; guard++) {
-    const attemptNumber = countAttempts(missionId) + 1;
+    const attemptNumber = lastAttemptNumber + 1;
+    lastAttemptNumber = attemptNumber;
     const spawnStart = deps.now();
 
     const briefing = redirectPrompt ?? mission.briefing;
@@ -439,10 +446,16 @@ export async function runMission(
       });
       transitionMission(missionId, 'compromised', endedAt);
 
-      // Notify Commander via Telegram (fire-and-forget; failure must not break CONTROL).
-      import('@/lib/telegram/notifier')
-        .then(({ notifyAuthPause }) => notifyAuthPause())
-        .catch((err) => console.error('[CONTROL] notifyAuthPause failed:', err));
+      // Notify Commander via escalate+Telegram. Awaited so the DB-backed
+      // audit row is persisted before runMission returns COMPROMISED — the
+      // notifier's top-level try/catch swallows transport errors so this
+      // await cannot crash CONTROL. Dynamic import keeps the telegram module
+      // off CONTROL's boot path.
+      const { notifyAuthPause } = await import('@/lib/telegram/notifier');
+      await notifyAuthPause(run.finalMessage ?? undefined, {
+        missionId,
+        battlefieldId: mission.battlefieldId,
+      });
 
       return {
         missionId,
@@ -584,7 +597,42 @@ export async function runMission(
       }
       if (decision.action === 'OVERSEER_CONSULT') {
         overseerConsulted = true;
-        const verdict = await runOverseerConsult();
+        // Snapshot pre-consult classification and finalMessage so that if the
+        // consult throws (DB error, subprocess crash), we can still record an
+        // attempt annotated with the original classification — not null, not
+        // a generic "consult failed" that erases what actually happened.
+        const preConsultClassification = classification;
+        const preConsultFinalMessage = run.finalMessage;
+        let verdict: string | null;
+        try {
+          verdict = await runOverseerConsult();
+        } catch (err) {
+          const consultFailedAt = deps.now();
+          const errMsg = (err as Error).message;
+          emitComm({
+            missionId,
+            message: `OVERSEER consult failed: ${errMsg}`,
+            level: 'error',
+          });
+          recordAttempt({
+            missionId,
+            attemptNumber: attemptNumber + 1,
+            startedAt: endedAt,
+            endedAt: consultFailedAt,
+            endReason: 'consult-error',
+            classification: preConsultClassification,
+            sessionId: run.sessionId,
+            usage: run.usage,
+            finalMessage: `${preConsultFinalMessage ?? ''}\n(consult failed: ${errMsg})`.trim(),
+          });
+          transitionMission(missionId, 'compromised', consultFailedAt);
+          return {
+            missionId,
+            finalStatus: 'compromised',
+            attemptCount: attemptNumber,
+            classification: preConsultClassification,
+          };
+        }
         if (verdict) {
           redirectPrompt = verdict;
           continue;
@@ -694,7 +742,45 @@ export async function runMission(
       }
       if (decision.action === 'OVERSEER_CONSULT') {
         overseerConsulted = true;
-        const verdict = await runOverseerConsult();
+        // Snapshot pre-consult classification and finalMessage so that if the
+        // consult throws (DB error, subprocess crash), we can still record an
+        // attempt annotated with the original classification — not null, not
+        // a generic "consult failed" that erases what actually happened.
+        const preConsultClassification = classification;
+        const preConsultFinalMessage = run.finalMessage;
+        let verdict: string | null;
+        try {
+          verdict = await runOverseerConsult();
+        } catch (err) {
+          const consultFailedAt = deps.now();
+          const errMsg = (err as Error).message;
+          emitComm({
+            missionId,
+            message: `OVERSEER consult failed: ${errMsg}`,
+            level: 'error',
+          });
+          recordAttempt({
+            missionId,
+            attemptNumber: attemptNumber + 1,
+            startedAt: endedAt,
+            endedAt: consultFailedAt,
+            endReason: 'consult-error',
+            classification: preConsultClassification,
+            gateResults,
+            sessionId: run.sessionId,
+            autoCommitted,
+            usage: run.usage,
+            finalMessage: `${preConsultFinalMessage ?? ''}\n(consult failed: ${errMsg})`.trim(),
+          });
+          transitionMission(missionId, 'compromised', consultFailedAt);
+          return {
+            missionId,
+            finalStatus: 'compromised',
+            attemptCount: attemptNumber,
+            classification: preConsultClassification,
+            gateResults,
+          };
+        }
         if (verdict) {
           redirectPrompt = verdict;
           continue;
@@ -816,6 +902,19 @@ export async function runMission(
       };
     }
 
+    // Surface the merge failure reason (and detail, when present) before
+    // flipping to compromised so Commander's audit trail shows *why* the
+    // merge failed, not just that it did. `detail` is the free-form git
+    // stderr from a hard rebase error; `reason` is the short code.
+    {
+      const reason = merge.reason ?? 'unknown';
+      const detail = merge.detail;
+      emitComm({
+        missionId,
+        message: `merge failed: ${reason}${detail ? ` — ${detail}` : ''}`,
+        level: 'error',
+      });
+    }
     transitionMission(missionId, 'compromised', endedAt);
     return {
       missionId,
@@ -831,43 +930,50 @@ export async function runMission(
   return {
     missionId,
     finalStatus: 'compromised',
-    attemptCount: countAttempts(missionId),
+    attemptCount: lastAttemptNumber,
     classification: lastClassification,
     gateResults: lastGateResults,
   };
+  } finally {
+    // Best-effort worktree cleanup — never rethrow. The watchdog sweep
+    // handles any leaks this misses.
+    try {
+      // Keep the branch for Commander inspection — the worktree directory is
+      // what leaks onto disk. Watchdog sweep handles branch cleanup later.
+      await deps.worktree.remove({
+        repoPath: battlefield.repoPath,
+        worktreePath,
+        branch,
+        deleteBranch: false,
+      });
+    } catch (err) {
+      console.error('[CONTROL] worktree cleanup failed for', missionId, err);
+    }
+  }
 
   // -------------------------------------------------------------------------
   // OVERSEER consult helper (closure over loop state).
   async function runOverseerConsult(): Promise<string | null> {
-    try {
-      const verdict = await deps.overseerConsult({
-        missionId,
-        briefing: mission.briefing,
-        attemptHistory: [],
-        lastGateStderr,
-        finalDiff: lastDiffHash ?? '',
-        claudeMdExcerpt: null,
-      });
-      emitComm({
-        missionId,
-        message: `OVERSEER verdict: ${verdict.verdict} — ${verdict.reasoning}`,
-      });
-      if (verdict.verdict === 'redirect' && verdict.redirect) {
-        return verdict.redirect.newPrompt;
-      }
-      // escalate: mark the final result so caller can surface the question.
-      // Fallthrough caller transitions COMPROMISED; we stash details by throwing
-      // a tagged object would complicate types — instead attach via mission-level
-      // note: we simply return null and the caller will compromise. Escalation
-      // details are logged in the comms line above.
-      return null;
-    } catch (err) {
-      emitComm({
-        missionId,
-        message: `OVERSEER consult failed: ${(err as Error).message}`,
-        level: 'error',
-      });
-      return null;
+    // Note: this deliberately does NOT catch errors. Call sites capture the
+    // pre-consult classification/finalMessage before awaiting and record a
+    // consult-phase attempt annotated with the consult error when this throws.
+    const verdict = await deps.overseerConsult({
+      missionId,
+      briefing: mission.briefing,
+      attemptHistory: [],
+      lastGateStderr,
+      finalDiff: lastDiffHash ?? '',
+      claudeMdExcerpt: null,
+    });
+    emitComm({
+      missionId,
+      message: `OVERSEER verdict: ${verdict.verdict} — ${verdict.reasoning}`,
+    });
+    if (verdict.verdict === 'redirect' && verdict.redirect) {
+      return verdict.redirect.newPrompt;
     }
+    // escalate: caller transitions COMPROMISED. Escalation details are logged
+    // in the comms line above.
+    return null;
   }
 }

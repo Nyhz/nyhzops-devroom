@@ -94,23 +94,45 @@ function summarizeToolResult(content: unknown): string | null {
 
 type Emitter = (room: string, event: string, payload: unknown) => void;
 let explicitEmitter: Emitter | null = null;
+let warnedNoEmitter = false;
 
 export function setCommsEmitter(fn: Emitter | null): void {
   explicitEmitter = fn;
 }
 
 /**
- * Resolve the socket emitter. Prefer the explicit override (used by tests),
- * otherwise fall back to `globalThis.io` — which the custom server assigns
- * at boot. Previously this module used a private `emitter` variable that
- * `setCommsEmitter` was supposed to populate at boot, but no caller ever
- * invoked it, so every socket emission from CONTROL was silently dropped.
+ * Test-only helper: reset the one-time "no emitter wired" warning latch so
+ * individual tests can assert the warn-once behavior cleanly. Not exported
+ * for production use — the name carries the intent.
+ */
+export function __resetCommsEmitterWarningForTests(): void {
+  warnedNoEmitter = false;
+}
+
+/**
+ * Resolve the socket emitter previously registered via `setCommsEmitter`.
+ *
+ * Contract:
+ *   - `server.ts` MUST call `setCommsEmitter(...)` during boot, right after
+ *     the Socket.IO server is constructed. The production wiring is a thin
+ *     closure over `io.to(room).emit(event, payload)`.
+ *   - If no emitter is wired, returns `null`. Callers are expected to no-op
+ *     on null (DB writes via `emitComm` must still succeed — CONTROL must
+ *     not crash on boot-order bugs).
+ *   - The first unwired lookup logs a one-time `console.warn` so silent
+ *     drops become visible in dev/test without spamming the log.
+ *
+ * No implicit `globalThis.io` fallback — that path made boot-ordering bugs
+ * invisible. If you land here puzzled about missing socket traffic, the
+ * fix is to ensure `setCommsEmitter` was called at boot.
  */
 function resolveEmitter(): Emitter | null {
   if (explicitEmitter) return explicitEmitter;
-  const io = (globalThis as { io?: { to: (room: string) => { emit: (event: string, payload: unknown) => void } } }).io;
-  if (!io) return null;
-  return (room, event, payload) => io.to(room).emit(event, payload);
+  if (!warnedNoEmitter) {
+    warnedNoEmitter = true;
+    console.warn('[CONTROL] setCommsEmitter not wired — socket emissions dropped until boot completes');
+  }
+  return null;
 }
 
 export function emitComm(ev: CommEvent): void {

@@ -9,8 +9,10 @@ import { eq } from 'drizzle-orm';
 import { getDatabase, runMigrations, closeDatabase } from './src/lib/db/index';
 import { battlefields, campaigns, missions } from './src/lib/db/schema';
 import { setupSocketIO } from './src/lib/socket/server';
+import type { ClientToServerEvents, ServerToClientEvents } from './src/lib/socket/events';
 import { config } from './src/lib/config';
 import { Control } from './src/control/control';
+import { setCommsEmitter } from './src/control/comms';
 import { buildProductionDeps } from './src/control/production-deps';
 import { DevServerManager } from './src/lib/process/dev-server';
 import { Scheduler } from './src/lib/scheduler/scheduler';
@@ -21,13 +23,8 @@ import { isEnabled as telegramIsEnabled } from './src/lib/telegram/telegram';
 import { handleTelegramCallback } from './src/lib/notifications/escalate';
 import { setBootTimestamp, stopMetricsEmitter } from './src/lib/system-metrics';
 
-// Typed globalThis for Socket.IO access
-declare global {
-  var io: SocketIOServer | undefined;
-  var orchestrator: Control | undefined;
-  var devServerManager: DevServerManager | undefined;
-  var scheduler: Scheduler | undefined;
-}
+// Global singletons (io, orchestrator, devServerManager, scheduler) are
+// declared ambiently in src/types/globals.d.ts.
 
 const dev = process.env.NODE_ENV !== 'production';
 const SERVER_BOOT_TIME = Date.now();
@@ -53,8 +50,17 @@ async function start() {
   });
 
   // 5. Attach Socket.IO
-  const io = new SocketIOServer(httpServer, { path: '/socket.io' });
+  const io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents>(httpServer, { path: '/socket.io' });
   globalThis.io = io;
+  // Wire CONTROL's socket emitter — must be set before any mission dispatch
+  // emits comms. Keep `globalThis.io` assigned too: legacy call sites
+  // (escalate, dev-server, server actions) still read it directly.
+  // Cast through unknown because the CONTROL Emitter shim is deliberately
+  // open-typed (event: string) to accommodate emit sites not yet in
+  // ServerToClientEvents. See src/lib/socket/events.ts for the scope note.
+  setCommsEmitter((room, event, payload) =>
+    (io.to(room).emit as (ev: string, arg: unknown) => boolean)(event, payload),
+  );
   setupSocketIO(io);
   setBootTimestamp(SERVER_BOOT_TIME);
 

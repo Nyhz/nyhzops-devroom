@@ -70,39 +70,61 @@ export type MergeStatus = 'accomplished' | 'compromised';
 export type MergeFailureReason =
   | 'merge-conflict'
   | 'post-rebase-gate-failure'
-  | 'post-qm-gate-failure';
+  | 'post-qm-gate-failure'
+  | 'rebase-error';
 
 export interface MergeResult {
   status: MergeStatus;
   reason?: MergeFailureReason;
+  /** Populated when reason === 'rebase-error' — git error text. */
+  detail?: string;
 }
 
 /**
  * Per-battlefield mutual-exclusion wrapper. Calls sharing the same
  * battlefieldId are serialized; calls with different battlefieldIds run
- * in parallel. Implementation uses a Map<battlefieldId, Promise<void>>:
- * each acquisition awaits any in-flight promise on that key, installs its
- * own, and releases it in a finally block.
+ * in parallel.
+ *
+ * Implementation: tail-promise queue. The Map holds the *tail* of the
+ * serialization chain per key. Each acquirer reads the current tail,
+ * appends its own pending promise (becoming the new tail), awaits the
+ * previous tail, then runs its fn. FIFO order is guaranteed because
+ * tail installation (`tails.set`) happens synchronously before any
+ * await — subsequent acquirers observe the updated tail and chain off
+ * it in arrival order. After release, the map entry is freed via a
+ * deferred microtask only if no later acquirer appended after us.
  */
 export class MergeLockManager {
-  private locks = new Map<string, Promise<void>>();
+  private tails = new Map<string, Promise<void>>();
 
   async acquire<T>(battlefieldId: string, fn: () => Promise<T>): Promise<T> {
-    // Drain any chain of pending locks for this battlefield before taking our turn.
-    while (this.locks.has(battlefieldId)) {
-      await this.locks.get(battlefieldId);
-    }
-    let release: () => void = () => {};
-    const lock = new Promise<void>((resolve) => {
-      release = resolve;
+    const prev = this.tails.get(battlefieldId) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((r) => {
+      release = r;
     });
-    this.locks.set(battlefieldId, lock);
+    // New tail resolves only after both prev has drained and current has settled.
+    const tail = prev.then(() => current);
+    this.tails.set(battlefieldId, tail);
     try {
+      await prev;
       return await fn();
     } finally {
-      this.locks.delete(battlefieldId);
       release();
+      // If no one appended after us, free the map entry. Defer with
+      // queueMicrotask so interleaving acquirers that synchronously append
+      // before this check still see our tail and chain correctly.
+      queueMicrotask(() => {
+        if (this.tails.get(battlefieldId) === tail) {
+          this.tails.delete(battlefieldId);
+        }
+      });
     }
+  }
+
+  /** Test hook: whether a serialization chain is currently tracked for this key. */
+  has(battlefieldId: string): boolean {
+    return this.tails.has(battlefieldId);
   }
 }
 
@@ -143,6 +165,10 @@ export async function runMerge(
     }
 
     const rebase = await rebaseOntoTarget(opts.worktreePath, opts.targetBranch);
+
+    if ('error' in rebase) {
+      return { status: 'compromised', reason: 'rebase-error', detail: rebase.error };
+    }
 
     if (rebase.conflict) {
       const onQuartermaster =
