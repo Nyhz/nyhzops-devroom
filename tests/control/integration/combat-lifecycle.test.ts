@@ -277,7 +277,17 @@ describe('combat mission lifecycle — integration', () => {
       repoPath: repo.path,
       gateManifest: manifest,
     });
-    deps.mergeFn = trivialMergeFn();
+    // mergeFn runs after the auto-commit sweep but before the runner's
+    // finally block tears down the worktree (and deletes the worktree branch
+    // on `accomplished`, per commit 8e2f16e). Capture the latest commit
+    // here so we can assert on the sweep commit message after the mission
+    // completes — the branch ref will be gone by then.
+    let capturedSweepMessage: string | null = null;
+    deps.mergeFn = async (opts) => {
+      const log = await simpleGit(opts.worktreePath).log({ maxCount: 1 });
+      capturedSweepMessage = log.latest?.message ?? null;
+      return { status: 'clean' };
+    };
 
     const result = await runMission(missionId, deps);
 
@@ -291,12 +301,8 @@ describe('combat mission lifecycle — integration', () => {
     expect(attempts[0].autoCommitted).toBe(1);
     expect(attempts[0].endReason).toBe('clean');
 
-    // Confirm the sweep commit landed on the worktree branch. The worktree
-    // directory itself is cleaned up by runMission's finally block, so we
-    // inspect the branch ref through the main repo.
-    const branch = `devroom/${missionId}`;
-    const log = await simpleGit(repo.path).log([branch]);
-    expect(log.latest?.message).toMatch(/chore\(mission\): sweep uncommitted work/);
+    // The sweep commit was the worktree HEAD at merge time.
+    expect(capturedSweepMessage).toMatch(/chore\(mission\): sweep uncommitted work/);
   }, 30_000);
 
   // -------------------------------------------------------------------------
