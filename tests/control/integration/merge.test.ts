@@ -181,7 +181,8 @@ describe('runMerge', () => {
       runGates: stubGates('fail'),
     });
 
-    expect(result).toEqual({ status: 'compromised', reason: 'post-rebase-gate-failure' });
+    expect(result).toMatchObject({ status: 'compromised', reason: 'post-rebase-gate-failure' });
+    expect(result.gateResults?.overallStatus).toBe('fail');
   });
 
   it('compromises with merge-conflict when rebase conflicts and no QUARTERMASTER provided', async () => {

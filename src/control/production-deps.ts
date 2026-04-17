@@ -267,6 +267,7 @@ async function productionMergeFn(opts: MergeOpts): Promise<MergeResult> {
     reason: mergeResult.reason ? String(mergeResult.reason) : undefined,
     detail: mergeResult.detail,
     conflictFiles: mergeResult.conflictFiles,
+    gateResults: mergeResult.gateResults,
   };
 }
 

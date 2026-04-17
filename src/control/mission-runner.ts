@@ -119,6 +119,10 @@ export interface MergeResult {
    *  by `rebaseOntoTarget` before the abort wipes the markers, so the
    *  Commander (and Mission Detail page) see exactly what needs resolution. */
   conflictFiles?: string[];
+  /** Full gate run results from the post-rebase / post-QM check. Used by the
+   *  integration-fix retry path to feed the failing gate's output back to
+   *  OPERATIVE as briefing context. */
+  gateResults?: GateRunResults;
 }
 
 export interface WorktreeDeps {
@@ -222,6 +226,31 @@ function parseStructuredDebrief(run: AssetRunResult): Debrief | null {
     if (result.ok) return result.data;
   }
   return null;
+}
+
+/**
+ * Briefing for the one-shot integration-fix retry. The agent's previous
+ * commits are intact on the rebased branch; the worktree is on the
+ * post-rebase state. Tell the agent exactly what's broken and that the
+ * job is to fix the integration, not redo work.
+ */
+function buildIntegrationRetryPrompt(opts: {
+  originalBriefing: string;
+  failingGateDetail: string;
+}): string {
+  return [
+    'INTEGRATION FIX (post-rebase) — your previous attempt landed clean on its own branch but failed gates after rebasing onto the latest target. Your commits are intact on the worktree branch; the worktree HEAD is now on the rebased state, with target\'s newer commits underneath your changes.',
+    '',
+    'Task: fix whatever the new combined state broke. Run the gates locally to verify. Commit the fix on top of your existing commits. Do NOT redo the original work — adapt to the rebased reality.',
+    '',
+    'Failing gate output:',
+    '```',
+    opts.failingGateDetail,
+    '```',
+    '',
+    '--- ORIGINAL BRIEFING (for context only) ---',
+    opts.originalBriefing,
+  ].join('\n');
 }
 
 function appendDebriefInstruction(briefing: string, dropPath: string): string {
@@ -438,6 +467,11 @@ export async function runMission(
   // Tracks the most recent attempt number from the combat loop so the
   // safety-fallthrough return path can report it without re-querying the DB.
   let lastAttemptNumber = 0;
+  // One-shot flag: have we already re-spawned OPERATIVE to fix an integration
+  // failure (clean rebase, dirty gates) on this mission? The retry slot only
+  // exists once — agents that can't fix their own integration after seeing
+  // the failing gate output don't get a third bite at it.
+  let mergeIntegrationRetryUsed = false;
 
   const db = getDatabase();
 
@@ -1014,6 +1048,29 @@ export async function runMission(
         classification,
         gateResults,
       };
+    }
+
+    // Integration-fix retry: when the rebase succeeded but the post-rebase
+    // gate suite failed, the agent's branch was clean in isolation — only
+    // the combination with the latest target broke. The agent that wrote
+    // the diff is the best candidate to fix the integration; re-spawn it
+    // in the (already rebased) worktree with the failing gate output as
+    // briefing context. One shot per mission to avoid runaway loops.
+    if (
+      merge.reason === 'post-rebase-gate-failure' &&
+      !mergeIntegrationRetryUsed
+    ) {
+      mergeIntegrationRetryUsed = true;
+      emitComm({
+        missionId,
+        message: `Rebase clean but gates failed (${merge.detail?.split(':')[0] ?? 'unknown gate'}). Re-prompting OPERATIVE to fix the integration on the rebased state.`,
+        level: 'warn',
+      });
+      redirectPrompt = buildIntegrationRetryPrompt({
+        originalBriefing: mission.briefing,
+        failingGateDetail: merge.detail ?? 'no gate detail captured',
+      });
+      continue;
     }
 
     // Surface the merge failure reason (and detail, when present) before

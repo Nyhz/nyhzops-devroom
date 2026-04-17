@@ -76,12 +76,28 @@ export type MergeFailureReason =
 export interface MergeResult {
   status: MergeStatus;
   reason?: MergeFailureReason;
-  /** Populated when reason === 'rebase-error' — git error text. */
+  /** Populated when reason === 'rebase-error' — git error text.
+   *  For post-rebase / post-qm gate failures: `<gate>: <stderr|stdout tail>`. */
   detail?: string;
   /** Paths reported as conflicting by git during the failed rebase. Captured
    *  before `git rebase --abort` wipes the markers so the Commander (and
    *  downstream retry paths) know exactly what needs resolution. */
   conflictFiles?: string[];
+  /** Full gate run results for the post-rebase / post-qm checks. Threaded
+   *  out so mission-runner's integration-fix retry can hand the failing
+   *  gate's output back to OPERATIVE as briefing context. */
+  gateResults?: GateRunResults;
+}
+
+/** Build a `<gate>: <tail>` summary from the first failing gate. */
+function summarizeFailedGate(results: GateRunResults): string | undefined {
+  const failed = results.results.find(
+    (r) => r.status !== 'pass' && r.status !== 'skipped',
+  );
+  if (!failed) return undefined;
+  const out = (failed.stderr || failed.stdout || '').trim();
+  const tail = out.length > 1500 ? `…${out.slice(-1500)}` : out;
+  return `${failed.gate} (${failed.status})${tail ? `: ${tail}` : ''}`;
 }
 
 /**
@@ -217,7 +233,13 @@ export async function runMerge(
         suiteTimeoutMs,
       });
       if (gates.overallStatus !== 'pass') {
-        return { status: 'compromised', reason: 'post-qm-gate-failure', conflictFiles };
+        return {
+          status: 'compromised',
+          reason: 'post-qm-gate-failure',
+          conflictFiles,
+          detail: summarizeFailedGate(gates),
+          gateResults: gates,
+        };
       }
       return fastForward();
     }
@@ -230,7 +252,12 @@ export async function runMerge(
       suiteTimeoutMs,
     });
     if (gates.overallStatus !== 'pass') {
-      return { status: 'compromised', reason: 'post-rebase-gate-failure' };
+      return {
+        status: 'compromised',
+        reason: 'post-rebase-gate-failure',
+        detail: summarizeFailedGate(gates),
+        gateResults: gates,
+      };
     }
     return fastForward();
   });
