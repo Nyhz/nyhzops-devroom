@@ -195,7 +195,8 @@ type EndReason =
   | 'rate-limit'
   | 'auth'
   | 'turn-limit'
-  | 'gate-failure';
+  | 'gate-failure'
+  | 'consult-error';
 
 /**
  * Parse "## Recommended Next Actions" bullets from a mission debrief and
@@ -610,10 +611,10 @@ export async function runMission(
           });
           recordAttempt({
             missionId,
-            attemptNumber: countAttempts(missionId) + 1,
+            attemptNumber: attemptNumber + 1,
             startedAt: endedAt,
             endedAt: consultFailedAt,
-            endReason: run.killedByControl ? 'timeout' : 'silence-kill',
+            endReason: 'consult-error',
             classification: preConsultClassification,
             sessionId: run.sessionId,
             usage: run.usage,
@@ -623,7 +624,7 @@ export async function runMission(
           return {
             missionId,
             finalStatus: 'compromised',
-            attemptCount: countAttempts(missionId),
+            attemptCount: attemptNumber,
             classification: preConsultClassification,
           };
         }
@@ -755,10 +756,10 @@ export async function runMission(
           });
           recordAttempt({
             missionId,
-            attemptNumber: countAttempts(missionId) + 1,
+            attemptNumber: attemptNumber + 1,
             startedAt: endedAt,
             endedAt: consultFailedAt,
-            endReason: 'gate-failure',
+            endReason: 'consult-error',
             classification: preConsultClassification,
             gateResults,
             sessionId: run.sessionId,
@@ -770,7 +771,7 @@ export async function runMission(
           return {
             missionId,
             finalStatus: 'compromised',
-            attemptCount: countAttempts(missionId),
+            attemptCount: attemptNumber,
             classification: preConsultClassification,
             gateResults,
           };

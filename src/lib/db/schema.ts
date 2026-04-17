@@ -335,7 +335,7 @@ export const missionAttempts = sqliteTable('mission_attempts', {
   startedAt: integer('started_at').notNull(),
   endedAt: integer('ended_at'),
   endReason: text('end_reason', {
-    enum: ['clean', 'timeout', 'silence-kill', 'infrastructure', 'rate-limit', 'auth', 'turn-limit', 'gate-failure'],
+    enum: ['clean', 'timeout', 'silence-kill', 'infrastructure', 'rate-limit', 'auth', 'turn-limit', 'gate-failure', 'consult-error'],
   }),
   classification: text('classification'), // JSON
   gateResults: text('gate_results'), // JSON

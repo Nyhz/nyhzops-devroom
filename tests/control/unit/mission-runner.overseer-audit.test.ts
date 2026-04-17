@@ -139,11 +139,12 @@ describe('runMission — overseer consult throw preserves classification', () =>
     const parsed = JSON.parse(consultAttempt.classification as string) as Classification;
     expect(parsed.category).toBe('CLEAN');
     expect(parsed.reasoning).toBe('agent exited cleanly but gates rejected output');
-    // debriefSynthesized flips to 1 when the consult-failed annotated
-    // finalMessage is recorded.
-    expect(consultAttempt.debriefSynthesized).toBe(1);
+    // Distinct endReason marks this as a consult-phase audit row — no
+    // debriefSynthesized overload.
+    expect(consultAttempt.endReason).toBe('consult-error');
 
     // The consult error text is surfaced in comms for Commander visibility.
+    // Lock the annotation format: "OVERSEER consult failed: <errMsg>".
     const commsRows = db
       .select()
       .from(comms)
@@ -151,7 +152,7 @@ describe('runMission — overseer consult throw preserves classification', () =>
       .all();
     const consultMsg = commsRows.find((c) => /consult failed/i.test(c.message));
     expect(consultMsg).toBeTruthy();
-    expect(consultMsg?.message).toContain('overseer DB exploded');
+    expect(consultMsg?.message).toMatch(/consult failed:.*overseer DB exploded/);
   });
 
   it('timeout path: consult throw records attempt with pre-consult TIMEOUT classification', async () => {
@@ -200,14 +201,16 @@ describe('runMission — overseer consult throw preserves classification', () =>
     const parsed = JSON.parse(consultAttempt.classification as string) as Classification;
     expect(parsed.category).toBe('TIMEOUT');
     expect(parsed.reasoning).toBe('silence-kill at L3');
-    expect(consultAttempt.debriefSynthesized).toBe(1);
+    expect(consultAttempt.endReason).toBe('consult-error');
 
+    // Lock the annotation format via the comms stream (where the human-readable
+    // error text surfaces for Commander visibility).
     const commsRows = db
       .select()
       .from(comms)
       .where(eq(comms.missionId, 'mr-ov-throw-timeout'))
       .all();
     const consultMsg = commsRows.find((c) => /consult failed/i.test(c.message));
-    expect(consultMsg?.message).toContain('overseer subprocess crashed');
+    expect(consultMsg?.message).toBe('OVERSEER consult failed: overseer subprocess crashed');
   });
 });
