@@ -151,9 +151,10 @@ function buildTerminalLogs(
 ): Array<{ timestamp: number; type: 'comms' | 'sitrep' | 'alert'; content: string; actor?: LogActor }> {
   const isTerminal = TERMINAL_STATUSES.includes(liveStatus);
 
-  // If we have comms from the new table, use those with actor field for styled labels
+  // If we have comms from the new table, use those with actor field for styled labels,
+  // then append any live events received via socket after page load.
   if (initialComms.length > 0) {
-    return initialComms.map((comm) => {
+    const staticEntries = initialComms.map((comm) => {
       const actor = KNOWN_ACTORS.has(comm.actor as LogActor)
         ? (comm.actor as LogActor)
         : undefined;
@@ -166,6 +167,12 @@ function buildTerminalLogs(
         actor,
       };
     });
+    const liveEntries = logs.map((log) => ({
+      timestamp: log.timestamp,
+      type: (log.type as 'comms' | 'sitrep' | 'alert') ?? 'comms',
+      content: log.content,
+    }));
+    return [...staticEntries, ...liveEntries];
   }
 
   // Fall back to legacy missionLogs (no actor field)

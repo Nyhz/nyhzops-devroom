@@ -41,16 +41,24 @@ export function useMissionComms(
 
     socket.emit('mission:subscribe', missionId);
 
-    const handleLog = (data: { missionId: string; timestamp: number; type: string; content: string }) => {
+    const handleLog = (data: {
+      id: string;
+      missionId: string | null;
+      actor: string;
+      message: string;
+      level: string;
+      createdAt: number;
+    }) => {
       if (data.missionId !== missionId) return;
       logIdCounter.current += 1;
+      const levelTypeMap: Record<string, string> = { warn: 'sitrep', error: 'alert' };
       setLogs(prev => {
         const next = [...prev, {
           id: `live-${logIdCounter.current}`,
-          missionId: data.missionId,
-          timestamp: data.timestamp,
-          type: data.type,
-          content: data.content,
+          missionId: data.missionId ?? '',
+          timestamp: data.createdAt,
+          type: levelTypeMap[data.level] ?? 'comms',
+          content: data.message,
         }];
         if (next.length > MAX_LOGS) {
           return next.slice(next.length - MAX_LOGS);
