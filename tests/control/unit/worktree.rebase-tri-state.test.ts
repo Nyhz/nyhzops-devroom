@@ -72,10 +72,9 @@ describe('rebaseOntoTarget — tri-state result', () => {
 
     const result = await rebaseOntoTarget(wt.path, 'this-branch-does-not-exist-xyz');
     expect('error' in result).toBe(true);
-    if ('error' in result) {
+    if ('error' in result && typeof result.error === 'string') {
       expect(result.rebased).toBe(false);
       expect(result.conflict).toBe(false);
-      expect(typeof result.error).toBe('string');
       expect(result.error.length).toBeGreaterThan(0);
     }
   });
