@@ -117,11 +117,9 @@ export default function ProjectsPage() {
                   <div className="text-dr-text font-tactical text-xs mb-1">
                     {bf.name}
                   </div>
-                  {bf.description && (
-                    <div className="text-dr-muted font-tactical text-xs line-clamp-2">
-                      {bf.description}
-                    </div>
-                  )}
+                  <div className="text-dr-muted font-tactical text-xs line-clamp-2 min-h-[2.5em]">
+                    {bf.description ?? ''}
+                  </div>
                 </TacCard>
               </Link>
             );
