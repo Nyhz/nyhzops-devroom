@@ -53,8 +53,11 @@ The interface follows a tactical operations center aesthetic. Dark backgrounds, 
 | Logs          | **Comms**         | Real-time output stream from a running mission.                |
 | Dashboard     | **HQ**            | The main overview screen.                                      |
 | Template      | **Dossier**       | Reusable mission briefing template with variable placeholders. |
-| AI Layer      | **Overseer**      | Mission review specialist — reviews debriefs, issues verdicts, escalates. |
-| Merge Layer   | **Quartermaster** | Merge and integration specialist — worktree merging, conflict resolution, follow-up extraction. |
+| AI Layer      | **Overseer**      | Exception-only exit classifier and gate-failure consultant. Two narrow jobs: classify ambiguous subprocess exits, advise on repeated gate failures. |
+| Merge Layer   | **Quartermaster** | One-shot merge conflict resolver. Resolves rebase conflicts during the merge path. No follow-up extraction. |
+| Supervisor    | **CONTROL**       | Node.js mission supervisor. Dispatch loop, exit classification, gate enforcement, liveness monitoring, merge orchestration. Non-LLM — deterministic happy path. |
+| Gate Manifest | **Gate Manifest** | Per-battlefield build/test/lint/typecheck command set, verified green on HEAD before activation. |
+| Attempt       | **Attempt**       | One invocation of a combat asset for a mission. Tracked in mission_attempts table. |
 | Alert         | **Notification**  | In-app + Telegram alert for events and escalations.            |
 | Startup       | **War Room**      | Boot sequence animation shown on first visit.                  |
 | Planning Chat | **Briefing**      | Interactive campaign planning chat with STRATEGIST asset.      |
@@ -69,13 +72,10 @@ The interface follows a tactical operations center aesthetic. Dark backgrounds, 
 | `QUEUED`       | muted   | Waiting for an available agent slot.         |
 | `DEPLOYING`    | amber   | Setting up worktree / preparing process.     |
 | `IN COMBAT`    | amber   | Claude Code process actively running.        |
-| `REVIEWING`    | blue    | Overseer reviewing debrief quality.          |
-| `APPROVED`     | green   | Overseer approved, awaiting merge.           |
 | `MERGING`      | amber   | Quartermaster merging worktree.              |
 | `ACCOMPLISHED` | green   | Completed successfully.                      |
-| `COMPROMISED`  | red     | Failed or errored.                           |
+| `COMPROMISED`  | red     | Retry budget exhausted, or OVERSEER escalated, or merge cannot complete. Commander decides next action. |
 | `ABANDONED`    | dim     | Cancelled by Commander or interrupted.       |
-| `PAUSED`       | amber   | Campaign paused — Commander intervention needed. |
 | `SECURED`      | green   | Phase completed (all missions accomplished). |
 
 ---
@@ -151,8 +151,11 @@ Mission      = Single task (one Claude Code process)
 Asset        = Agent profile (specialty + system prompt)
 Dossier      = Reusable mission briefing template
 Briefing     = Interactive campaign planning chat with STRATEGIST
-Overseer     = Mission review specialist (debrief verdicts + escalation)
-Quartermaster= Merge and integration specialist (worktree merging, conflict resolution)
+Overseer     = Exception-only exit classifier + gate-failure consultant
+Quartermaster= One-shot merge conflict resolver
+CONTROL      = Node.js mission supervisor (dispatch, gates, liveness, merge)
+Gate Manifest= Per-battlefield build/test/lint/typecheck commands
+Attempt      = One combat asset invocation per mission
 Debrief      = Post-mission report to Commander
 Comms        = Real-time log stream
 HQ           = Main dashboard
@@ -163,11 +166,11 @@ Notification = In-app + Telegram alert
 
 **Battlefields:** `INITIALIZING → ACTIVE → ARCHIVED`
 
-**Missions:** `STANDBY → QUEUED → DEPLOYING → IN COMBAT → REVIEWING → APPROVED → MERGING → ACCOMPLISHED / COMPROMISED / ABANDONED`
+**Missions:** `STANDBY → QUEUED → DEPLOYING → IN COMBAT → MERGING → ACCOMPLISHED / COMPROMISED / ABANDONED`
 
 **Phases:** `STANDBY → ACTIVE → SECURED / COMPROMISED`
 
-**Campaigns:** `DRAFT → PLANNING → ACTIVE → PAUSED → ACCOMPLISHED / COMPROMISED / ABANDONED`
+**Campaigns:** `DRAFT → PLANNING → ACTIVE → ACCOMPLISHED / COMPROMISED / ABANDONED`
 
 ### Testing
 
@@ -179,6 +182,8 @@ See `.devroom/testing.md` for full strategy, templates, and coverage details.
 | `pnpm test:watch` | Vitest in watch mode |
 | `pnpm test:e2e` | Playwright E2E tests |
 | `pnpm test:e2e:ui` | E2E tests with visual UI |
+| `pnpm test:e2e:real` | Opt-in real-LLM E2E tests |
+| `pnpm test:all` | Unit + integration + scripted-claude E2E + UI E2E |
 
 **Rule:** All new Server Actions must have corresponding tests. All new interactive components should have component tests.
 
