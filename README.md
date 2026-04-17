@@ -17,7 +17,7 @@
 
 > *"Speed, surprise, and violence of action."* — Delta Force doctrine
 
-DEVROOM is a self-hosted command center that deploys, coordinates, and monitors autonomous [Claude Code](https://docs.anthropic.com/en/docs/claude-code) agents across your codebases. It runs on your local network — brief your missions from any device, watch your operators execute in real-time, and let the support staff handle reviews and merges while you plan the next strike.
+DEVROOM is a self-hosted command center that deploys, coordinates, and monitors autonomous [Claude Code](https://docs.anthropic.com/en/docs/claude-code) agents across your codebases. It runs on your local network — brief your missions from any device, watch your operators execute in real-time, and let CONTROL handle verification and merges while you plan the next strike.
 
 One Commander. Multiple agents. Total operational awareness.
 
@@ -29,9 +29,9 @@ You are the **Commander**. Every codebase under your control is a **Battlefield*
 
 For coordinated strikes across multiple objectives, you plan a **Campaign**. Brief the **STRATEGIST** — your planning specialist — through an interactive chat. Discuss phases, priorities, constraints. When the plan is solid, hit **GREEN LIGHT**. Phases execute in sequence. Missions within each phase deploy in parallel. Maximum firepower, minimum collateral.
 
-When an operator completes their mission, the **Overseer** runs debrief analysis — reviewing code diffs, evaluating quality, issuing verdicts. Approved work is handed to the **Quartermaster** for integration. If something smells wrong, the Commander gets a Telegram alert with inline action buttons. Approve. Retry. Override. Abort. Your call.
+When an operator completes their mission, **CONTROL** runs the gate suite — lint, typecheck, build, test — against the work. Gates pass, work merges automatically. If something goes wrong, CONTROL retries deterministically, consults the Overseer only when the system hits its limits, and escalates to the Commander when human judgment is needed.
 
-Every mission. Every verdict. Every token spent. Logged, tracked, and reported back to Command.
+Every mission. Every gate result. Every token spent. Logged, tracked, and reported back to Command.
 
 ---
 
@@ -43,7 +43,8 @@ Every mission. Every verdict. Every token spent. Logged, tracked, and reported b
 - **Isolated worktrees** — Every mission gets its own git branch and worktree. No cross-contamination. Clean merges on success
 - **Live comms** — Real-time streaming output from running agents via Socket.IO
 - **Concurrency control** — Configurable parallel agent slots with automatic queue management and rate-limit backoff
-- **Session continuity** — Continue completed or compromised missions with full context preserved
+- **Gate enforcement** — Deterministic lint/typecheck/build/test verification before merge
+- **Recon missions** — Read-only scouting missions that produce prose reports without worktrees or merges
 - **Mission templates (Dossiers)** — Pre-built briefing templates with variable placeholders for repeat operations
 
 ### Campaign Operations
@@ -56,20 +57,20 @@ Every mission. Every verdict. Every token spent. Logged, tracked, and reported b
 - **Auto phase transitions** — Next phase begins when current phase is secured
 - **Stall detection** — Automatic detection and handling of stuck phases
 
-### Overseer — Debrief Review Specialist
+### CONTROL — Mission Supervisor
 
-- **Automated debrief review** — Evaluates every completed mission: approve / retry / escalate
-- **Code diff analysis** — Reviews git diffs and diff stats alongside debriefs for quality assessment
-- **Retry loop** — Up to 2 retries for reviewing missions, 1 for compromised — with feedback injected into re-runs
-- **Confidence-based escalation** — Low-confidence decisions ping the Commander via Telegram
-- **Full audit trail** — Every verdict logged with reasoning, confidence level, and outcome
+- **Deterministic gate enforcement** — lint, typecheck, build, and test run against every completed mission before merge
+- **Bounded retry policy** — 3 deterministic retries + 1 OVERSEER redirect before escalation
+- **Exit classification** — Fast-path regex classifier with OVERSEER fallback for ambiguous exits
+- **Liveness monitoring** — L1 exit / L3 silence / L5 wall-clock / L6 watchdog checks keep missions from going dark
+- **Auto-commit sweep** — Detects and commits uncommitted agent work before gate evaluation
+- **Startup recovery and watchdog healing** — Recovers interrupted missions on service restart
 
 ### Quartermaster — Integration Specialist
 
-- **Automated merging** — Approved missions are merged into the target branch
-- **Conflict resolution** — Spawns a Claude Code agent to intelligently resolve merge conflicts
+- **Automated rebase-then-merge** — Approved work is rebased and merged into the target branch under a merge lock
+- **One-shot conflict resolution** — Spawns QUARTERMASTER to resolve merge conflicts; no retries
 - **Worktree cleanup** — Removes worktrees and branches after successful merge
-- **Follow-up extraction** — Identifies future work items from mission debriefs and surfaces them on the intel board
 
 ### Intelligence & Monitoring
 
@@ -108,7 +109,7 @@ D E V R O O M
 
 > BATTLEFIELDS ONLINE .............. 3 active
 > ASSETS DEPLOYED ................. 2 in combat
-> OVERSEER ON STATION ............. standing by
+> CONTROL ON STATION .............. standing by
 > ALL SYSTEMS NOMINAL
 
           [ ENTER COMMAND CENTER ]
@@ -124,8 +125,6 @@ D E V R O O M
 |----------|-----------|------|
 | **OPERATIVE** | Backend / General | Backend engineering, general-purpose coding |
 | **VANGUARD** | Frontend | Frontend engineering with design capability |
-| **ARCHITECT** | System Design | Architecture, refactoring, system design |
-| **ASSERT** | Testing & QA | Test suites, coverage, quality assurance |
 | **INTEL** | Documentation | Docs, bootstrap, project intelligence |
 
 ### System Assets — autonomous support staff
@@ -133,10 +132,10 @@ D E V R O O M
 | Codename | Role | Model | Operates |
 |----------|------|-------|----------|
 | **STRATEGIST** | Campaign planning specialist | Claude Opus 4.6 | Interactive briefing chat, plan generation |
-| **OVERSEER** | Mission review & evaluation | Claude Sonnet 4.6 | Post-mission debrief review, verdicts |
-| **QUARTERMASTER** | Merge & integration | Claude Sonnet 4.6 | Worktree merging, conflict resolution |
+| **OVERSEER** | Exception-only exit classifier + gate-failure consultant | Claude Sonnet 4.6 | Ambiguous exit classification, repeated gate-failure consult |
+| **QUARTERMASTER** | One-shot merge conflict resolver | Claude Sonnet 4.6 | Worktree merging, conflict resolution |
 
-All mission assets follow strict **Rules of Engagement**: absolute mission scope, report (don't fix) out-of-scope issues, commit discipline, and mandatory debriefs addressed to the Commander.
+All combat assets follow strict **Rules of Engagement** including mandatory commit discipline, structured DEBRIEF block emission, and gate-command awareness. CONTROL enforces these deterministically — prompts are advisory, the system is the guarantee.
 
 ---
 
@@ -146,9 +145,8 @@ Pre-built mission briefing templates with configurable variables for repeat oper
 
 | Codename | Operation Type | Default Asset |
 |----------|---------------|---------------|
-| **NIGHTWATCH** | Unit Test Suite | ASSERT |
 | **BLACKSITE** | Security Audit | OPERATIVE |
-| **TRIBUNAL** | Code Review | OPERATIVE |
+| **TRIBUNAL** | Code Review | INTEL |
 | **RESUPPLY** | Dependency Update | OPERATIVE |
 | **GHOSTRIDER** | Performance Audit | OPERATIVE |
 | **TRIAGE** | Bug Fix | OPERATIVE |
@@ -174,21 +172,22 @@ Pre-built mission briefing templates with configurable variables for repeat oper
 │   └── Route Handlers (stream endpoints)                 │
 │                                                         │
 ├──────────────┬──────────────┬───────────────────────────┤
-│  SQLite DB   │  Socket.IO   │   Orchestrator            │
-│  (Drizzle)   │  (real-time) │   ├── Queue Loop          │
-│              │              │   ├── Executor (spawn)     │
-│              │              │   ├── Campaign Executor    │
-│              │              │   ├── Overseer AI          │
-│              │              │   ├── Quartermaster        │
-│              │              │   ├── Worktree Manager     │
-│              │              │   └── Stream Parser        │
+│  SQLite DB   │  Socket.IO   │   CONTROL Supervisor      │
+│  (Drizzle)   │  (real-time) │   ├── Dispatch Loop       │
+│              │              │   ├── Mission Runner       │
+│              │              │   ├── Exit Classifier      │
+│              │              │   ├── Gate Enforcer        │
+│              │              │   ├── Retry Policy         │
+│              │              │   ├── Liveness Monitor     │
+│              │              │   ├── Watchdog             │
+│              │              │   └── Merge + QM path      │
 ├──────────────┴──────────────┴───────────────────────────┤
 │                                                         │
 │   Claude Code CLI Processes                             │
 │   ├── Mission agents (isolated worktrees)               │
 │   ├── STRATEGIST (campaign planning)                    │
-│   ├── Overseer review agents (--print mode)             │
-│   ├── Quartermaster merge agents                        │
+│   ├── OVERSEER (exception-only classification + consult)│
+│   ├── QUARTERMASTER (conflict resolution)               │
 │   └── Bootstrap agents (CLAUDE.md + SPEC.md gen)        │
 │                                                         │
 ├─────────────────────────────────────────────────────────┤
@@ -231,8 +230,9 @@ Everything has a codename. This isn't a project management tool — it's a tacti
 | Result | **Debrief** | Post-mission summary report, addressed to the Commander |
 | Logs | **Comms** | Real-time output stream from a running mission |
 | Template | **Dossier** | Reusable mission briefing with variable slots |
-| AI Review Layer | **Overseer** | Mission review specialist — debrief verdicts + escalation |
-| Merge Layer | **Quartermaster** | Integration specialist — worktree merging, conflict resolution |
+| Mission Supervisor | **CONTROL** | Deterministic gate enforcement, retry policy, liveness, auto-merge |
+| Exception Classifier | **Overseer** | Exit classification + gate-failure consult on exception paths |
+| Merge Specialist | **Quartermaster** | One-shot conflict resolver for merge failures |
 | Dashboard | **HQ** | Main overview screen |
 | Alert | **Notification** | In-app + Telegram alert |
 | Planning Chat | **Briefing** | Interactive campaign planning with STRATEGIST |
@@ -242,13 +242,15 @@ Everything has a codename. This isn't a project management tool — it's a tacti
 ### Mission Lifecycle
 
 ```
-STANDBY ─── QUEUED ─── DEPLOYING ─── IN COMBAT ─── REVIEWING ─── APPROVED ─── MERGING ─── ACCOMPLISHED
-                                                       │             │           │
-                                                       ▼             ▼           ▼
-                                                   COMPROMISED   COMPROMISED  COMPROMISED
-                                                   (escalated)   (review-     (merge-
-                                                                  failed)      failed)
+STANDBY ─── QUEUED ─── DEPLOYING ─── IN COMBAT ─── MERGING ─── ACCOMPLISHED
+                                          │              │
+                                          ▼              ▼
+                                      COMPROMISED    COMPROMISED
+                                      (retry budget  (merge
+                                       exhausted)     failed)
 ```
+
+ABANDONED only by Commander action. No autonomous abort.
 
 ### Status Indicators
 
@@ -259,11 +261,9 @@ STANDBY ─── QUEUED ─── DEPLOYING ─── IN COMBAT ─── REVIE
 | `QUEUED` | muted | Waiting for an agent slot |
 | `DEPLOYING` | amber | Setting up worktree |
 | `IN COMBAT` | amber | Agent actively running |
-| `REVIEWING` | blue | Overseer analyzing debrief |
-| `APPROVED` | green | Overseer approved, awaiting merge |
-| `MERGING` | amber | Quartermaster merging worktree |
+| `MERGING` | amber | CONTROL merging worktree |
 | `ACCOMPLISHED` | green | Mission complete |
-| `COMPROMISED` | red | Failed — awaiting Commander decision |
+| `COMPROMISED` | red | Retry budget exhausted or merge failed — Commander decides next |
 | `ABANDONED` | dim | Cancelled by Commander |
 
 ---
@@ -366,7 +366,7 @@ Set `CLAUDE_CODE_OAUTH_TOKEN` in `.env.local`. All spawned processes inherit it 
 2. **Bootstrap** — DEVROOM auto-generates a `CLAUDE.md` and `SPEC.md` for the repo
 3. **Deploy** — Write a mission briefing, select an asset, hit `DEPLOY`
 4. **Monitor** — Watch live comms stream as your agent works
-5. **Review** — Overseer auto-reviews the debrief and code diffs. Approved work is merged by the Quartermaster
+5. **Review** — CONTROL runs the gate suite automatically. Gates pass, work merges. Gates fail, CONTROL retries. Retry budget exhausted, Commander decides.
 
 ### Run a Campaign
 
@@ -381,14 +381,11 @@ Set `CLAUDE_CODE_OAUTH_TOKEN` in `.env.local`. All spawned processes inherit it 
 
 When missions are compromised, the UI presents context-appropriate recovery actions:
 
-| Failure Point | Recovery Action | Effect |
-|---|---|---|
-| Overseer review failed | **RETRY REVIEW** | Re-runs the Overseer review |
-| Overseer rejected work | **RETRY REVIEW** | Re-submits to Overseer |
-| Quartermaster merge failed | **RETRY MERGE** | Re-attempts the merge |
-| Any failure | **TACTICAL OVERRIDE** | Edit briefing and redeploy with session context |
-| Any failure | **CONTINUE MISSION** | Resume session with follow-up instructions |
-| Overseer wrong | **APPROVE** | Commander override — you outrank the Overseer |
+| Recovery Action | Effect |
+|---|---|
+| **TACTICAL OVERRIDE** | Rewrite briefing, reset retry budget, fresh session |
+| **ACCEPT AND MERGE** | Force-merge current worktree state — mission → ACCOMPLISHED |
+| **ABANDON** | Mission → ABANDONED, optional branch preservation |
 
 ---
 
@@ -396,7 +393,7 @@ When missions are compromised, the UI presents context-appropriate recovery acti
 
 ```
 devroom/
-├── server.ts                    # Custom server (Next.js + Socket.IO + Orchestrator)
+├── server.ts                    # Custom server (Next.js + Socket.IO + CONTROL)
 ├── src/
 │   ├── app/                     # Next.js App Router pages
 │   │   ├── (hq)/               # Main layout group
@@ -423,25 +420,77 @@ devroom/
 │   ├── actions/                # Server Actions (all mutations)
 │   ├── components/             # React components
 │   │   ├── campaign/           # Campaign UI (briefing, controls, timeline)
-│   │   ├── mission/            # Mission UI (comms, debrief, deploy, actions)
+│   │   ├── config/             # Battlefield config (tabs, gates, forensics)
+│   │   ├── mission/            # Mission UI (comms, debrief, type badge, actions)
+│   │   ├── settings/           # Rules of engagement editor
+│   │   ├── telemetry/          # Active processes, resource usage, service health
+│   │   ├── tests/              # Test runner UI components
+│   │   ├── deps/               # Dependency tracking UI
+│   │   ├── env/                # Environment management UI
 │   │   ├── layout/             # Nav, sidebar, footer, intel bar
 │   │   ├── warroom/            # Boot sequence animation
 │   │   └── ui/                 # Tactical UI primitives
+│   ├── control/                # CONTROL supervisor (mission execution engine)
+│   │   ├── control.ts          # Dispatch loop + queue management
+│   │   ├── mission-runner.ts   # Mission lifecycle orchestration
+│   │   ├── liveness.ts         # L1/L3/L5/L6 liveness monitors
+│   │   ├── exit-classifier.ts  # Fast-path regex + OVERSEER fallback
+│   │   ├── retry-policy.ts     # Bounded retry (3 deterministic + 1 OVERSEER)
+│   │   ├── gates.ts            # Gate enforcement (lint/typecheck/build/test)
+│   │   ├── merge.ts            # Rebase-then-merge with merge lock
+│   │   ├── recon.ts            # Read-only scouting missions
+│   │   ├── worktree.ts         # Worktree lifecycle management
+│   │   ├── watchdog.ts         # Watchdog healing + startup recovery
+│   │   ├── comms.ts            # Stream parsing + log emission
+│   │   ├── config.ts           # CONTROL configuration
+│   │   ├── prompt-builder.ts   # Mission prompt construction
+│   │   ├── spawn-asset.ts      # Claude Code process spawning
+│   │   ├── production-deps.ts  # Production dependency checks
+│   │   ├── debrief/            # Debrief processing
+│   │   │   ├── schema.ts       # Debrief structure definitions
+│   │   │   ├── parse.ts        # Debrief extraction from comms
+│   │   │   └── synthesize.ts   # Debrief synthesis
+│   │   ├── assets/             # Asset definitions + prompts
+│   │   │   ├── cli-builder.ts
+│   │   │   └── prompts/
+│   │   │       ├── combat/     # OPERATIVE, VANGUARD, INTEL prompts
+│   │   │       └── system/     # OVERSEER, QUARTERMASTER, STRATEGIST prompts
+│   │   ├── bootstrap/          # Battlefield bootstrap pipeline
+│   │   │   ├── bootstrap.ts
+│   │   │   ├── detect.ts
+│   │   │   ├── scaffold.ts
+│   │   │   ├── verify.ts
+│   │   │   └── frameworks.ts
+│   │   ├── campaign/           # Campaign execution engine
+│   │   │   ├── executor.ts
+│   │   │   ├── debrief.ts
+│   │   │   └── dependency-graph.ts
+│   │   └── merge/              # Merge pipeline
+│   │       └── quartermaster.ts # One-shot conflict resolution
 │   ├── hooks/                  # Client-side hooks (Socket.IO, activity feed, etc.)
 │   ├── lib/
-│   │   ├── orchestrator/       # Core engine (queue, executor, worktrees)
-│   │   ├── overseer/           # AI review layer (verdicts, escalation)
-│   │   ├── quartermaster/      # Merge & integration specialist
 │   │   ├── briefing/           # Campaign planning engine (STRATEGIST)
 │   │   ├── general/            # General chat engine
+│   │   ├── notifications/      # Escalation notifications
+│   │   │   └── escalate.ts
 │   │   ├── scheduler/          # Cron-based task scheduling
 │   │   ├── telegram/           # Telegram bot integration
+│   │   │   ├── bot.ts
+│   │   │   ├── notifier.ts
+│   │   │   └── telegram.ts
 │   │   ├── db/                 # Drizzle schema + migrations
 │   │   ├── socket/             # Socket.IO server + emitters
-│   │   └── process/            # Claude Code CLI invocation
+│   │   └── settings/           # App settings management
 │   └── types/                  # TypeScript type definitions
-├── scripts/                    # Seed, service control, launchd setup
+├── scripts/                    # Service control, launchd setup, seed
+│   ├── devroom-ctl.sh          # CLI control script
+│   ├── devroom-service.sh      # Service wrapper
+│   ├── devroom-xbar-run.sh     # xbar menu bar plugin runner
+│   ├── devroom-status.5s.sh    # Status polling script
+│   ├── com.devroom.app.plist   # launchd service definition
+│   └── seed.ts                 # Default assets and dossiers seed
 ├── e2e/                        # Playwright E2E tests
+├── tests/                      # Vitest unit tests
 └── .devroom/                   # Extended documentation & specs
 ```
 
@@ -471,7 +520,7 @@ devroom/
 
 **Information density over decoration.** Every pixel earns its place. Stats bars, status badges, live comms, token counts — all visible at a glance. The tactical theme isn't cosmetic; it's a design language optimized for scanning dense, real-time operational data.
 
-**Autonomous but accountable.** The Overseer reviews every mission so you don't have to babysit. The Quartermaster handles merges. But every verdict is logged, every debrief is reviewed, and escalation paths exist when confidence drops. Trust but verify.
+**Autonomous but accountable.** CONTROL enforces deterministic gates on every mission — lint, typecheck, build, test. The system never autonomously gives up; COMPROMISED missions wait for Commander input. LLM judgment (Overseer consult, Quartermaster conflict resolution) fires only on exception paths. Trust but verify — but verification is automated.
 
 **Git-native isolation.** Every mission gets its own worktree and branch. Operators can't step on each other. Success means a clean merge. Failure means a branch you can inspect, retry, or discard. The git history tells the full story.
 
