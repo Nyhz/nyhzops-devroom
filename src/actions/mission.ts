@@ -316,7 +316,7 @@ export async function abandonMission(id: string): Promise<Mission> {
         repoPath: battlefield.repoPath,
         worktreePath,
         branch: mission.worktreeBranch,
-        deleteBranch: false,
+        deleteBranch: true,
       }).catch(() => {
         // best-effort — ignore errors
       });

@@ -6,6 +6,7 @@ import { emitComm } from './comms';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
 import { ulid } from 'ulid';
+import simpleGit from 'simple-git';
 
 export interface WatchdogDeps {
   /** Map of missionId -> pid for live in-memory processes. */
@@ -110,6 +111,42 @@ export async function sweepStaleMissions(
         message: 'Watchdog cleaned orphaned worktree.',
       });
       cleaned++;
+    }
+  }
+
+  // (c) Orphaned-branch sweep: delete devroom/* branches whose worktree directory
+  //     is already gone. Skips compromised missions — Commander preserves those.
+  const allBattlefields = db.select().from(battlefields).all();
+  for (const bf of allBattlefields) {
+    let branchList: string[];
+    try {
+      const git = simpleGit(bf.repoPath);
+      const result = await git.branch(['--list', 'devroom/*']);
+      branchList = result.all;
+    } catch {
+      continue;
+    }
+    for (const branchName of branchList) {
+      const wtDir = path.join(bf.repoPath, '.worktrees', sanitizeBranchForPath(branchName));
+      if (existsSync(wtDir)) continue; // worktree still present — existing loop handles it
+      const mission = db
+        .select()
+        .from(missions)
+        .where(eq(missions.worktreeBranch, branchName))
+        .get();
+      if (mission?.status === 'compromised') continue;
+      if (!mission || (mission.status != null && (TERMINAL_STATES as readonly string[]).includes(mission.status))) {
+        await removeMissionWorktree({
+          repoPath: bf.repoPath,
+          worktreePath: wtDir,
+          branch: branchName,
+          deleteBranch: true,
+        });
+        if (mission) {
+          emitComm({ missionId: mission.id, message: 'Watchdog cleaned orphaned branch.' });
+        }
+        cleaned++;
+      }
     }
   }
 

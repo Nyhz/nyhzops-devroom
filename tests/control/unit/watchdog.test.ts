@@ -52,6 +52,7 @@ describe('sweepStaleMissions', () => {
     const WATCHDOG_BF_IDS = ['bf-1'];
     const WATCHDOG_MISSION_IDS = [
       'm1', 'm2', 'm3', 'm-live', 'm-fresh', 'm-done', 'm-aband', 'm-clean',
+      'm-orphan-done', 'm-orphan-aband', 'm-orphan-comp',
     ];
     db.delete(missionAttempts).where(inArray(missionAttempts.missionId, WATCHDOG_MISSION_IDS)).run();
     db.delete(comms).where(inArray(comms.missionId, WATCHDOG_MISSION_IDS)).run();
@@ -81,7 +82,8 @@ describe('sweepStaleMissions', () => {
     } as WatchdogDeps);
 
     expect(res.healed).toBe(1);
-    expect(res.cleaned).toBe(0);
+    // cleaned may be > 0 if other parallel tests have orphaned devroom/* branches —
+    // we only assert on our mission's status, not the global count.
 
     const m = db.select().from(missions).where(eq(missions.id, 'm1')).get();
     expect(m?.status).toBe('queued');
@@ -210,7 +212,7 @@ describe('sweepStaleMissions', () => {
       staleThresholdMs: 30 * 60 * 1000,
     });
 
-    expect(res.cleaned).toBe(1);
+    expect(res.cleaned).toBeGreaterThanOrEqual(1);
     expect(existsSync(wt.path)).toBe(false);
 
     const branches = await simpleGit(repo.path).branch();
@@ -244,11 +246,120 @@ describe('sweepStaleMissions', () => {
       staleThresholdMs: 30 * 60 * 1000,
     });
 
-    expect(res.cleaned).toBe(1);
+    expect(res.cleaned).toBeGreaterThanOrEqual(1);
     expect(existsSync(wt.path)).toBe(false);
   });
 
-  it('skips terminal missions that have no worktree artifacts', async () => {
+  // ---------------------------------------------------------------------------
+  // Orphaned-branch sweep (c): branches with no worktree directory on disk.
+  // ---------------------------------------------------------------------------
+
+  it('deletes orphaned devroom/* branch for ACCOMPLISHED mission when worktree dir is gone', async () => {
+    insertBattlefield('bf-1', repo.path);
+    const now = Date.now();
+    const branch = 'devroom/m-orphan-done';
+    const git = simpleGit(repo.path);
+    await git.checkoutBranch(branch, 'master');
+    await git.checkout('master');
+
+    insertMission({
+      id: 'm-orphan-done',
+      battlefieldId: 'bf-1',
+      status: 'accomplished',
+      worktreeBranch: branch,
+      updatedAt: now,
+    });
+
+    const res = await sweepStaleMissions({
+      livePids: new Map(),
+      now: () => now,
+      staleThresholdMs: 30 * 60 * 1000,
+    });
+
+    expect(res.cleaned).toBeGreaterThanOrEqual(1);
+    const branches = await git.branch();
+    expect(branches.all).not.toContain(branch);
+
+    const events = db.select().from(comms).where(eq(comms.missionId, 'm-orphan-done')).all();
+    expect(events.some((e) => e.message.includes('orphaned branch'))).toBe(true);
+  });
+
+  it('deletes orphaned devroom/* branch for ABANDONED mission when worktree dir is gone', async () => {
+    insertBattlefield('bf-1', repo.path);
+    const now = Date.now();
+    const branch = 'devroom/m-orphan-aband';
+    const git = simpleGit(repo.path);
+    await git.checkoutBranch(branch, 'master');
+    await git.checkout('master');
+
+    insertMission({
+      id: 'm-orphan-aband',
+      battlefieldId: 'bf-1',
+      status: 'abandoned',
+      worktreeBranch: branch,
+      updatedAt: now,
+    });
+
+    const res = await sweepStaleMissions({
+      livePids: new Map(),
+      now: () => now,
+      staleThresholdMs: 30 * 60 * 1000,
+    });
+
+    expect(res.cleaned).toBeGreaterThanOrEqual(1);
+    const branches = await git.branch();
+    expect(branches.all).not.toContain(branch);
+  });
+
+  it('preserves devroom/* branch for COMPROMISED mission', async () => {
+    insertBattlefield('bf-1', repo.path);
+    const now = Date.now();
+    const branch = 'devroom/m-orphan-comp';
+    const git = simpleGit(repo.path);
+    await git.checkoutBranch(branch, 'master');
+    await git.checkout('master');
+
+    insertMission({
+      id: 'm-orphan-comp',
+      battlefieldId: 'bf-1',
+      status: 'compromised',
+      worktreeBranch: branch,
+      updatedAt: now,
+    });
+
+    await sweepStaleMissions({
+      livePids: new Map(),
+      now: () => now,
+      staleThresholdMs: 30 * 60 * 1000,
+    });
+
+    const branches = await git.branch();
+    expect(branches.all).toContain(branch);
+
+    // Cleanup: remove the branch we left behind.
+    await git.raw(['branch', '-D', branch]);
+  });
+
+  it('deletes orphaned devroom/* branch with no mission record', async () => {
+    insertBattlefield('bf-1', repo.path);
+    const now = Date.now();
+    const branch = 'devroom/ghost-mission-no-record';
+    const git = simpleGit(repo.path);
+    await git.checkoutBranch(branch, 'master');
+    await git.checkout('master');
+
+    const res = await sweepStaleMissions({
+      livePids: new Map(),
+      now: () => now,
+      staleThresholdMs: 30 * 60 * 1000,
+    });
+
+    expect(res.cleaned).toBeGreaterThanOrEqual(1);
+    const branches = await git.branch();
+    expect(branches.all).not.toContain(branch);
+  });
+
+  it('skips terminal missions that have no worktree artifacts or branch', async () => {
     insertBattlefield('bf-1', repo.path);
     const now = Date.now();
     insertMission({
@@ -258,27 +369,20 @@ describe('sweepStaleMissions', () => {
       worktreeBranch: 'devroom/never-existed/1',
       updatedAt: now,
     });
-    // Count any other terminal missions with worktreeBranch left by parallel
-    // test files so we only assert against *our* mission's contribution.
-    const priorTerminal = db
-      .select()
-      .from(missions)
-      .where(inArray(missions.status, ['accomplished', 'abandoned']))
-      .all()
-      .filter((m) => m.id !== 'm-clean' && m.worktreeBranch).length;
 
-    const res = await sweepStaleMissions({
+    await sweepStaleMissions({
       livePids: new Map(),
       now: () => now,
       staleThresholdMs: 30 * 60 * 1000,
     });
-    // Our own mission (devroom/never-existed/1) has no worktree on disk —
-    // its contribution to `cleaned` must be 0. We accept cleanups from
-    // other test files' terminal missions.
-    expect(res.cleaned).toBeLessThanOrEqual(priorTerminal);
 
-    // Also confirm expected sanitized path was the one checked.
+    // The worktree dir was never created — should not exist.
     const checked = path.join(repo.path, '.worktrees', 'devroom-never-existed-1');
     expect(existsSync(checked)).toBe(false);
+
+    // The branch was never created — loop (c) should not find it and the mission
+    // should not receive a comms event from the sweep.
+    const events = db.select().from(comms).where(eq(comms.missionId, 'm-clean')).all();
+    expect(events.some((e) => e.message.includes('Watchdog cleaned'))).toBe(false);
   });
 });

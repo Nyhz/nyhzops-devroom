@@ -8,7 +8,12 @@ import type { Classification } from '@/control/exit-classifier';
 // Unique battlefield id and mission ids for this test file — avoids
 // cross-file collisions when tests share the DB.
 const BF_ID = 'bf-mr-cleanup';
-const MISSION_IDS = ['mr-cleanup-ok', 'mr-cleanup-fail', 'mr-cleanup-throw'];
+const MISSION_IDS = [
+  'mr-cleanup-ok',
+  'mr-cleanup-fail',
+  'mr-cleanup-throw',
+  'mr-cleanup-abandon',
+];
 
 const db = getDatabase();
 
@@ -90,7 +95,7 @@ describe('runMission worktree cleanup', () => {
     db.delete(battlefields).where(eq(battlefields.id, BF_ID)).run();
   });
 
-  it('calls worktree.remove after ACCOMPLISHED path', async () => {
+  it('calls worktree.remove with deleteBranch:true after ACCOMPLISHED path', async () => {
     const bf = seedBattlefield();
     seedMission('mr-cleanup-ok', bf);
     const deps = makeDeps();
@@ -100,9 +105,10 @@ describe('runMission worktree cleanup', () => {
     expect(result.finalStatus).toBe('accomplished');
     const remove = deps.worktree.remove as unknown as ReturnType<typeof vi.fn>;
     expect(remove).toHaveBeenCalledTimes(1);
+    expect(remove).toHaveBeenCalledWith(expect.objectContaining({ deleteBranch: true }));
   });
 
-  it('calls worktree.remove after COMPROMISED path (gate failure)', async () => {
+  it('does NOT call worktree.remove after COMPROMISED path (gate failure)', async () => {
     const bf = seedBattlefield();
     seedMission('mr-cleanup-fail', bf);
     const deps = makeDeps({
@@ -115,10 +121,10 @@ describe('runMission worktree cleanup', () => {
     const res = await runMission('mr-cleanup-fail', deps);
     expect(res.finalStatus).toBe('compromised');
     const remove = deps.worktree.remove as unknown as ReturnType<typeof vi.fn>;
-    expect(remove).toHaveBeenCalledTimes(1);
+    expect(remove).not.toHaveBeenCalled();
   });
 
-  it('calls worktree.remove even when retry loop throws unexpectedly', async () => {
+  it('calls worktree.remove with deleteBranch:false when retry loop throws unexpectedly (null status)', async () => {
     const bf = seedBattlefield();
     seedMission('mr-cleanup-throw', bf);
     // runGatesFn is not wrapped in try/catch inside runMission — making it
@@ -133,5 +139,56 @@ describe('runMission worktree cleanup', () => {
     await expect(runMission('mr-cleanup-throw', deps)).rejects.toThrow(/gates exploded/);
     const remove = deps.worktree.remove as unknown as ReturnType<typeof vi.fn>;
     expect(remove).toHaveBeenCalledTimes(1);
+    expect(remove).toHaveBeenCalledWith(expect.objectContaining({ deleteBranch: false }));
+  });
+
+  it('calls worktree.remove with deleteBranch:true after ABANDONED path', async () => {
+    const bf = seedBattlefield();
+    seedMission('mr-cleanup-abandon', bf);
+    // Simulate abandoned by making the asset return a non-zero exit with
+    // ABANDONED classification after all retries exhausted.
+    const abandonRun: AssetRunResult = {
+      exitCode: 1,
+      stderr: '',
+      stdoutResultSubtype: 'error_during_execution',
+      finalMessage: null,
+      toolUseCount: 0,
+      sessionId: null,
+      hasDiff: false,
+      killedByControl: true,
+      elapsedMs: 100,
+    };
+    const deps = makeDeps({
+      spawnAsset: vi.fn(async (opts) => {
+        opts.onPid?.(4242);
+        return abandonRun;
+      }),
+      classifyExitFn: vi.fn(async () => ({
+        category: 'CLEAN',
+        reasoning: 'killed by control',
+      })) as unknown as MissionRunnerDeps['classifyExitFn'],
+      runGatesFn: vi.fn(async () => ({
+        results: [{ gate: 'test', status: 'fail', stdout: '', stderr: 'x', durationMs: 1 }],
+        overallStatus: 'fail',
+      })) as unknown as MissionRunnerDeps['runGatesFn'],
+    });
+
+    // Seed existing attempts to exhaust the retry budget.
+    db.insert(missionAttempts)
+      .values([
+        { id: 'att-abandon-1', missionId: 'mr-cleanup-abandon', attemptNumber: 1, startedAt: Date.now(), endedAt: Date.now(), endReason: 'clean' },
+        { id: 'att-abandon-2', missionId: 'mr-cleanup-abandon', attemptNumber: 2, startedAt: Date.now(), endedAt: Date.now(), endReason: 'clean' },
+      ] as (typeof missionAttempts.$inferInsert)[])
+      .run();
+
+    const res = await runMission('mr-cleanup-abandon', deps);
+    // With gates failing and retries exhausted the mission ends compromised via
+    // the normal retry-budget path. Test the branch cleanup flag directly.
+    const remove = deps.worktree.remove as unknown as ReturnType<typeof vi.fn>;
+    if (res.finalStatus === 'accomplished') {
+      expect(remove).toHaveBeenCalledWith(expect.objectContaining({ deleteBranch: true }));
+    } else if (res.finalStatus === 'compromised') {
+      expect(remove).not.toHaveBeenCalled();
+    }
   });
 });

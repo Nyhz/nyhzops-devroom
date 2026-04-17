@@ -944,29 +944,30 @@ export async function runMission(
     gateResults: lastGateResults,
   };
   } finally {
-    // Best-effort worktree cleanup — never rethrow. The watchdog sweep
-    // handles any leaks this misses.
-    let cleanedOk = false;
-    try {
-      // Keep the branch for Commander inspection — the worktree directory is
-      // what leaks onto disk. Watchdog sweep handles branch cleanup later.
-      await deps.worktree.remove({
-        repoPath: battlefield.repoPath,
-        worktreePath,
-        branch,
-        deleteBranch: false,
-      });
-      cleanedOk = true;
-    } catch (err) {
-      console.error('[CONTROL] worktree cleanup failed for', missionId, err);
-      emitComm({
-        missionId,
-        message: `Worktree cleanup failed: ${(err as Error).message}`,
-        level: 'warn',
-      });
-    }
-    if (cleanedOk) {
-      emitComm({ missionId, message: 'Worktree cleaned.' });
+    // COMPROMISED: preserve both worktree and branch for Commander post-mortem.
+    // ACCOMPLISHED/ABANDONED: remove worktree and delete branch immediately.
+    // null (crash before status set): remove worktree, keep branch for watchdog evaluation.
+    if (finalStatus !== 'compromised') {
+      let cleanedOk = false;
+      try {
+        await deps.worktree.remove({
+          repoPath: battlefield.repoPath,
+          worktreePath,
+          branch,
+          deleteBranch: finalStatus === 'accomplished' || finalStatus === 'abandoned',
+        });
+        cleanedOk = true;
+      } catch (err) {
+        console.error('[CONTROL] worktree cleanup failed for', missionId, err);
+        emitComm({
+          missionId,
+          message: `Worktree cleanup failed: ${(err as Error).message}`,
+          level: 'warn',
+        });
+      }
+      if (cleanedOk) {
+        emitComm({ missionId, message: 'Worktree cleaned.' });
+      }
     }
     if (finalStatus) {
       emitComm({ missionId, message: `Mission ${finalStatus}.` });
