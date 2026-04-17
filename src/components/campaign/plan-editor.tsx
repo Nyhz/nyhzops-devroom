@@ -155,7 +155,7 @@ export function PlanEditor({
             briefing: '',
             assetCodename: '',
             priority: 'routine' as MissionPriority,
-            type: 'direct_action' as const,
+            type: 'combat' as const,
             dependsOn: [],
           },
         ];

@@ -9,8 +9,6 @@
 
 import type { Server as SocketIOServer } from 'socket.io';
 import { eq } from 'drizzle-orm';
-import simpleGit from 'simple-git';
-
 import { getDatabase } from '@/lib/db';
 import { assets, battlefields, missions } from '@/lib/db/schema';
 import type { GateManifest } from './gates';
@@ -174,21 +172,16 @@ async function productionMergeFn(opts: MergeOpts): Promise<MergeResult> {
     }
   }
 
-  // Get current target HEAD for advance detection
-  const git = simpleGit(opts.repoPath);
-  let targetHeadAtStart: string;
-  try {
-    targetHeadAtStart = (await git.revparse([opts.targetBranch])).trim();
-  } catch {
-    targetHeadAtStart = '';
-  }
-
+  // targetHeadAtStart is captured by the mission runner at worktree creation
+  // and threaded through MergeOpts. Capturing it here (at merge time) would
+  // always equal currentTarget → advance-detection no-op → parallel missions
+  // fail with "cannot fast-forward".
   const mergeResult = await runMerge({
     battlefieldId: bf.id,
     repoPath: opts.repoPath,
     targetBranch: opts.targetBranch,
     sourceBranch: opts.sourceBranch,
-    targetHeadAtStart,
+    targetHeadAtStart: opts.targetHeadAtStart,
     manifest,
     worktreePath: opts.worktreePath,
     briefing: mission.briefing,

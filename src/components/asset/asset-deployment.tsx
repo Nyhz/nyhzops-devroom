@@ -25,14 +25,10 @@ export function AssetDeployment({ initialData }: AssetDeploymentProps) {
   const socket = useSocket();
   const reconnectKey = useReconnectKey();
   const [data, setData] = useState(initialData);
-  // Pick a random peace message only after mount to avoid SSR/client hydration
-  // mismatch (Math.random() produces different values on server vs client).
-  // Lazy initializer returns a stable value on server ('') and a random choice
-  // on the client — both sides agree on '' during hydration, then the client
-  // shows the random message from the very first client render.
-  const [peaceMsg] = useState<string>(() =>
-    typeof window === 'undefined' ? PEACE_MESSAGES[0] : getPeaceMessage()
-  );
+  const [peaceMsg, setPeaceMsg] = useState<string>(PEACE_MESSAGES[0]);
+  useEffect(() => {
+    setPeaceMsg(getPeaceMessage());
+  }, []);
 
   const refresh = useCallback(async () => {
     try {

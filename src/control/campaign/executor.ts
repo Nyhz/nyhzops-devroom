@@ -17,7 +17,7 @@ import simpleGit from 'simple-git';
 
 import { getDatabase } from '@/lib/db';
 import { campaigns, phases, missions, battlefields } from '@/lib/db/schema';
-import { emitComm } from '@/control/comms';
+import { emitComm, emitMissionStatus } from '@/control/comms';
 import { findTransitiveDependents } from '@/control/campaign/dependency-graph';
 import { composePhaseDebrief } from '@/control/campaign/debrief';
 import type { Debrief } from '@/control/debrief/schema';
@@ -601,9 +601,24 @@ export async function acceptAndMerge(
     .get();
   if (!battlefield) throw new Error(`executor: battlefield ${mission.battlefieldId} not found`);
 
-  const sourceBranch = mission.worktreeBranch;
+  // Resolve the source branch. Prefer the persisted value; fall back to the
+  // runner's naming convention. Error loudly if neither yields a branch that
+  // actually exists — a silent no-op followed by a success message is worse
+  // than a failure (it has happened in the wild and misled the Commander).
   const targetBranch = battlefield.defaultBranch ?? 'main';
   const repoPath = battlefield.repoPath;
+  const candidateBranch = mission.worktreeBranch ?? `devroom/${missionId}`;
+  const probe = simpleGit(repoPath);
+  let sourceBranch: string;
+  try {
+    await probe.revparse([candidateBranch]);
+    sourceBranch = candidateBranch;
+  } catch {
+    throw new Error(
+      `acceptAndMerge: mission ${missionId} has no resolvable worktree branch ` +
+      `(tried "${candidateBranch}"). Cannot merge — mission state NOT changed.`,
+    );
+  }
 
   const runner =
     deps.runMerge ??
@@ -613,8 +628,22 @@ export async function acceptAndMerge(
       await git.raw(['merge', '--no-ff', o.sourceBranch, '-m', `merge(mission): accept-and-merge ${missionId}`]);
     });
 
-  if (sourceBranch) {
+  // Run the merge FIRST. Only mark accomplished if git actually accepted the
+  // merge. If the runner throws, the catch block surfaces the real git error
+  // and leaves the mission status untouched.
+  try {
     await runner({ repoPath, targetBranch, sourceBranch });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    emitComm({
+      missionId,
+      campaignId: mission.campaignId ?? undefined,
+      battlefieldId: mission.battlefieldId,
+      actor: 'COMMANDER',
+      level: 'error',
+      message: `Accept & Merge failed: ${msg}`,
+    });
+    throw new Error(`acceptAndMerge: git merge failed for ${missionId}: ${msg}`);
   }
 
   const now = Date.now();
@@ -626,11 +655,15 @@ export async function acceptAndMerge(
         mergeTimestamp: now,
         completedAt: now,
         updatedAt: now,
+        worktreeBranch: sourceBranch,
       })
       .where(eq(missions.id, missionId))
       .run();
   });
 
+  emitMissionStatus(missionId, 'accomplished', {
+    campaignId: mission.campaignId ?? null,
+  });
   emitComm({
     missionId,
     campaignId: mission.campaignId ?? undefined,

@@ -1,8 +1,10 @@
 import { eq } from 'drizzle-orm';
 import { ulid } from 'ulid';
+import simpleGit from 'simple-git';
 import { createHash } from 'node:crypto';
 import { getDatabase } from '@/lib/db';
-import { missions, missionAttempts, battlefields } from '@/lib/db/schema';
+import { missions, missionAttempts, battlefields, followUpSuggestions } from '@/lib/db/schema';
+import { extractNextActions } from '@/lib/utils/debrief-parser';
 import type { runGates, GateManifest, GateRunResults } from './gates';
 import {
   classifyExit as defaultClassifyExit,
@@ -18,7 +20,7 @@ import type {
   removeMissionWorktree,
 } from './worktree';
 import { decideNextAction, nextInfraBackoffMs } from './retry-policy';
-import { emitComm } from './comms';
+import { emitComm, emitMissionStatus, formatCommsEvent } from './comms';
 
 /**
  * Per-mission lifecycle state machine.
@@ -41,6 +43,10 @@ export interface SpawnAssetOpts {
   assetCodename: string;
   onPid?: (pid: number) => void;
   onStdoutLine?: (line: string) => void;
+  /** Parsed stream-json event callback — used by the runner to format each
+   *  event into a human-readable comm. If omitted, only status transitions
+   *  and final exit classification are visible in the mission's COMMS feed. */
+  onCommsEvent?: (ev: import('./spawn-asset').StreamJsonEvent) => void;
   /** Runtime override for the L3 stdout-silence watchdog (milliseconds).
    *  Recon uses this to raise the threshold per spec §7 step 5. */
   stdoutSilenceMs?: number;
@@ -82,6 +88,13 @@ export interface MergeOpts {
   targetBranch: string;
   sourceBranch: string;
   worktreePath: string;
+  /** SHA of the target branch captured when the mission's worktree was
+   *  created. Used by runMerge to detect whether target advanced during
+   *  the mission — if it did, the worktree is rebased onto the new target
+   *  before the final fast-forward merge. Must be captured at worktree
+   *  creation, not at merge time, or the advance-detection check is a
+   *  no-op and parallel missions produce "cannot fast-forward" errors. */
+  targetHeadAtStart: string;
 }
 
 export interface MergeResult {
@@ -162,8 +175,14 @@ function transitionMission(missionId: string, status: string, now: number): void
     .set({ status, updatedAt: now })
     .where(eq(missions.id, missionId))
     .run();
+  const row = db.select().from(missions).where(eq(missions.id, missionId)).get();
+  emitMissionStatus(missionId, status, {
+    campaignId: row?.campaignId ?? null,
+    compromiseReason: row?.compromiseReason ?? null,
+  });
   emitComm({
     missionId,
+    campaignId: row?.campaignId ?? undefined,
     message: `Status → ${status.toUpperCase()}`,
   });
 }
@@ -178,6 +197,38 @@ type EndReason =
   | 'turn-limit'
   | 'gate-failure';
 
+/**
+ * Parse "## Recommended Next Actions" bullets from a mission debrief and
+ * persist each as a follow-up suggestion. Surfaced on the mission detail
+ * page and can be promoted to intel notes from the UI.
+ */
+function persistFollowUps(opts: {
+  debrief: string;
+  missionId: string;
+  campaignId: string | null;
+  battlefieldId: string;
+}): void {
+  const actions = extractNextActions(opts.debrief);
+  if (actions.length === 0) return;
+  const db = getDatabase();
+  const now = Date.now();
+  for (const suggestion of actions) {
+    db.insert(followUpSuggestions)
+      .values({
+        id: ulid(),
+        battlefieldId: opts.battlefieldId,
+        missionId: opts.missionId,
+        campaignId: opts.campaignId,
+        suggestion,
+        status: 'pending',
+        intelNoteId: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+  }
+}
+
 function recordAttempt(opts: {
   missionId: string;
   attemptNumber: number;
@@ -189,6 +240,8 @@ function recordAttempt(opts: {
   sessionId?: string | null;
   targetHeadAtStart?: string | null;
   autoCommitted?: boolean;
+  usage?: { input: number; output: number; cache: number };
+  finalMessage?: string | null;
 }): string {
   const db = getDatabase();
   const id = ulid();
@@ -206,6 +259,10 @@ function recordAttempt(opts: {
       sessionId: opts.sessionId ?? null,
       targetHeadAtStart: opts.targetHeadAtStart ?? null,
       durationMs: opts.endedAt - opts.startedAt,
+      tokensInput: opts.usage?.input ?? 0,
+      tokensOutput: opts.usage?.output ?? 0,
+      tokensCache: opts.usage?.cache ?? 0,
+      debriefSynthesized: opts.finalMessage ? 1 : 0,
     } as typeof missionAttempts.$inferInsert)
     .run();
   return id;
@@ -246,15 +303,36 @@ export async function runMission(
   transitionMission(missionId, 'deploying', deps.now());
 
   const branch = mission.worktreeBranch ?? `devroom/${missionId}`;
+  const targetBranch = battlefield.defaultBranch ?? 'main';
   let worktreePath: string;
+  let targetHeadAtStart = '';
   try {
     const wt = await deps.worktree.create({
       repoPath: battlefield.repoPath,
-      targetBranch: battlefield.defaultBranch ?? 'main',
+      targetBranch,
       missionBranch: branch,
     });
     worktreePath = wt.path;
-    await deps.worktree.rebase(worktreePath, battlefield.defaultBranch ?? 'main');
+    // Persist the branch name on the mission row so later operations
+    // (acceptAndMerge, recovery, inspection) can find the worktree branch
+    // without reconstructing it from convention.
+    if (!mission.worktreeBranch) {
+      getDatabase()
+        .update(missions)
+        .set({ worktreeBranch: branch, updatedAt: deps.now() })
+        .where(eq(missions.id, missionId))
+        .run();
+    }
+    await deps.worktree.rebase(worktreePath, targetBranch);
+    // Capture target HEAD AFTER the initial rebase so runMerge can detect
+    // whether target advanced during the mission. Captured at merge time
+    // instead would always equal currentTarget → advance-detection no-op →
+    // parallel missions fail with "cannot fast-forward".
+    try {
+      targetHeadAtStart = (await simpleGit(battlefield.repoPath).revparse([targetBranch])).trim();
+    } catch {
+      targetHeadAtStart = '';
+    }
   } catch (err) {
     transitionMission(missionId, 'compromised', deps.now());
     emitComm({
@@ -298,6 +376,12 @@ export async function runMission(
         assetCodename: 'OPERATIVE',
         sessionId: lastSessionId ?? undefined,
         onPid: (pid) => deps.onPidAssigned?.(pid),
+        onCommsEvent: (ev) => {
+          const message = formatCommsEvent(ev);
+          if (message) {
+            emitComm({ missionId, actor: 'OPERATIVE', message });
+          }
+        },
       });
     } catch (err) {
       const endedAt = deps.now();
@@ -345,6 +429,8 @@ export async function runMission(
         endReason: 'auth',
         classification,
         sessionId: run.sessionId,
+        usage: run.usage,
+        finalMessage: run.finalMessage,
       });
       emitComm({
         missionId,
@@ -378,6 +464,8 @@ export async function runMission(
         endReason: 'infrastructure',
         classification,
         sessionId: run.sessionId,
+        usage: run.usage,
+        finalMessage: run.finalMessage,
       });
       transitionMission(missionId, 'compromised', endedAt);
       return {
@@ -400,6 +488,8 @@ export async function runMission(
         endReason: isRate ? 'rate-limit' : 'infrastructure',
         classification,
         sessionId: run.sessionId,
+        usage: run.usage,
+        finalMessage: run.finalMessage,
       });
 
       if (infraRetryCount >= infraMax) {
@@ -461,6 +551,8 @@ export async function runMission(
         endReason: run.killedByControl ? 'timeout' : 'silence-kill',
         classification,
         sessionId: run.sessionId,
+        usage: run.usage,
+        finalMessage: run.finalMessage,
       });
       sortieAttempt += 1;
       try {
@@ -521,6 +613,8 @@ export async function runMission(
         endReason: 'infrastructure',
         classification,
         sessionId: run.sessionId,
+        usage: run.usage,
+        finalMessage: run.finalMessage,
       });
       transitionMission(missionId, 'compromised', endedAt);
       return {
@@ -577,6 +671,8 @@ export async function runMission(
         gateResults,
         sessionId: run.sessionId,
         autoCommitted,
+        usage: run.usage,
+        finalMessage: run.finalMessage,
       });
       emitComm({
         missionId,
@@ -631,9 +727,10 @@ export async function runMission(
       merge = await deps.mergeFn({
         missionId,
         repoPath: battlefield.repoPath,
-        targetBranch: battlefield.defaultBranch ?? 'main',
+        targetBranch,
         sourceBranch: branch,
         worktreePath,
+        targetHeadAtStart,
       });
     } catch (err) {
       const endedAt = deps.now();
@@ -647,6 +744,8 @@ export async function runMission(
         gateResults,
         sessionId: run.sessionId,
         autoCommitted,
+        usage: run.usage,
+        finalMessage: run.finalMessage,
       });
       transitionMission(missionId, 'compromised', endedAt);
       emitComm({
@@ -674,9 +773,39 @@ export async function runMission(
       gateResults,
       sessionId: run.sessionId,
       autoCommitted,
+      usage: run.usage,
+      finalMessage: run.finalMessage,
     });
 
     if (merge.status === 'clean' || merge.status === 'conflict_resolved') {
+      // Persist the asset's final message as the mission debrief, plus token
+      // usage, before flipping status. Phase + campaign debriefs compose
+      // `totalTokens` from missions.cost_* columns; mission detail + logistics
+      // pages read the same. Without this write the UI shows Tokens: 0 and
+      // "(no debrief)" even for successful missions.
+      const dbForMission = getDatabase();
+      dbForMission
+        .update(missions)
+        .set({
+          ...(run.finalMessage ? { debrief: run.finalMessage } : {}),
+          costInput: run.usage?.input ?? 0,
+          costOutput: run.usage?.output ?? 0,
+          costCacheHit: run.usage?.cache ?? 0,
+          updatedAt: endedAt,
+        })
+        .where(eq(missions.id, missionId))
+        .run();
+      // Extract "Recommended Next Actions" bullets from the debrief and
+      // persist them as follow-up suggestions (surfaced on the mission page
+      // and the intel board "Add as note" prompts).
+      if (run.finalMessage) {
+        persistFollowUps({
+          debrief: run.finalMessage,
+          missionId,
+          campaignId: mission.campaignId ?? null,
+          battlefieldId: mission.battlefieldId,
+        });
+      }
       transitionMission(missionId, 'accomplished', endedAt);
       return {
         missionId,

@@ -81,8 +81,8 @@ Structure:
 - Briefing: the detailed plain-text instructions given to a mission asset. The asset has NO context beyond what the briefing says — it must be self-contained, specific, and actionable.
 
 Mission types:
-- "direct_action" (default): modifies code/files/config. Must produce at least one commit. The Quartermaster merges its worktree branch on success.
-- "verification": strictly read-only — runs tests, type-checks, audits, spot-checks. Must NOT modify code. No merge is performed. Use for "run X and report" or "verify Y still works" missions.
+- "combat" (default): modifies code/files/config. Must produce at least one commit. The Quartermaster merges its worktree branch on success.
+- "recon": strictly read-only — runs tests, type-checks, audits, spot-checks, investigates unfamiliar code. Must NOT modify code. No merge is performed. Use for "run X and report", "verify Y still works", or "survey Z" missions.
 
 What makes a good briefing:
 - Atomic scope: one clear deliverable, one asset, one concern. Never "fix X and while you're there also clean up Y."

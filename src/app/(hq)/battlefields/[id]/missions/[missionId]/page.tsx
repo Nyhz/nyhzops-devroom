@@ -98,7 +98,7 @@ export default async function MissionDetailPage({
 
   const status = (mission.status ?? 'standby') as MissionStatus;
   const isTerminal = status === 'accomplished' || status === 'compromised' || status === 'abandoned';
-  const missionType = mission.type === 'recon' ? 'verification' : 'direct_action';
+  const missionType = mission.type === 'recon' ? 'recon' : 'combat';
 
   return (
     <PageWrapper
@@ -121,13 +121,13 @@ export default async function MissionDetailPage({
         </span>
       </div>
 
-      {/* Verification banner — no-merge notice */}
-      {missionType === 'verification' && (
+      {/* Recon banner — no-merge notice */}
+      {missionType === 'recon' && (
         <div className="border-l-2 border-dr-teal bg-dr-teal/5 px-3 py-2 flex items-start gap-2">
           <span aria-hidden="true" className="text-dr-teal text-sm mt-0.5">◈</span>
           <div className="flex-1">
             <div className="font-tactical text-xs text-dr-teal uppercase tracking-wider">
-              VERIFICATION MISSION
+              RECON MISSION
             </div>
             <div className="font-data text-xs text-dr-muted mt-0.5">
               Read-only reconnaissance. This mission must not modify code — no merge will be performed on completion.

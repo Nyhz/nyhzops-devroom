@@ -155,7 +155,7 @@ export async function sendBriefingMessage(
   // replayed in stdin, rather than carrying accumulated multi-turn context
   // from the chat session.
   const isFirstMessage = !session.sessionId;
-  const isGeneratePlan = message.trim().toUpperCase().includes('GENERATE PLAN');
+  const isGeneratePlan = message.trim().toUpperCase() === 'GENERATE PLAN';
 
   // Composed system prompt: stable across turns within a briefing and across
   // briefings on the same battlefield, so eligible for prompt caching.
@@ -165,13 +165,20 @@ export async function sendBriefingMessage(
     allAssets,
   });
 
+  // Conversation mode: read-only recon tools (Read, Glob, Grep) so STRATEGIST
+  // can scout the codebase while planning. No Bash, Edit, Write, or web tools —
+  // planning is pure analysis.
+  // GENERATE PLAN mode: all tools disabled and max-turns 1 so the response
+  // MUST be raw JSON — the model cannot announce "Let me read the files…"
+  // and burn its single turn on a tool call instead of emitting the plan.
   const cliArgs: string[] = [
     '--print',
     '--verbose',
     '--output-format', 'stream-json',
     '--include-partial-messages',
     '--dangerously-skip-permissions',
-    '--max-turns', '10',
+    '--tools', isGeneratePlan ? '' : 'Read,Glob,Grep',
+    '--max-turns', isGeneratePlan ? '1' : '10',
     '--append-system-prompt', composedSystemPrompt,
     ...filteredAssetArgs,
   ];
@@ -265,7 +272,11 @@ ${GENERATE_PLAN_CONTRACT}`;
           extractedSessionId = event.session_id;
         }
 
-        // Stream deltas from stream_event wrapper (real-time token streaming)
+        // Stream deltas from stream_event wrapper (real-time token streaming).
+        // For GENERATE PLAN we still stream so the user gets visible progress
+        // — the raw JSON (plus any preamble the forbidden-openings rules
+        // didn't catch) will flash through the chat, but on completion we
+        // replace it with the formatted plan summary.
         if (event.type === 'stream_event' && event.event) {
           const inner = event.event;
           if (inner.type === 'content_block_delta' && inner.delta?.type === 'text_delta' && inner.delta.text) {

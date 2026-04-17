@@ -60,7 +60,7 @@ export function SortableMissionItem({
     .map((m) => m.title)
     .filter(Boolean);
   const currentDeps = mission.dependsOn ?? [];
-  const currentType: MissionType = mission.type === 'verification' ? 'verification' : 'direct_action';
+  const currentType: MissionType = mission.type === 'recon' ? 'recon' : 'combat';
 
   return (
     <div
@@ -102,33 +102,33 @@ export function SortableMissionItem({
         </button>
       </div>
 
-      {/* Mission type toggle — segmented control (DIRECT ACTION / VERIFICATION) */}
+      {/* Mission type toggle — segmented control (COMBAT / RECON) */}
       <div className="flex items-stretch border border-dr-border">
         <button
           type="button"
-          onClick={() => onUpdate('type', 'direct_action')}
+          onClick={() => onUpdate('type', 'combat')}
           className={cn(
             'flex-1 px-2 py-1 font-tactical text-[10px] uppercase tracking-wider transition-colors',
-            currentType === 'direct_action'
+            currentType === 'combat'
               ? 'bg-dr-amber/15 text-dr-amber border-r border-dr-amber/50'
               : 'text-dr-dim hover:text-dr-amber border-r border-dr-border',
           )}
           title="Mutates code, must commit, will be merged"
         >
-          <span aria-hidden="true">▣</span> DIRECT ACTION
+          <span aria-hidden="true">▣</span> COMBAT
         </button>
         <button
           type="button"
-          onClick={() => onUpdate('type', 'verification')}
+          onClick={() => onUpdate('type', 'recon')}
           className={cn(
             'flex-1 px-2 py-1 font-tactical text-[10px] uppercase tracking-wider transition-colors',
-            currentType === 'verification'
+            currentType === 'recon'
               ? 'bg-dr-teal/15 text-dr-teal'
               : 'text-dr-dim hover:text-dr-teal',
           )}
-          title="Read-only verification, no merge performed"
+          title="Read-only recon, no merge performed"
         >
-          <span aria-hidden="true">◈</span> VERIFICATION
+          <span aria-hidden="true">◈</span> RECON
         </button>
       </div>
 

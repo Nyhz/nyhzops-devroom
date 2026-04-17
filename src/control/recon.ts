@@ -3,7 +3,8 @@ import { ulid } from 'ulid';
 import simpleGit, { type SimpleGit } from 'simple-git';
 
 import { getDatabase } from '@/lib/db';
-import { missions, missionAttempts, battlefields } from '@/lib/db/schema';
+import { missions, missionAttempts, battlefields, followUpSuggestions } from '@/lib/db/schema';
+import { extractNextActions } from '@/lib/utils/debrief-parser';
 import {
   classifyExit as defaultClassifyExit,
   type Classification,
@@ -11,7 +12,7 @@ import {
   type ClassifierDeps,
 } from './exit-classifier';
 import { decideNextAction, nextInfraBackoffMs } from './retry-policy';
-import { emitComm } from './comms';
+import { emitComm, emitMissionStatus } from './comms';
 import { parseDebrief } from './debrief/parse';
 import { getControlConfig } from './config';
 import type {
@@ -109,7 +110,16 @@ function transitionMission(missionId: string, status: string, now: number): void
     .set({ status, updatedAt: now })
     .where(eq(missions.id, missionId))
     .run();
-  emitComm({ missionId, message: `Status → ${status.toUpperCase()}` });
+  const row = db.select().from(missions).where(eq(missions.id, missionId)).get();
+  emitMissionStatus(missionId, status, {
+    campaignId: row?.campaignId ?? null,
+    compromiseReason: row?.compromiseReason ?? null,
+  });
+  emitComm({
+    missionId,
+    campaignId: row?.campaignId ?? undefined,
+    message: `Status → ${status.toUpperCase()}`,
+  });
 }
 
 function recordAttempt(opts: {
@@ -120,6 +130,8 @@ function recordAttempt(opts: {
   endReason: EndReason;
   classification?: Classification;
   sessionId?: string | null;
+  usage?: { input: number; output: number; cache: number };
+  finalMessage?: string | null;
 }): string {
   const db = getDatabase();
   const id = ulid();
@@ -137,9 +149,40 @@ function recordAttempt(opts: {
       sessionId: opts.sessionId ?? null,
       targetHeadAtStart: null,
       durationMs: opts.endedAt - opts.startedAt,
+      tokensInput: opts.usage?.input ?? 0,
+      tokensOutput: opts.usage?.output ?? 0,
+      tokensCache: opts.usage?.cache ?? 0,
+      debriefSynthesized: opts.finalMessage ? 1 : 0,
     } as typeof missionAttempts.$inferInsert)
     .run();
   return id;
+}
+
+function persistReconFollowUps(opts: {
+  debrief: string;
+  missionId: string;
+  campaignId: string | null;
+  battlefieldId: string;
+}): void {
+  const actions = extractNextActions(opts.debrief);
+  if (actions.length === 0) return;
+  const db = getDatabase();
+  const now = Date.now();
+  for (const suggestion of actions) {
+    db.insert(followUpSuggestions)
+      .values({
+        id: ulid(),
+        battlefieldId: opts.battlefieldId,
+        missionId: opts.missionId,
+        campaignId: opts.campaignId,
+        suggestion,
+        status: 'pending',
+        intelNoteId: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+  }
 }
 
 function countAttempts(missionId: string): number {
@@ -321,6 +364,8 @@ export async function runReconMission(
         endReason: 'auth',
         classification,
         sessionId: run.sessionId,
+        usage: run.usage,
+        finalMessage: run.finalMessage,
       });
       emitComm({
         missionId,
@@ -349,6 +394,8 @@ export async function runReconMission(
         endReason: 'infrastructure',
         classification,
         sessionId: run.sessionId,
+        usage: run.usage,
+        finalMessage: run.finalMessage,
       });
       transitionMission(missionId, 'compromised', endedAt);
       return {
@@ -375,6 +422,8 @@ export async function runReconMission(
         endReason: isRate ? 'rate-limit' : 'infrastructure',
         classification,
         sessionId: run.sessionId,
+        usage: run.usage,
+        finalMessage: run.finalMessage,
       });
 
       if (infraRetryCount >= infraMax) {
@@ -426,6 +475,8 @@ export async function runReconMission(
         endReason: run.killedByControl ? 'timeout' : 'silence-kill',
         classification,
         sessionId: run.sessionId,
+        usage: run.usage,
+        finalMessage: run.finalMessage,
       });
       sortieAttempt += 1;
       lastSessionId = null;
@@ -479,6 +530,8 @@ export async function runReconMission(
         endReason: 'infrastructure',
         classification,
         sessionId: run.sessionId,
+        usage: run.usage,
+        finalMessage: run.finalMessage,
       });
       transitionMission(missionId, 'compromised', endedAt);
       return {
@@ -509,6 +562,9 @@ export async function runReconMission(
           sessionId: run.sessionId ?? lastSessionId,
           completedAt: endedAt,
           updatedAt: endedAt,
+          costInput: run.usage?.input ?? 0,
+          costOutput: run.usage?.output ?? 0,
+          costCacheHit: run.usage?.cache ?? 0,
         })
         .where(eq(missions.id, missionId))
         .run();
@@ -520,6 +576,14 @@ export async function runReconMission(
         endReason: 'clean',
         classification,
         sessionId: run.sessionId,
+        usage: run.usage,
+        finalMessage: run.finalMessage,
+      });
+      persistReconFollowUps({
+        debrief: parsed.data.summary,
+        missionId,
+        campaignId: mission.campaignId ?? null,
+        battlefieldId: mission.battlefieldId,
       });
       // Recon transitions directly from IN_COMBAT → ACCOMPLISHED (no merge).
       transitionMission(missionId, 'accomplished', endedAt);
@@ -542,6 +606,8 @@ export async function runReconMission(
       endReason: 'gate-failure',
       classification,
       sessionId: run.sessionId,
+      usage: run.usage,
+      finalMessage: run.finalMessage,
     });
     const reason = parsed?.ok === false ? parsed.reason : 'no final message';
     emitComm({
