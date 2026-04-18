@@ -7,13 +7,14 @@
  *   3. For any missing required gate (test / build) where a language can be
  *      inferred, call `scaffoldTestInfra` and merge the resulting command
  *      into the manifest.
- *   4. Docs generation (CLAUDE.md / SPEC.md via INTEL) — DEFERRED — see
- *      CLAUDE.md § Deferred Work. Orchestrator skips this step if both paths
- *      are already populated on the battlefield row; otherwise leaves them
- *      alone and emits a comm noting the skip.
+ *   4. Docs generation via INTEL — writes CLAUDE.md + SPEC.md to the repo
+ *      root when the battlefield carries a non-empty `initialBriefing`.
+ *      Files are NOT committed here; `approveBootstrap` commits them after
+ *      Commander review in <BootstrapReview />.
  *   5. `verifyGatesOnHead` on the final manifest.
  *   6. Persist manifest; set `mainIsRed` if verify failed; clear
- *      `needsGateManifest`; flip status → `active`.
+ *      `needsGateManifest`; flip status → `initializing` (when docs were
+ *      generated, pending review) or `active` (when no docs step ran).
  *
  * `spawnAsset` is injected so integration tests can substitute a
  * fixture-mutating stub (see spec §12 notes + tests for scaffold simulation).
@@ -29,6 +30,7 @@ import type { GateManifest, GateRunResults } from '@/control/gates';
 
 import { detectGates, type DetectedGates } from './detect';
 import { scaffoldTestInfra, type InjectedSpawnAsset } from './scaffold';
+import { generateBootstrapDocs } from './docs';
 import { verifyGatesOnHead } from './verify';
 import type { LanguageKey } from './frameworks';
 
@@ -45,6 +47,8 @@ export interface BootstrapResult {
   /** Languages that required a scaffold step. */
   scaffolded: LanguageKey[];
   gateResults: GateRunResults;
+  /** True when INTEL produced CLAUDE.md + SPEC.md awaiting Commander review. */
+  docsGenerated: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -168,12 +172,61 @@ export async function bootstrapBattlefield(
     }
   }
 
-  // Step 4: docs generation — skipped per task 4.4 scope.
-  // DEFERRED: INTEL-driven CLAUDE.md / SPEC.md authoring (spec §12 step 5).
-  // Bootstrap currently emits baseline docs only. See CLAUDE.md § Deferred Work.
-  //       For now, bootstrap only touches the gate manifest. Callers that
-  //       need docs generation must pre-populate `claudeMdPath` / `specMdPath`
-  //       on the battlefield row.
+  // Step 4: docs generation via INTEL (spec §12 step 5).
+  // Only runs when the Commander supplied an initialBriefing. Files land on
+  // disk at repo root; they are NOT committed here — `approveBootstrap`
+  // commits them after Commander review in <BootstrapReview />.
+  // Run the docs step when there's *any* signal: a Commander briefing, or
+  // a pre-written CLAUDE.md / SPEC.md already on disk (supplied at creation
+  // time). `generateBootstrapDocs` handles the internal skip/narrow logic.
+  const [claudeMdExists, specMdExists] = await Promise.all([
+    fs.access(path.join(bf.repoPath, 'CLAUDE.md')).then(() => true).catch(() => false),
+    fs.access(path.join(bf.repoPath, 'SPEC.md')).then(() => true).catch(() => false),
+  ]);
+  const hasBriefing = Boolean(bf.initialBriefing && bf.initialBriefing.trim().length > 0);
+  const shouldRunDocs = hasBriefing || claudeMdExists || specMdExists;
+
+  let docsGenerated = false;
+  if (shouldRunDocs) {
+    emitComm(opts.battlefieldId, 'Bootstrap: checking docs and running INTEL if needed.');
+    try {
+      const docsResult = await generateBootstrapDocs({
+        repoPath: bf.repoPath,
+        initialBriefing: bf.initialBriefing ?? '',
+        spawnAsset: opts.spawnAsset,
+      });
+      docsGenerated = docsResult.generated;
+      if (docsResult.skipped) {
+        emitComm(
+          opts.battlefieldId,
+          'Bootstrap: CLAUDE.md and SPEC.md supplied by Commander — INTEL skipped, awaiting review.',
+        );
+      } else if (docsGenerated) {
+        emitComm(
+          opts.battlefieldId,
+          'Bootstrap: docs generated — awaiting Commander review.',
+        );
+      } else {
+        emitComm(
+          opts.battlefieldId,
+          `Bootstrap: INTEL finished but docs incomplete (CLAUDE.md: ${docsResult.claudeMdPath ? 'ok' : 'missing'}, SPEC.md: ${docsResult.specMdPath ? 'ok' : 'missing'}). Commander can regenerate from the review screen.`,
+          'warn',
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      emitComm(
+        opts.battlefieldId,
+        `Bootstrap: docs generation failed — ${msg}. Commander can regenerate from the review screen.`,
+        'error',
+      );
+    }
+  } else {
+    emitComm(
+      opts.battlefieldId,
+      'Bootstrap: no briefing or pre-supplied docs — skipping INTEL doc generation.',
+    );
+  }
 
   // Step 5: verify on HEAD.
   emitComm(opts.battlefieldId, 'Bootstrap: verifying gates on HEAD.');
@@ -183,28 +236,55 @@ export async function bootstrapBattlefield(
   });
   const mainIsRed = gateResults.overallStatus !== 'pass';
 
-  // Step 6/7: persist manifest, update flags, status → active.
+  // Step 6/7: persist manifest, update flags. Status transition depends on
+  // whether docs were generated: if so, stay `initializing` so the Commander
+  // reviews via <BootstrapReview />; otherwise flip directly to `active`.
+  // Also auto-populate claudeMdPath / specMdPath from whatever landed on
+  // disk so the Battlefield → Config screen reflects reality without the
+  // Commander typing paths by hand.
+  const finalStatus: 'initializing' | 'active' = docsGenerated ? 'initializing' : 'active';
+  const claudeMdAbs = path.join(bf.repoPath, 'CLAUDE.md');
+  const specMdAbs = path.join(bf.repoPath, 'SPEC.md');
+  const [claudeMdOnDisk, specMdOnDisk] = await Promise.all([
+    fs.access(claudeMdAbs).then(() => true).catch(() => false),
+    fs.access(specMdAbs).then(() => true).catch(() => false),
+  ]);
   db.update(battlefields)
     .set({
       gateManifest: JSON.stringify(manifest),
       needsGateManifest: 0,
       mainIsRed: mainIsRed ? 1 : 0,
-      status: 'active',
+      status: finalStatus,
+      claudeMdPath: claudeMdOnDisk ? claudeMdAbs : null,
+      specMdPath: specMdOnDisk ? specMdAbs : null,
       updatedAt: Date.now(),
     })
     .where(eq(battlefields.id, opts.battlefieldId))
     .run();
 
-  emitComm(
-    opts.battlefieldId,
-    mainIsRed
-      ? `Bootstrap complete: battlefield ACTIVE — main is RED on ${gateResults.results
-          .filter((r) => r.status === 'fail' || r.status === 'timeout')
-          .map((r) => r.gate)
-          .join(', ')}.`
-      : 'Bootstrap complete: battlefield ACTIVE — all gates green on HEAD.',
-    mainIsRed ? 'warn' : 'info',
-  );
+  if (docsGenerated) {
+    emitComm(
+      opts.battlefieldId,
+      mainIsRed
+        ? `Bootstrap complete: docs ready for review — main is RED on ${gateResults.results
+            .filter((r) => r.status === 'fail' || r.status === 'timeout')
+            .map((r) => r.gate)
+            .join(', ')}.`
+        : 'Bootstrap complete: docs ready for review — all gates green on HEAD.',
+      mainIsRed ? 'warn' : 'info',
+    );
+  } else {
+    emitComm(
+      opts.battlefieldId,
+      mainIsRed
+        ? `Bootstrap complete: battlefield ACTIVE — main is RED on ${gateResults.results
+            .filter((r) => r.status === 'fail' || r.status === 'timeout')
+            .map((r) => r.gate)
+            .join(', ')}.`
+        : 'Bootstrap complete: battlefield ACTIVE — all gates green on HEAD.',
+      mainIsRed ? 'warn' : 'info',
+    );
+  }
 
-  return { manifest, mainIsRed, scaffolded, gateResults };
+  return { manifest, mainIsRed, scaffolded, gateResults, docsGenerated };
 }

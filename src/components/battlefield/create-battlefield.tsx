@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { TacInput, TacTextarea } from '@/components/ui/tac-input';
 import { TacButton } from '@/components/ui/tac-button';
 import { TacCard } from '@/components/ui/tac-card';
+import { DocDropzone } from '@/components/battlefield/doc-dropzone';
 import { createBattlefield } from '@/actions/battlefield';
 import { toKebabCase } from '@/lib/utils';
 
@@ -25,9 +26,8 @@ export function CreateBattlefield({ devBasePath }: CreateBattlefieldProps) {
   const [scaffoldCommand, setScaffoldCommand] = useState('');
   const [defaultBranch, setDefaultBranch] = useState('main');
   const [repoPath, setRepoPath] = useState('');
-  const [skipBootstrap, setSkipBootstrap] = useState(false);
-  const [claudeMdPathInput, setClaudeMdPathInput] = useState('');
-  const [specMdPathInput, setSpecMdPathInput] = useState('');
+  const [claudeMdContent, setClaudeMdContent] = useState('');
+  const [specMdContent, setSpecMdContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -73,13 +73,12 @@ export function CreateBattlefield({ devBasePath }: CreateBattlefieldProps) {
           name: name.trim(),
           codename: codename.trim() || `OPERATION ${name.trim().toUpperCase()}`,
           description: description.trim() || undefined,
-          initialBriefing: skipBootstrap ? undefined : (initialBriefing.trim() || undefined),
+          initialBriefing: initialBriefing.trim() || undefined,
           scaffoldCommand: mode === 'new' && scaffoldCommand.trim() ? scaffoldCommand.trim() : undefined,
           defaultBranch: mode === 'new' ? defaultBranch.trim() || 'main' : undefined,
           repoPath: mode === 'link' ? repoPath.trim() : undefined,
-          skipBootstrap,
-          claudeMdPath: skipBootstrap ? claudeMdPathInput.trim() || undefined : undefined,
-          specMdPath: skipBootstrap ? specMdPathInput.trim() || undefined : undefined,
+          claudeMdContent: claudeMdContent.trim() ? claudeMdContent : undefined,
+          specMdContent: specMdContent.trim() ? specMdContent : undefined,
         });
 
         // Fire-and-forget scaffold if applicable
@@ -100,7 +99,7 @@ export function CreateBattlefield({ devBasePath }: CreateBattlefieldProps) {
         setSubmitting(false);
       }
     },
-    [name, codename, description, initialBriefing, scaffoldCommand, defaultBranch, repoPath, mode, router, skipBootstrap, claudeMdPathInput, specMdPathInput],
+    [name, codename, description, initialBriefing, scaffoldCommand, defaultBranch, repoPath, mode, router, claudeMdContent, specMdContent],
   );
 
   const computedRepoPath = name.trim()
@@ -180,58 +179,37 @@ export function CreateBattlefield({ devBasePath }: CreateBattlefieldProps) {
         />
       </div>
 
-      {/* Initial Briefing / Skip Bootstrap */}
+      {/* Initial Briefing */}
       <div>
-        {!skipBootstrap && (
-          <>
-            <label className="block text-dr-amber font-tactical text-xs tracking-wider mb-1">
-              INITIAL BRIEFING
-            </label>
-            <TacTextarea
-              value={initialBriefing}
-              onChange={(e) => setInitialBriefing(e.target.value)}
-              placeholder="Commander's project briefing for bootstrap..."
-              rows={6}
-              disabled={submitting}
-            />
-          </>
-        )}
-
-        {skipBootstrap && (
-          <div className="space-y-3">
-            <div>
-              <label className="block text-dr-amber font-tactical text-xs tracking-wider mb-1">
-                CLAUDE.MD PATH
-              </label>
-              <TacInput
-                value={claudeMdPathInput}
-                onChange={(e) => setClaudeMdPathInput(e.target.value)}
-                placeholder="Absolute path to CLAUDE.md"
-                disabled={submitting}
-              />
-            </div>
-            <div>
-              <label className="block text-dr-amber font-tactical text-xs tracking-wider mb-1">
-                SPEC.MD PATH
-              </label>
-              <TacInput
-                value={specMdPathInput}
-                onChange={(e) => setSpecMdPathInput(e.target.value)}
-                placeholder="Absolute path to SPEC.md (optional)"
-                disabled={submitting}
-              />
-            </div>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={() => setSkipBootstrap(!skipBootstrap)}
-          className="text-dr-dim text-xs hover:text-dr-muted underline mt-2"
-        >
-          {skipBootstrap ? '← Generate docs automatically' : 'Skip bootstrap — I\'ll provide my own CLAUDE.md'}
-        </button>
+        <label className="block text-dr-amber font-tactical text-xs tracking-wider mb-1">
+          INITIAL BRIEFING
+        </label>
+        <TacTextarea
+          value={initialBriefing}
+          onChange={(e) => setInitialBriefing(e.target.value)}
+          placeholder="Commander's project briefing for bootstrap..."
+          rows={6}
+          disabled={submitting}
+        />
       </div>
+
+      {/* Pre-written docs (optional). INTEL skips the provided ones and only
+          authors what's missing. If both are supplied, INTEL is skipped entirely
+          and the battlefield lands straight at the review screen. */}
+      <DocDropzone
+        label="CLAUDE.MD (OPTIONAL)"
+        hint="Supply an existing CLAUDE.md to skip that half of INTEL generation."
+        value={claudeMdContent}
+        onChange={setClaudeMdContent}
+        disabled={submitting}
+      />
+      <DocDropzone
+        label="SPEC.MD (OPTIONAL)"
+        hint="Supply an existing SPEC.md to skip that half of INTEL generation."
+        value={specMdContent}
+        onChange={setSpecMdContent}
+        disabled={submitting}
+      />
 
       {/* New project fields */}
       {mode === 'new' && (

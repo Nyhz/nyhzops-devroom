@@ -14,6 +14,11 @@ export interface CreateBattlefieldInput {
   skipBootstrap?: boolean;
   claudeMdPath?: string;   // when skipping bootstrap
   specMdPath?: string;     // when skipping bootstrap
+  /** Optional pre-written CLAUDE.md content. When supplied, written to repo
+   *  root before bootstrap and INTEL skips authoring this file. */
+  claudeMdContent?: string;
+  /** Optional pre-written SPEC.md content. Same semantics as claudeMdContent. */
+  specMdContent?: string;
 }
 
 export interface UpdateBattlefieldInput {

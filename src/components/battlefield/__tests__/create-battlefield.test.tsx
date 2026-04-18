@@ -114,29 +114,15 @@ describe('CreateBattlefield', () => {
     expect((codenameInput as HTMLInputElement).value).toBe('CUSTOM CODENAME');
   });
 
-  // --- Skip Bootstrap ---
+  // --- Pre-written Docs ---
 
-  it('shows CLAUDE.md and SPEC.md path fields when skip bootstrap is toggled', async () => {
-    const { user } = renderWithProviders(<CreateBattlefield devBasePath={devBasePath} />);
+  it('renders CLAUDE.md and SPEC.md dropzones alongside the initial briefing', () => {
+    renderWithProviders(<CreateBattlefield devBasePath={devBasePath} />);
 
-    await user.click(screen.getByText("Skip bootstrap — I'll provide my own CLAUDE.md"));
-
-    expect(screen.getByText('CLAUDE.MD PATH')).toBeInTheDocument();
-    expect(screen.getByText('SPEC.MD PATH')).toBeInTheDocument();
-    expect(screen.queryByText('INITIAL BRIEFING')).not.toBeInTheDocument();
-  });
-
-  it('toggles back to initial briefing when skip bootstrap is undone', async () => {
-    const { user } = renderWithProviders(<CreateBattlefield devBasePath={devBasePath} />);
-
-    // Enable skip
-    await user.click(screen.getByText("Skip bootstrap — I'll provide my own CLAUDE.md"));
-    expect(screen.getByText('CLAUDE.MD PATH')).toBeInTheDocument();
-
-    // Disable skip
-    await user.click(screen.getByText('← Generate docs automatically'));
     expect(screen.getByText('INITIAL BRIEFING')).toBeInTheDocument();
-    expect(screen.queryByText('CLAUDE.MD PATH')).not.toBeInTheDocument();
+    expect(screen.getByText('CLAUDE.MD (OPTIONAL)')).toBeInTheDocument();
+    expect(screen.getByText('SPEC.MD (OPTIONAL)')).toBeInTheDocument();
+    expect(screen.getAllByPlaceholderText('…or paste content here')).toHaveLength(2);
   });
 
   // --- Validation ---
@@ -180,7 +166,6 @@ describe('CreateBattlefield', () => {
         expect.objectContaining({
           name: 'Alpha',
           codename: 'OPERATION ALPHA',
-          skipBootstrap: false,
         }),
       );
     });
@@ -233,22 +218,25 @@ describe('CreateBattlefield', () => {
     });
   });
 
-  it('passes skip bootstrap fields when enabled', async () => {
-    mockedCreateBattlefield.mockResolvedValueOnce({ id: 'bf-skip' } as ReturnType<typeof createBattlefield> extends Promise<infer T> ? T : never);
+  it('passes pasted CLAUDE.md and SPEC.md content when supplied', async () => {
+    mockedCreateBattlefield.mockResolvedValueOnce({ id: 'bf-docs' } as ReturnType<typeof createBattlefield> extends Promise<infer T> ? T : never);
 
     const { user } = renderWithProviders(<CreateBattlefield devBasePath={devBasePath} />);
 
     await user.type(screen.getByPlaceholderText('Project name'), 'Delta');
-    await user.click(screen.getByText("Skip bootstrap — I'll provide my own CLAUDE.md"));
-    await user.type(screen.getByPlaceholderText('Absolute path to CLAUDE.md'), '/path/to/CLAUDE.md');
+
+    const textareas = screen.getAllByPlaceholderText('…or paste content here');
+    await user.type(textareas[0], '# CLAUDE');
+    await user.type(textareas[1], '# SPEC');
 
     await user.click(screen.getByRole('button', { name: 'CREATE BATTLEFIELD' }));
 
     await waitFor(() => {
       expect(mockedCreateBattlefield).toHaveBeenCalledWith(
         expect.objectContaining({
-          skipBootstrap: true,
-          claudeMdPath: '/path/to/CLAUDE.md',
+          name: 'Delta',
+          claudeMdContent: '# CLAUDE',
+          specMdContent: '# SPEC',
         }),
       );
     });

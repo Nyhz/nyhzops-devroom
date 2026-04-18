@@ -8,8 +8,7 @@ import { MissionList } from '@/components/dashboard/mission-list';
 import { ScaffoldOutput } from '@/components/battlefield/scaffold-output';
 import { ScaffoldRetry } from '@/components/battlefield/scaffold-retry';
 import { BootstrapReview } from '@/components/battlefield/bootstrap-review';
-import { BootstrapComms } from '@/components/battlefield/bootstrap-comms';
-import { BootstrapError } from '@/components/battlefield/bootstrap-error';
+import { BootstrapInProgress } from '@/components/battlefield/bootstrap-in-progress';
 import { readBootstrapFile } from '@/actions/battlefield';
 import { PageWrapper } from '@/components/layout/page-wrapper';
 import { formatTokens } from '@/lib/utils';
@@ -55,14 +54,14 @@ export default async function BattlefieldOverviewPage({
   }
 
   // 3. Bootstrap (initializing status)
+  // INTEL writes CLAUDE.md + SPEC.md directly; presence of both files is the
+  // signal that bootstrap produced reviewable output. Until then, show the
+  // in-progress view which auto-refreshes.
   if (battlefield.status === 'initializing') {
-    const bootstrapMission = battlefield.bootstrapMissionId
-      ? db.select().from(missions).where(eq(missions.id, battlefield.bootstrapMissionId)).get()
-      : null;
+    const claudeMd = await readBootstrapFile(id, 'CLAUDE.md');
+    const specMd = await readBootstrapFile(id, 'SPEC.md');
 
-    if (bootstrapMission?.status === 'accomplished') {
-      const claudeMd = await readBootstrapFile(id, 'CLAUDE.md');
-      const specMd = await readBootstrapFile(id, 'SPEC.md');
+    if (claudeMd && specMd) {
       return (
         <PageWrapper>
           <BootstrapReview
@@ -76,37 +75,13 @@ export default async function BattlefieldOverviewPage({
       );
     }
 
-    if (bootstrapMission?.status === 'compromised') {
-      return (
-        <PageWrapper>
-          <BootstrapError
-            battlefieldId={id}
-            codename={battlefield.codename || ''}
-            debrief={bootstrapMission.debrief?.slice(0, 200) || ''}
-            initialBriefing={battlefield.initialBriefing || ''}
-          />
-        </PageWrapper>
-      );
-    }
-
-    if (bootstrapMission) {
-      return (
-        <BootstrapComms
-          missionId={bootstrapMission.id}
-          codename={battlefield.codename || ''}
-        />
-      );
-    }
-
-    // No bootstrap mission — waiting state
     return (
-      <PageWrapper className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="text-dr-amber text-xl font-tactical tracking-wider mb-2">
-            {battlefield.codename} — AWAITING BOOTSTRAP
-          </div>
-          <div className="text-dr-dim text-sm">No active bootstrap mission found.</div>
-        </div>
+      <PageWrapper>
+        <BootstrapInProgress
+          codename={battlefield.codename || ''}
+          claudeMdExists={Boolean(claudeMd)}
+          specMdExists={Boolean(specMd)}
+        />
       </PageWrapper>
     );
   }
