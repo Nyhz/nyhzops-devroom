@@ -148,9 +148,18 @@ export function insertPlanFromJSON(
       createdAt: now,
     }).run();
 
+    const phaseTitles = new Set(planPhase.missions.map((m) => m.title));
+
     for (const planMission of planPhase.missions) {
       const asset = assetByCodename.get(planMission.assetCodename);
       const missionId = generateId();
+
+      // Filter dependsOn to same-phase titles only. Phases run sequentially,
+      // so cross-phase deps are redundant — and the campaign launcher rejects
+      // them. Silently drop strays rather than fail the whole plan insert.
+      const sameDeps = (planMission.dependsOn ?? []).filter((t) =>
+        phaseTitles.has(t) && t !== planMission.title,
+      );
 
       db.insert(missions).values({
         id: missionId,
@@ -163,9 +172,7 @@ export function insertPlanFromJSON(
         status: 'standby',
         priority: planMission.priority || 'routine',
         assetId: asset?.id ?? null,
-        dependsOn: planMission.dependsOn && planMission.dependsOn.length > 0
-          ? JSON.stringify(planMission.dependsOn)
-          : null,
+        dependsOn: sameDeps.length > 0 ? JSON.stringify(sameDeps) : null,
         createdAt: now,
         updatedAt: now,
       }).run();

@@ -54,9 +54,11 @@ WHEN TO PROPOSE RECON:
 - Recon missions still cost tokens. Don't scatter them — propose them only where the findings will actually shape the next phase.`;
 
 const PLANNING_RULES = `PLANNING RULES:
-- Phases execute SEQUENTIALLY (Phase 1 completes before Phase 2 starts).
+- Phases execute SEQUENTIALLY (Phase 1 completes before Phase 2 starts). This ordering is enforced by the runtime — you do NOT need to encode it with dependsOn.
 - Missions within a phase can execute IN PARALLEL if no dependencies.
-- dependsOn references mission titles within the SAME phase only.
+- dependsOn is ONLY for intra-phase parallelism control. Each entry MUST be a mission title that appears in the SAME phase. Cross-phase dependsOn entries are INVALID — the launcher will reject the campaign, and they are redundant because phases already run sequentially.
+- If a mission needs something from a prior phase, put it in a later phase — do NOT add a dependsOn entry pointing at the prior phase's mission title.
+- Omit dependsOn entirely (or use []) for the first mission in a phase and for any mission that has no same-phase prerequisite.
 - Each mission briefing must be self-contained and detailed (plain text, no code fences) — the asset has NO context beyond what you write.
 - Each mission must be atomic: one clear deliverable, one asset, one scope. Assets execute only what is in the briefing and will report anything else as out-of-scope — never bundle extras ("and while you're there, also fix X") into a mission.
 - Route missions by specialty — consult the asset roster provided below.`;
