@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { eq, desc } from 'drizzle-orm';
 import { getMission } from '@/actions/mission';
 import { getOverseerLogs } from '@/actions/overseer';
@@ -106,6 +107,17 @@ export default async function MissionDetailPage({
       breadcrumb={[mission.battlefieldCodename ?? 'Battlefield', 'MISSIONS']}
       title={`MISSION: ${mission.title}`}
     >
+      {/* Back link — only shown for missions that belong to a campaign;
+          standalone (one-off) missions have nowhere to go back to. */}
+      {mission.campaignId && (
+        <Link
+          href={`/battlefields/${id}/campaigns/${mission.campaignId}`}
+          className="inline-flex items-center gap-2 self-start border border-dr-border px-3 py-1.5 text-xs font-tactical uppercase tracking-wider text-dr-muted transition-all hover:border-dr-dim hover:text-dr-text"
+        >
+          ← Return to Campaign
+        </Link>
+      )}
+
       {/* Status bar */}
       <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs font-tactical">
         <LiveStatusBadge missionId={missionId} initialStatus={status} />
