@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
 // Battlefields (Projects)
@@ -382,3 +382,35 @@ export const comms = sqliteTable('comms', {
 
 export type Comm = typeof comms.$inferSelect;
 export type NewComm = typeof comms.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Managed Apps (OPS control panel)
+// ---------------------------------------------------------------------------
+export const managedApps = sqliteTable('managed_apps', {
+  slug: text('slug').primaryKey(),
+  displayName: text('display_name').notNull(),
+  battlefieldId: text('battlefield_id').references(() => battlefields.id),
+  launchdLabel: text('launchd_label').notNull(),
+  ctlScriptPath: text('ctl_script_path').notNull(),
+  logPath: text('log_path').notNull(),
+  healthUrl: text('health_url'),
+  orderIdx: integer('order_idx').notNull().default(0),
+  isSelfControlled: integer('is_self_controlled', { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
+export const managedAppMetrics = sqliteTable('managed_app_metrics', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  slug: text('slug').notNull(),
+  ts: integer('ts').notNull(),
+  bucket: text('bucket', { enum: ['raw', '1m', '5m'] }).notNull(),
+  rss: integer('rss'),
+  cpu: real('cpu'),
+  healthy: integer('healthy', { mode: 'boolean' }),
+  httpCode: integer('http_code'),
+  latencyMs: integer('latency_ms'),
+}, (t) => ({
+  byAppTs: index('mam_slug_ts').on(t.slug, t.ts),
+  byBucketTs: index('mam_bucket_ts').on(t.bucket, t.ts),
+}));
