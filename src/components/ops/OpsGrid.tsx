@@ -2,15 +2,14 @@
 import { useEffect, useState } from 'react';
 import { useSocket } from '@/hooks/use-socket';
 import { OpsCard } from './OpsCard';
-import { OpsDetail, type MetricPoint } from './OpsDetail';
+import { OpsDetail } from './OpsDetail';
 import type { OpsStatus } from '@/lib/ops/types';
 
 interface Props {
   initial: OpsStatus[];
-  metricsBySlug: Record<string, MetricPoint[]>;
 }
 
-export function OpsGrid({ initial, metricsBySlug }: Props) {
+export function OpsGrid({ initial }: Props) {
   const socket = useSocket();
   const [snapshot, setSnapshot] = useState(initial);
   const [selected, setSelected] = useState<string | null>(initial[0]?.slug ?? null);
@@ -39,7 +38,7 @@ export function OpsGrid({ initial, metricsBySlug }: Props) {
           />
         ))}
       </div>
-      {current && <OpsDetail status={current} metrics={metricsBySlug[current.slug] ?? []} />}
+      {current && <OpsDetail status={current} />}
     </div>
   );
 }

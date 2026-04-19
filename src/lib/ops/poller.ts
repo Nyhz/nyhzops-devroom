@@ -7,10 +7,6 @@ export interface OpsPollerDeps {
   runPs: (pid: number) => Promise<string>;
   probeHealth: (url: string | null) => Promise<HealthInfo>;
   readMode: (slug: string) => 'prod' | 'dev' | 'unknown';
-  writeMetric: (row: {
-    slug: string; ts: number; bucket: 'raw'; rss: number | null;
-    cpu: number | null; healthy: boolean | null; httpCode: number | null; latencyMs: number | null;
-  }) => void;
   emit: (snapshot: OpsStatus[]) => void;
   now: () => number;
 }
@@ -48,18 +44,6 @@ export class OpsPoller {
       const results = await Promise.all(apps.map((app) => this.pollApp(app)));
       this.lastSnapshot = results;
       this.deps.emit(results);
-      for (const r of results) {
-        this.deps.writeMetric({
-          slug: r.slug,
-          ts: r.lastUpdatedAt,
-          bucket: 'raw',
-          rss: r.rssBytes,
-          cpu: r.cpuPercent,
-          healthy: r.healthy,
-          httpCode: r.httpCode,
-          latencyMs: r.latencyMs,
-        });
-      }
     } finally {
       this.running = false;
     }

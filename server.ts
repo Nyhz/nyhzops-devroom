@@ -10,11 +10,10 @@ import path from 'path';
 import { execFile } from 'child_process';
 import { eq } from 'drizzle-orm';
 import { getDatabase, runMigrations, closeDatabase } from './src/lib/db/index';
-import { battlefields, campaigns, missions, managedApps, managedAppMetrics } from './src/lib/db/schema';
+import { battlefields, campaigns, missions, managedApps } from './src/lib/db/schema';
 import { OpsPoller } from './src/lib/ops/poller';
 import { LogStreamManager } from './src/lib/ops/log-stream';
 import { discoverManagedApps, seedDevroomRow } from './src/lib/ops/discovery';
-import { runRetention, vacuumMetrics } from './src/lib/ops/retention';
 import type { ManagedApp } from './src/lib/ops/types';
 import { setupSocketIO } from './src/lib/socket/server';
 import type { ClientToServerEvents, ServerToClientEvents } from './src/lib/socket/events';
@@ -214,28 +213,11 @@ async function start() {
         return fs.readFileSync(modeFile, 'utf-8').trim() as 'prod' | 'dev';
       } catch { return 'unknown'; }
     },
-    writeMetric: (row) => {
-      getDatabase().insert(managedAppMetrics).values(row).run();
-    },
     emit: (snapshot) => io.to('ops:status').emit('ops:status', snapshot),
     now: () => Date.now(),
   });
   globalThis.opsPoller = opsPoller;
   opsPoller.start(3000);
-
-  // 5l. OPS: retention cron
-  const retentionInterval = setInterval(() => {
-    try { runRetention(getDatabase().$client, Date.now()); } catch (e) { console.error('[OPS] retention failed', e); }
-  }, 3600 * 1000);
-  retentionInterval.unref();
-
-  const vacuumInterval = setInterval(() => {
-    const d = new Date();
-    if (d.getDay() === 0 && d.getHours() === 4 && d.getMinutes() < 5) {
-      try { vacuumMetrics(getDatabase().$client); } catch (e) { console.error('[OPS] vacuum failed', e); }
-    }
-  }, 5 * 60 * 1000);
-  vacuumInterval.unref();
 
   // 6. Detect local IP
   const localIP = getLocalIP();

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
 // Battlefields (Projects)
@@ -400,17 +400,3 @@ export const managedApps = sqliteTable('managed_apps', {
   updatedAt: integer('updated_at').notNull(),
 });
 
-export const managedAppMetrics = sqliteTable('managed_app_metrics', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  slug: text('slug').notNull(),
-  ts: integer('ts').notNull(),
-  bucket: text('bucket', { enum: ['raw', '1m', '5m'] }).notNull(),
-  rss: integer('rss'),
-  cpu: real('cpu'),
-  healthy: integer('healthy', { mode: 'boolean' }),
-  httpCode: integer('http_code'),
-  latencyMs: integer('latency_ms'),
-}, (t) => [
-  index('mam_slug_ts').on(t.slug, t.ts),
-  index('mam_bucket_ts').on(t.bucket, t.ts),
-]);

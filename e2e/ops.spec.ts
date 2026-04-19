@@ -5,15 +5,15 @@ test('OPS page shows cards and navigates without error', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'OPS' })).toBeVisible();
 });
 
-test('OPS page locks all actions for self-controlled DEVROOM', async ({ page }) => {
+test('OPS page hides action console for self-controlled DEVROOM', async ({ page }) => {
   await page.goto('/ops');
   const devroomCard = page.locator('button:has-text("DEVROOM")').first();
   const count = await devroomCard.count();
   if (count === 0) test.skip(true, 'DEVROOM row not seeded in test environment');
   await devroomCard.click();
+  await expect(page.getByText(/ACTION CONSOLE :: LOCKED/)).toBeVisible();
   for (const name of ['deploy', 'stand-down', 'reboot', 'engage-prod', 'engage-dev']) {
-    const btn = page.getByTestId(`ops-action-${name}`);
-    await expect(btn).toBeDisabled();
+    await expect(page.getByTestId(`ops-action-${name}`)).toHaveCount(0);
   }
 });
 
