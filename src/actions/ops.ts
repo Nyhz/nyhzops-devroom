@@ -6,7 +6,7 @@ import { getDatabase } from '@/lib/db/index';
 import { managedApps } from '@/lib/db/schema';
 import { defaultCtlRunner } from '@/lib/ops/ctl';
 import { _makeOpsActions, type OpsDeps } from '@/lib/ops/actions-factory';
-import type { ManagedApp } from '@/lib/ops/types';
+import type { ActionResult, ManagedApp } from '@/lib/ops/types';
 
 const prodDeps: OpsDeps = {
   getApp: (slug) => {
@@ -19,7 +19,16 @@ const prodDeps: OpsDeps = {
 };
 
 const prod = _makeOpsActions(prodDeps);
-export const startApp = prod.startApp;
-export const stopApp = prod.stopApp;
-export const restartApp = prod.restartApp;
-export const setMode = prod.setMode;
+
+export async function startApp(slug: string): Promise<ActionResult> {
+  return prod.startApp(slug);
+}
+export async function stopApp(slug: string): Promise<ActionResult> {
+  return prod.stopApp(slug);
+}
+export async function restartApp(slug: string): Promise<ActionResult> {
+  return prod.restartApp(slug);
+}
+export async function setMode(slug: string, mode: 'prod' | 'dev'): Promise<ActionResult> {
+  return prod.setMode(slug, mode);
+}
