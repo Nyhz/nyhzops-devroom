@@ -410,7 +410,7 @@ export const managedAppMetrics = sqliteTable('managed_app_metrics', {
   healthy: integer('healthy', { mode: 'boolean' }),
   httpCode: integer('http_code'),
   latencyMs: integer('latency_ms'),
-}, (t) => ({
-  byAppTs: index('mam_slug_ts').on(t.slug, t.ts),
-  byBucketTs: index('mam_bucket_ts').on(t.bucket, t.ts),
-}));
+}, (t) => [
+  index('mam_slug_ts').on(t.slug, t.ts),
+  index('mam_bucket_ts').on(t.bucket, t.ts),
+]);
