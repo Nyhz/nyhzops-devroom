@@ -37,6 +37,10 @@ export interface ClientToServerEvents {
   'general:subscribe': (sessionId: string) => void;
   'general:unsubscribe': (sessionId: string) => void;
   'general:send': (data: { sessionId: string; message: string }) => void;
+  'ops:subscribe': () => void;
+  'ops:unsubscribe': () => void;
+  'ops:logs:subscribe': (slug: string) => void;
+  'ops:logs:unsubscribe': (slug: string) => void;
 }
 
 // Server → Client: type the CONTROL-critical path; leave room for incremental tightening.
@@ -88,6 +92,8 @@ export interface ServerToClientEvents {
     battlefieldId?: string;
     timestamp: number;
   }) => void;
+  'ops:status': (snapshot: import('@/lib/ops/types').OpsStatus[]) => void;
+  'ops:logs': (payload: { slug: string; line: string }) => void;
 }
 
 // Event names present in the codebase but not yet typed — documented
