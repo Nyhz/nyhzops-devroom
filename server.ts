@@ -5,9 +5,17 @@ import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import next from 'next';
 import os from 'os';
+import fs from 'fs';
+import path from 'path';
+import { execFile } from 'child_process';
 import { eq } from 'drizzle-orm';
 import { getDatabase, runMigrations, closeDatabase } from './src/lib/db/index';
-import { battlefields, campaigns, missions } from './src/lib/db/schema';
+import { battlefields, campaigns, missions, managedApps, managedAppMetrics } from './src/lib/db/schema';
+import { OpsPoller } from './src/lib/ops/poller';
+import { LogStreamManager } from './src/lib/ops/log-stream';
+import { discoverManagedApps, seedDevroomRow } from './src/lib/ops/discovery';
+import { runRetention, vacuumMetrics } from './src/lib/ops/retention';
+import type { ManagedApp } from './src/lib/ops/types';
 import { setupSocketIO } from './src/lib/socket/server';
 import type { ClientToServerEvents, ServerToClientEvents } from './src/lib/socket/events';
 import { config } from './src/lib/config';
@@ -144,6 +152,91 @@ async function start() {
   });
   console.log('[DEVROOM] Telegram bot polling active');
 
+  // 5i. OPS: discovery + seed
+  {
+    const now = Date.now();
+    const home = os.homedir();
+    const devroomRoot = process.cwd();
+    const battlefieldsRoot = path.resolve(devroomRoot, '..', 'battlefields');
+
+    const rows = [
+      seedDevroomRow({ homeRoot: home, devroomRoot, port: config.port, now: () => now }),
+      ...discoverManagedApps({ battlefieldsRoot, homeRoot: home, now: () => now }),
+    ];
+
+    for (const row of rows) {
+      db.insert(managedApps).values(row).onConflictDoUpdate({
+        target: managedApps.slug,
+        set: {
+          displayName: row.displayName,
+          launchdLabel: row.launchdLabel,
+          ctlScriptPath: row.ctlScriptPath,
+          logPath: row.logPath,
+          healthUrl: row.healthUrl,
+          isSelfControlled: row.isSelfControlled,
+          updatedAt: now,
+        },
+      }).run();
+    }
+  }
+
+  // 5j. OPS: log stream manager
+  const logStreamManager = new LogStreamManager({
+    emit: (slug, line) => io.to(`ops:logs:${slug}`).emit('ops:logs', { slug, line }),
+  });
+  globalThis.logStreamManager = logStreamManager;
+
+  // 5k. OPS: poller
+  const opsPoller = new OpsPoller({
+    listApps: () => {
+      return getDatabase().select().from(managedApps).orderBy(managedApps.orderIdx, managedApps.slug).all() as ManagedApp[];
+    },
+    runLaunchctl: (label) => new Promise((resolve) => {
+      const uid = process.getuid?.() ?? 0;
+      execFile('launchctl', ['print', `gui/${uid}/${label}`], { timeout: 2000 }, (_err, stdout) => resolve(stdout || ''));
+    }),
+    runPs: (pid) => new Promise((resolve) => {
+      execFile('ps', ['-o', 'rss=,%cpu=', '-p', String(pid)], { timeout: 2000 }, (_err, stdout) => resolve(stdout || ''));
+    }),
+    probeHealth: async (url) => {
+      if (!url) return { healthy: false, httpCode: null, latencyMs: null };
+      const started = Date.now();
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(1500) });
+        return { healthy: res.ok, httpCode: res.status, latencyMs: Date.now() - started };
+      } catch {
+        return { healthy: false, httpCode: null, latencyMs: Date.now() - started };
+      }
+    },
+    readMode: (slug) => {
+      try {
+        const modeFile = path.join(os.homedir(), `.${slug}`, 'mode');
+        return fs.readFileSync(modeFile, 'utf-8').trim() as 'prod' | 'dev';
+      } catch { return 'unknown'; }
+    },
+    writeMetric: (row) => {
+      getDatabase().insert(managedAppMetrics).values(row).run();
+    },
+    emit: (snapshot) => io.to('ops:status').emit('ops:status', snapshot),
+    now: () => Date.now(),
+  });
+  globalThis.opsPoller = opsPoller;
+  opsPoller.start(3000);
+
+  // 5l. OPS: retention cron
+  const retentionInterval = setInterval(() => {
+    try { runRetention(getDatabase().$client, Date.now()); } catch (e) { console.error('[OPS] retention failed', e); }
+  }, 3600 * 1000);
+  retentionInterval.unref();
+
+  const vacuumInterval = setInterval(() => {
+    const d = new Date();
+    if (d.getDay() === 0 && d.getHours() === 4 && d.getMinutes() < 5) {
+      try { vacuumMetrics(getDatabase().$client); } catch (e) { console.error('[OPS] vacuum failed', e); }
+    }
+  }, 5 * 60 * 1000);
+  vacuumInterval.unref();
+
   // 6. Detect local IP
   const localIP = getLocalIP();
 
@@ -171,6 +264,8 @@ async function start() {
     telegramBot.stop();
     scheduler.stop();
     devServerManager.stopAll();
+    opsPoller.stop();
+    logStreamManager.shutdown();
     await orchestrator.stop();
 
     // Force exit after 5 seconds if graceful close hangs

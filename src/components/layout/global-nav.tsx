@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 
 const GLOBAL_LINKS = [
   { href: '/', icon: '◉', label: 'HQ', exact: true },
+  { href: '/ops', icon: '▣', label: 'OPS', exact: false },
   { href: '/general', icon: '◇', label: 'GENERAL', exact: false },
 ] as const;
 
