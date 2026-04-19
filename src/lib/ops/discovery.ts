@@ -60,7 +60,7 @@ export function seedDevroomRow(io: DevroomSeedIO): ManagedApp {
     launchdLabel: 'com.devroom.app',
     ctlScriptPath: join(io.devroomRoot, 'scripts', 'devroom-ctl.sh'),
     logPath: join(io.homeRoot, '.devroom', 'logs', 'devroom.log'),
-    healthUrl: `http://localhost:${io.port}/`,
+    healthUrl: `http://localhost:${io.port}/api/health`,
     orderIdx: -1,
     isSelfControlled: true,
     createdAt: io.now(),
