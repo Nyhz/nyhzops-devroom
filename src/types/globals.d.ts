@@ -18,6 +18,8 @@ declare global {
   var orchestrator: Control | undefined;
   var devServerManager: DevServerManager | undefined;
   var scheduler: Scheduler | undefined;
+  var opsPoller: import('../lib/ops/poller').OpsPoller | undefined;
+  var logStreamManager: import('../lib/ops/log-stream').LogStreamManager | undefined;
 }
 
 export {};

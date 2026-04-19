@@ -1,6 +1,22 @@
 import { Server as SocketIOServer } from 'socket.io';
+import { eq } from 'drizzle-orm';
 import { startMetricsEmitter } from '@/lib/system-metrics';
 import type { ClientToServerEvents, ServerToClientEvents } from '@/lib/socket/events';
+import { getDatabase } from '@/lib/db/index';
+import { managedApps } from '@/lib/db/schema';
+
+function getLogPathForSlug(slug: string): string | null {
+  try {
+    const row = getDatabase()
+      .select()
+      .from(managedApps)
+      .where(eq(managedApps.slug, slug))
+      .get() as { logPath?: string } | undefined;
+    return row?.logPath ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export function setupSocketIO(io: SocketIOServer<ClientToServerEvents, ServerToClientEvents>) {
   io.on('connection', (socket) => {
@@ -129,6 +145,25 @@ export function setupSocketIO(io: SocketIOServer<ClientToServerEvents, ServerToC
           { sessionId: data.sessionId, error: message },
         );
       }
+    });
+
+    socket.on('ops:subscribe', () => {
+      socket.join('ops:status');
+    });
+
+    socket.on('ops:unsubscribe', () => {
+      socket.leave('ops:status');
+    });
+
+    socket.on('ops:logs:subscribe', (slug: string) => {
+      socket.join(`ops:logs:${slug}`);
+      const path = getLogPathForSlug(slug);
+      if (path) globalThis.logStreamManager?.attach(slug, path);
+    });
+
+    socket.on('ops:logs:unsubscribe', (slug: string) => {
+      socket.leave(`ops:logs:${slug}`);
+      globalThis.logStreamManager?.detach(slug);
     });
 
     socket.on('disconnect', () => {
