@@ -21,6 +21,12 @@ DEVROOM is a self-hosted command center that deploys, coordinates, and monitors 
 
 One Commander. Multiple agents. Total operational awareness.
 
+<p align="center">
+  <img src="docs/screenshots/hq.png" alt="DEVROOM HQ — Headquarters dashboard with global operations status, battlefield grid, and live activity feed" width="100%">
+  <br>
+  <sub><b>HQ</b> — global operations status, the battlefield grid, and a live activity feed. One screen, total awareness.</sub>
+</p>
+
 ---
 
 ## Operational Doctrine
@@ -114,6 +120,53 @@ D E V R O O M
 
           [ ENTER COMMAND CENTER ]
 ```
+
+---
+
+## Screen Recon
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/warroom.png" alt="War Room boot sequence">
+      <br><sub><b>War Room</b> — the tactical boot sequence that plays on first contact each session.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/battlefield.png" alt="Battlefield mission console">
+      <br><sub><b>Battlefield</b> — draft a briefing, assign an asset, and scan the roster of completed ops.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/mission.png" alt="Mission detail with live comms">
+      <br><sub><b>Mission</b> — live comms stream, token telemetry, and CONTROL's gate verdicts in real time.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/campaign.png" alt="Campaign timeline with phases">
+      <br><sub><b>Campaign</b> — sequential phases, parallel missions, debriefs rolled up per phase.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/logistics.png" alt="Logistics cost and usage dashboard">
+      <br><sub><b>Logistics</b> — token usage and cost broken down by battlefield and asset.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/ops.png" alt="OPS managed-app control panel">
+      <br><sub><b>OPS</b> — managed-app control panel with per-app telemetry and live comms.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/assets.png" alt="Agent roster">
+      <br><sub><b>Assets</b> — the agent roster: combat operators and autonomous system staff.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/telemetry.png" alt="Battlefield telemetry and background services">
+      <br><sub><b>Telemetry</b> — background-service health, agent slots, and resource usage per battlefield.</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
