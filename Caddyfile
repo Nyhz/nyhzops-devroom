@@ -1,3 +1,13 @@
+# HTTP/3 desactivado (2026-07-29): Caddy anunciaba h3 via Alt-Svc pero ningún
+# cliente de la LAN ha completado nunca una conexión QUIC (UDP 443 muerto en el
+# trayecto) — los navegadores remotos cacheaban la oferta 30 días y sufrían
+# stalls de segundos intentándolo antes de caer a h2.
+{
+	servers {
+		protocols h1 h2
+	}
+}
+
 devroom.lan {
 	tls internal
 	reverse_proxy localhost:7777 {
@@ -22,5 +32,28 @@ finances.lan {
 		transport http {
 			versions 1.1
 		}
+	}
+}
+
+trading.lan {
+	tls internal
+	# API + WebSocket del bot bajo /bot/* (mismo origen => sin mixed-content ni CORS)
+	handle_path /bot/* {
+		reverse_proxy localhost:3300
+	}
+	# Todo lo demás: dashboard Next.js
+	reverse_proxy localhost:3400
+}
+
+brain.lan {
+	tls internal
+	reverse_proxy localhost:3500 {
+		transport http {
+			versions 1.1
+		}
+		# El chat y el Cosmos van por SSE (/worker/events, /runs/:id/events, proxied por Next).
+		# flush_interval -1 desactiva el buffer de respuesta: sin esto Caddy retiene los eventos
+		# y la UI se queda muda — mismo fallo que obligó a compress:false en next.config.
+		flush_interval -1
 	}
 }
